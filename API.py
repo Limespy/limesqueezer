@@ -3,132 +3,134 @@
 
 import numpy as np
 import math
+import scipy
 import matplotlib.pyplot as plt
 
+from numpy.polynomial import polynomial as poly
 
+def lfit(*args):
+    return poly.Polynomial.fit(*args)
 
-def reach(f, y0):
-    """Finds the upper limit to interval"""
-
-    y1 = f(1)
-    if y1 > 0:
-        return 0, y0, 1, y1
-    else:
-        print(y1)
-
-        # Next step at 3
-        y2 = f(3)
-        if y2>0:
-            return 1, y1, 3, y2
+class Data():
+    def __init__(self,x_data=None,y_data=None,n_data=None, atol=1e-5, b = 3):
+        if x_data:
+            self.x_data = x_data
+            self.n_data = len(self.x_data)
+            self.y_data = y_data if y_data else self.reference(self.x_data,b)
+        else:
+            self.n_data = int(1e5) if not n_data else n_data:
+            self.x_data = np.linspace(0,1,int(n_data))
+            self.y_data = self.reference(self.x_data,b)
         
-        y3 = f(7)
-        if y3>0:
-            return 3, y2, 7, y3
+        self.atol = atol
+        self.x_compressed = [0]
+        self.y_compressed = []
+    #─────────────────────────────────────────────────────────────────── 
+    def reference(self, x,b):
+        # Setting up the reference data
+        return b*((1-b)/(b-x) + 1)
+    #───────────────────────────────────────────────────────────────────
+    def err_max_LSQ(self,x_data,y_data):
+        fir = lfit(x_data, y_data, 1)
+        return max(abs(y_data-fit(x_data))), fit
+    #───────────────────────────────────────────────────────────────────
+    def err_n(self,n):
 
-        xp1 = math.ceil(max(np.polynomial.polynomial.Polynomial.fit([0,1,3,7], [y0,y1,y2,y3], 2).roots()))
-
-        print(xp1)
-        yp1 = f(xp1)
-
-        if yp1 > 0:
-            return 7, y3, xp1, yp1
+        return self.err_max_LSQ(self.x_data[:(n+2)], self.y_data[:(n+2)])
+    #───────────────────────────────────────────────────────────────────
+    def compress():
+        """Compresses the data"""
+        #───────────────────────────────────────────────────────────────
+        def initial_f2zero(n):
+            n = int(n) + 2
+            y = self.y_data[:n]
+            x = self.x_data[:n]
+            return max(abs(y-lfit(x, y, 1)(x))) - self.atol
+        #───────────────────────────────────────────────────────────────
+        y_range = max(self.y_data) - min(self.y_data)
+        n2, fit = droot(initial_f2zero,
+                   - self.atol,
+                   self.n_data * (self.atol/y_range)**0.5)
         
-        xp2 = math.ceil(max(np.polynomial.polynomial.Polynomial.fit([3,7,xp1], [y2,y3,yp1], 2).roots()))
-        print(xp2)
-        yp2 = f(xp2)
+        self.y_compressed.append(fit(0))
+        self.x_compressed.append((self.x_data[n2+1] + self.x_data[n2+2])/2)
+        self.y_compressed.append(fit(self.x_compressed[-1]))
 
-    return prediction3, yp1, prediction4, yp2
+        def f2zero(n):
+            n = int(n) + 2
+            y = self.y_data[:n]
+            x = self.x_data[:n]
+            np.mean(fit(x, y, 1)(x))
+            
 
-def int_bisect(f,x1,y1,x2,y2):
-    """Returns the last x where f(x)<0"""
-    print(x1,x2)
-    print(y1,y2)
-    xdiff = x2-x1
-    if xdiff > 2:
-        xn = round(x1-y1/(y2-y1)*(x2-x1)) # Linear estimation
-        
-        if xn == x1:    # To stop repetition in close cases
-            xn += 1
-        elif xn == x2:
-            xn -= 1
+    #───────────────────────────────────────────────────────────────────
+    def make_lerp(self):
+        self.lerp = scipy.interpolate.interp1d(self.x_compressed,
+                                                   self.y_compressed)
+    #───────────────────────────────────────────────────────────────────
+    def residual(self):
+        """Error residuals"""
+        return self.y_data - self.lerp(self.x_data)
 
-        yn = f(xn)
-        if yn >0:
-            x2, y2 = xn, yn
-        else: 
-            x1, y1 = xn, yn
-        return int_bisect(f,x1,y1,x2,y2)
+# Given atol and Delta_y, 
+# in the best case 1 line would be enough 
+# and in the worst case Delta_y / atol.
+#
+# Geometric mean between these would maybe be good choice,
+# so likely around n_lines ~ sqrt(Delta_y / atol)
+# meaning delta_x ~ Delta_x * sqrt(atol / Delta_y)
+# 
+# When this is normalised so Delta_y = 1 and Delta_x = n,
+# delta_x ~ n * sqrt(atol)
+
+###═════════════════════════════════════════════════════════════════════
+def droot(f, y0, x2):
+    """Finds the upper limit to interval
+    Limited 2nd degree polynomial
     
-    elif xdiff == 2:
-        yn = f(x1+1)
-        return x1 if yn >0 else x1+1
-    else:
-        return x1
+    Prediction heuristic 2
+        Function is approximately a*x^2 - atol
+        Fitting a*x1^2 - atol = y1 -> a = (y1+atol)/x1^2
+        Root a*x^2 -atol = 0 -> x = sqrt(atol/a) 
+        Root a*xp^2 -atol = 0 -> 
+        xp = sqrt(atol/((y1+atol)/x1^2)) = x1 * sqrt(atol/(y1+atol))
+        = x1 / sqrt(y1/atol+1) 
+        """
+    x1 = 0
+    y1 = y0
+    y2, fit = f(x2)
+    while y2 < 0:
+        x1, y1 = x2, y2
+        x2 = round(x2 / (1-y2/(y0)+1)**0.5)
+        y2, fit = f(x2)
+    #───────────────────────────────────────────────────────────────────
+    def interval2(f,x1,y1,x2,y2):
+        """Returns the last x where f(x)<0
+        lerp"""
+        xdiff = x2 - x1
+        if xdiff > 2:
+            xn = round(x1-y1/(y2-y1)*(x2-x1)) # Linear estimation
+            # print(xn)
+            if xn == x1:    # To stop repetition in close cases
+                xn += 1
+            elif xn == x2:
+                xn -= 1
 
-# Setting up the reference data
+            yn, fit = f(xn)
+            if yn > 0:
+                x2, y2 = xn, yn
+            else: 
+                x1, y1 = xn, yn
+            return interval2(f,x1,y1,x2,y2)
 
-def reference(x):
-    # return np.sin(x) + 2
-    return 1/(x-2) + 1.5
+        elif xdiff == 2:
+            yn, fit = f(x1+1)
+            return (x1, fit) if yn >0 else (x1+1, fit)
+        else:
+            return (x1, fit)
+    #───────────────────────────────────────────────────────────────────
 
-n_input = 10e3
+    return interval2(f,x1, y1, x2, y2)
 
-x_input = np.linspace(0,1,int(n_input))
-y_input = reference(x_input)
+compression = Data()
 
-def err_max_LSQ(x_data,y_data):
-    fit =  np.polynomial.polynomial.Polynomial.fit(x_data,y_data,1)
-    return max(abs(y_data-fit(x_data)))
-
-errtol = 1e-4
-
-def err_n(n):
-    return err_max_LSQ(x_input[:(n+2)], y_input[:(n+2)]) -errtol
-
-x1, y1, x2, y2 = reach(err_n, -errtol)
-
-n_lim = int_bisect(err_n, x1, y1, x2, y2)+2
-print(n_lim)
-print(err_max_LSQ(x_input[:n_lim],y_input[:n_lim])-errtol)
-print(err_max_LSQ(x_input[:n_lim+1],y_input[:n_lim+1])-errtol)
-
-err_budget = np.array([err_n(n) for n in range(80)])
-
-plt.figure()
-plt.plot(range(80),err_budget)
-plt.plot([0,80],[0,0])
-plt.plot([70,70],[-errtol,+errtol])
-plt.plot([69,69],[-errtol,+errtol])
-# plt.show()
-
-
-# err_allowed = 0.01
-# s1 = 3
-# while err_max_LSQ(x_input[:s1],y_input[:s1]) < err_allowed:
-#     # Inefficient way, exponential-splitting done later
-#     s1 += 1
-
-# def err_max_lin(x_data,y_data):
-#     a = (y_data[-1] - y_data[0]) / (x_data[-1] - x_data[0])
-#     return max(abs(y_data - (a * (x_data - x_data[0]) + y_data[0])))
-
-# s2=3
-# while err_max_lin(x_input[:s2],y_input[:s2]) < err_allowed:
-#     # Inefficient way, exponential-splitting done later
-#     s2 += 1
-
-
-
-# x_1 = (x_input[s1-2] + x_input[s1-1])/2
-
-# lerp1 = np.poly1d(np.polyfit(x_input[:(s1-1)],y_input[:(s1-1)],1))
-# print(s1-1)
-# print(x_1)
-# print(s2-1)
-
-# plt.figure()
-
-# plt.plot(x_input,y_input)
-# plt.plot([0,x_1],[lerp1(0),lerp1(x_1)])
-
-# plt.show()
