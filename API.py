@@ -48,19 +48,18 @@ class Data():
         #───────────────────────────────────────────────────────────────
         y_range = max(y_slice) - min(y_slice)
         estimate = int(limit * (self.atol/y_range)**0.5) + 1
-        n2, fit = droot(initial_f2zero,
-                   - self.atol,
-                   estimate,
-                   limit)
+        n2, fit = droot(initial_f2zero, - self.atol, estimate, limit)
         
         self.y_compressed.append(fit(0))
         #───────────────────────────────────────────────────────────────
+        
         def f2zero(n,xs, ys, x0, y0):
             n = int(n)+1
             xd = xs[:n]
             yd = ys[:n]
             a = (ys[n] - y0)/(xs[n] - x0)
-            fit = lambda x: a*(x-x0) + y0
+            b = y0 - a * x0
+            fit = lambda x: a*x + b
             return max(abs(fit(xs[:n])- ys[:n]))-self.atol , fit
         #───────────────────────────────────────────────────────────────
         
@@ -102,7 +101,8 @@ class Data():
         def f2zero(n,xs, ys):
             n = int(n)+2
             a = (ys[n] - ys[0])/(xs[n] - xs[0])
-            fit = lambda x: a*(x-xs[0]) + ys[0]
+            b = ys[0] - a * xs[0]
+            fit = lambda x: a*x + b
             return max(abs(fit(xs[:n])- ys[:n]))-self.atol , fit
         #───────────────────────────────────────────────────────────────
         n2 = -1
