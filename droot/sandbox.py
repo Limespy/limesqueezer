@@ -120,7 +120,7 @@ def reach2(f, y1):
 
     x1 = 0
     
-    x2 = round(f.n_data * atol**0.5)
+    x2 = int(f.n_data * atol**0.5)+1
     y2 = f(x2)
     
     while y2 < 0:
@@ -145,11 +145,11 @@ def reach3(f, y1):
         """
 
     x1 = 0
-    x2 = round(f.n_data * atol**0.5)
+    x2 = int(f.n_data * atol**0.5)+1
     y2 = f(x2)
     while y2 < 0:
         x1, y1 = x2, y2
-        x2 = round(x2 / (y2/f.atol+1)**0.5)
+        x2 = int(x2 / (y2/f.atol+1)**0.5)+1
         y2 = f(x2)
     return x1, y1, x2, y2
 ###═════════════════════════════════════════════════════════════════════
