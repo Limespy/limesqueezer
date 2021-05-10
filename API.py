@@ -166,7 +166,7 @@ class Data():
         
         t_start = time.perf_counter()
         self.atol = atol
-        def splitter(a=0, b=self.n_data-1):
+        def rec(a, b):
             n = b-a-1
             step = 1 if n<=mins else round(n_data / (2*(n - mins)**0.5 + mins))
 
@@ -174,24 +174,13 @@ class Data():
             x2, y2 = self.x_data[b], self.y_data[b]
             # print(x1,y1,x2,y2)
             err = lambda x, y: np.abs((y2- y1) /(x2 - x1)* (x - x1) + y1 - y)
-            index = a + step*np.argmax(err(self.x_data[a:b:step], self.y_data[a:b:step]))
+            i = a + step*np.argmax(err(self.x_data[a:b:step], self.y_data[a:b:step]))
             # print(index)
             # time.sleep(0.5)
             # print(a,b)
             # print(err(self.x_data[index], self.y_data[index]))
-            if err(self.x_data[index], self.y_data[index]) > self.atol:
-                # Left side
-                # print("left")
-                indices_left = splitter(a=a, b = index)
-
-                # right side
-                # print("right")
-                indices_right = splitter(a=index, b=b)
-
-                return np.concatenate((indices_left,indices_right[1:]))
-            else:
-                return np.array([a,b])
-        indices= splitter()
+            return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(self.x_data[i], self.y_data[i]) > atol else [a,b]
+        indices= rec(0,self.n_data-1)
 
         self.x_compressed = self.x_data[indices]
         self.y_compressed = self.y_data[indices]
@@ -343,3 +332,20 @@ plt.plot(data3.x_compressed,data3.y_compressed,"-o")
 # plt.plot(data3.x_data,tol)
 
 plt.show()
+
+def fastcompress(x,y, atol=1e-5, mins = 100):
+    """Fast compression using sampling and splitting from largest error"""
+
+    def rec(a, b):
+        """Recurser"""
+        n = b-a-1
+        step = 1 if n<=mins else round(n_data / (2*(n - mins)**0.5 + mins))
+
+        err = lambda xf, yf: np.abs((y[b]- y[a]) /(x[b] - x[a])* (xf - x[a]) + y[a] - yf)
+        i = a + step*np.argmax(err(x[a:b:step], y[a:b:step]))
+
+        return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > atol else [a,b]
+
+    return rec(0,len(x)-1)
+
+print(len(fastcompress(data3.x_data, data3.y_data, atol=atol, mins = mins)))
