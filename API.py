@@ -168,7 +168,6 @@ class Data():
             n_test = 100
             n_data = b-a+1
             step = int(n_data / n_test) if n_data > n_test else 1
-            step = 1
 
             x1, y1 = self.x_data[a], self.y_data[a]
             x2, y2 = self.x_data[b], self.y_data[b]
