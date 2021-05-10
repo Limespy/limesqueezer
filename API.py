@@ -31,7 +31,7 @@ class Data():
         return 2 - x/ (1+c-c*x)
         # return np.sin(x*c*4)+3
     #───────────────────────────────────────────────────────────────────
-    def compress(self,atol=1e-5):
+    def compress(self,atol=1e-5, mins=30):
         """Compresses the data"""
 
         
@@ -54,8 +54,9 @@ class Data():
         #───────────────────────────────────────────────────────────────
         def initial_f2zero(n):
             n = int(n) + 2
-            x = x_slice[:n]
-            y = y_slice[:n]
+            step = 1 if n<=mins else round(n/(2*(n - mins)**0.5 + mins))
+            x = x_slice[0:n:step]
+            y = y_slice[0:n:step]
             fit = lfit(x, y, 1)
             return max(np.abs(fit(x)-y)) - self.atol, fit
         #───────────────────────────────────────────────────────────────
@@ -68,12 +69,11 @@ class Data():
         
         def f2zero(n,xs, ys, x0, y0,atol):
             n = int(n)+1
-            xd = xs[:n]
-            yd = ys[:n]
-            a = (ys[n] - y0)/(xs[n] - x0)
+            step = 1 if n<=mins else round(n/(2*(n - mins)**0.5 + mins))
+            a = (ys[n] - y0) / (xs[n] - x0)
             b = y0 - a * x0
             fit = lambda x: a*x + b
-            return max(np.abs(fit(xs[:n])- ys[:n]))-atol , fit
+            return max(np.abs(fit(xs[0:n:step])- ys[0:n:step]))-atol , fit
         #───────────────────────────────────────────────────────────────
         
         while n2 < limit :
@@ -109,7 +109,7 @@ class Data():
         compression_factor = 1 - len(self.x_compressed)/len(self.x_data)
         print("Compression factor\t%.3f %%" % (compression_factor*1e2))
     #───────────────────────────────────────────────────────────────
-    def simplecompress(self,atol=1e-5):
+    def simplecompress(self,atol=1e-5, mins=30):
 
         t_start = time.perf_counter()
 
@@ -127,12 +127,13 @@ class Data():
         #───────────────────────────────────────────────────────────────
         def f2zero(n,xs, ys,atol):
             n = int(n)+2
+            step = 1 if n<=mins else round(n/(2*(n - mins)**0.5 + mins))
             a = (ys[n] - ys[0])/(xs[n] - xs[0])
             b = ys[0] - a * xs[0]
-            return max(np.abs(a*xs[:n]+ b - ys[:n]))-atol , None
+            return max(np.abs(a*xs[0:n:step]+ b - ys[0:n:step]))-atol , None
         #───────────────────────────────────────────────────────────────
         n2 = -1
-        while n2 < limit :
+        while n2 < limit:
             self.x_compressed.append(x_slice[n2+1])
             self.y_compressed.append(y_slice[n2+1])
             x_slice = x_slice[n2+1:]
@@ -161,13 +162,13 @@ class Data():
         compression_factor = 1 - len(self.x_compressed)/len(self.x_data)
         print("Compression factor\t%.3f %%" % (compression_factor*1e2))
     #───────────────────────────────────────────────────────────────
-    def fastcompress(self, atol=1e-5, n_test= 100):
+    def fastcompress(self, atol=1e-5, mins = 30):
+        
         t_start = time.perf_counter()
         self.atol = atol
-        def splitter(n_test,a=0,b=None):
-            n_test = 100
-            n_data = b-a+1
-            step = int(n_data / n_test) if n_data > n_test else 1
+        def splitter(a=0, b=self.n_data-1):
+            n = b-a-1
+            step = 1 if n<=mins else round(n_data / (2*(n - mins)**0.5 + mins))
 
             x1, y1 = self.x_data[a], self.y_data[a]
             x2, y2 = self.x_data[b], self.y_data[b]
@@ -181,20 +182,19 @@ class Data():
             if err(self.x_data[index], self.y_data[index]) > self.atol:
                 # Left side
                 # print("left")
-                index_left = splitter(n_test,a=a, b = index)
+                indices_left = splitter(a=a, b = index)
 
                 # right side
                 # print("right")
-                index_right = splitter(n_test,a=index, b=b)
+                indices_right = splitter(a=index, b=b)
 
-                return np.concatenate((index_left,index_right[1:]))
+                return np.concatenate((indices_left,indices_right[1:]))
             else:
                 return np.array([a,b])
-        
-        indexes = np.sort(splitter(n_test,b=self.n_data-1))
-        # print(indexes)
-        self.x_compressed = self.x_data[indexes]
-        self.y_compressed = self.y_data[indexes]
+        indices= splitter()
+
+        self.x_compressed = self.x_data[indices]
+        self.y_compressed = self.y_data[indices]
         t = time.perf_counter()-t_start
         print("Compression time\t%.3f ms" % (t*1e3))
         print("Length of compressed array\t%i"%len(self.x_compressed))
@@ -305,39 +305,38 @@ def droot(f, y0, x2, limit):
 
 n_data = int(float(sys.argv[1]))
 atol = float(sys.argv[2])
-data = Data(n_data=n_data,b=10)
+mins = int(float(sys.argv[3]))
+b = int(float(sys.argv[4]))
+data = Data(n_data=n_data,b=b)
 
-data.compress(atol=atol)
+data.compress(atol=atol,mins = mins)
 
+plt.figure()
+plt.plot(data.x_data,data.y_data)
+plt.plot(data.x_compressed,data.y_compressed,"-o")
+
+# data.make_lerp()
 # plt.figure()
-# plt.plot(data.x_data,data.y_data)
-# plt.plot(data.x_compressed,data.y_compressed,"-o")
-
-data.make_lerp()
-
-# plt.figure()
-
 # tol = abs(data.residual())-data.atol
-
 # plt.plot(data.x_data,tol)
 
 
 
-data2 = Data(n_data=n_data,b=10)
+data2 = Data(n_data=n_data,b=b)
 
-data2.simplecompress(atol=atol)
+data2.simplecompress(atol=atol,mins = mins)
 
-# plt.figure()
-# plt.plot(data2.x_data,data2.y_data)
-# plt.plot(data2.x_compressed,data2.y_compressed,"-o")
+plt.figure()
+plt.plot(data2.x_data,data2.y_data)
+plt.plot(data2.x_compressed,data2.y_compressed,"-o")
 
 
-data3 = Data(n_data=n_data,b=10)
-data3.fastcompress(atol=atol,n_test = 100)
+data3 = Data(n_data=n_data,b=b)
+data3.fastcompress(atol=atol, mins = mins)
 
-# plt.figure()
-# plt.plot(data3.x_data,data3.y_data)
-# plt.plot(data3.x_compressed,data3.y_compressed,"-o")
+plt.figure()
+plt.plot(data3.x_data,data3.y_data)
+plt.plot(data3.x_compressed,data3.y_compressed,"-o")
 
 # tol = abs(data3.residual())-data3.atol
 # plt.figure()
