@@ -339,11 +339,15 @@ print(max(tol))
 plt.figure()
 plt.plot(data3.x_data,tol)
 
-def fastcompress(x,y, atol=1e-5, mins = 100):
-    """Fast compression using sampling and splitting from largest error"""
-
+def fastcompress(x, y, atol=1e-5, mins = 100):
+    '''Fast compression using sampling and splitting from largest error
+    x: 1D numpy array
+    y: 1D numpy array
+    atol: absolute error tolerance
+    mins: minimum number of samples, don't change if you don't understand
+    '''
     def rec(a, b):
-        """Recurser"""
+        '''Recurser'''
         n = b-a-1
         step = 1 if n<=mins else round(n / (2*(n - mins)**0.5 + mins))
 
@@ -356,6 +360,7 @@ def fastcompress(x,y, atol=1e-5, mins = 100):
 
 t_start = time.perf_counter()
 indices = fastcompress(data3.x_data, data3.y_data, atol=atol, mins = mins)
+
 data3.x_compressed, data3.y_compressed = data3.x_data[indices], data3.y_data[indices]
 t = time.perf_counter()-t_start
 print("Compression time\t%.3f ms" % (t*1e3))
