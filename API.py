@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import math
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import time
 from numpy.polynomial import polynomial as poly
 # import numba
-import sys
+
 def lfit(*args):
     return poly.Polynomial.fit(*args)
 
@@ -31,7 +30,7 @@ class Data():
         # return 2 - x/ (1+c-c*x)
         return np.sin(x**2*c*2)+3
     #───────────────────────────────────────────────────────────────────
-    def compress(self,atol=1e-5, mins=30):
+    def compress(self,atol=1e-5, mins=30,verbosity=0):
         """Compresses the data
         dy/dx < 0
         d2y/dx2 < 0
@@ -53,10 +52,10 @@ class Data():
         # print("estimate",estimate)
         #───────────────────────────────────────────────────────────────
         def initial_f2zero(n):
-            n = int(n) + 1
+            n += 1
             step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
             fit = lfit(x_slice[:n+1:step], y_slice[:n+1:step], 1)
-            err0 = abs(fit(x_slice[0])- y_slice[0]) 
+            err0 = abs(fit(x_slice[0])- y_slice[0])
             errn = abs(fit(x_slice[n])- y_slice[n])
             errmax = max(err0,errn) - self.atol
             return errmax, fit
@@ -71,11 +70,8 @@ class Data():
         self.x_compressed.append(x1)
         y1 = fit(x1)
         self.y_compressed.append(y1)
-        
         #───────────────────────────────────────────────────────────────
         def f2zero(n,xs, ys, x0, y0,atol):
-    
-            n = int(n)
             step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
             Dx = xs[:n+1:step]-x0
             Dy = ys[:n+1:step]-y0
@@ -83,7 +79,6 @@ class Data():
             a = a2
             b = y0 - a * x0
             fit = lambda x: a*x + b
-
             err0 = abs(fit(xs[0])- ys[0])
             errn = abs(fit(xs[n])- ys[n])
             errmax = max(err0,errn) -atol
@@ -92,10 +87,9 @@ class Data():
         while n2 < limit:
             x_slice = x_slice[n2+1:]
             y_slice = y_slice[n2+1:]
-            # scaler -= 1
             limit -= n2 + 1
             step = int(limit/10)
-            errscale = 0.5*np.max(np.abs((y_slice[-1]- y1)  /(x_slice[-1] - x1)
+            errscale = 0.5*np.max(np.abs((y_slice[-1]- y1)/(x_slice[-1] - x1)
                                 * (x_slice[1:limit:step]-x1)
                                 + y1 - y_slice[1:limit:step])) / self.atol
             scaler = errscale**0.5 + 1
@@ -113,18 +107,18 @@ class Data():
             self.x_compressed.append(x1)
             y1 = fit(x1)
             self.y_compressed.append(y1)
-        print((x_slice[-1]))
-        print(self.x_compressed[-1])
+        # print((x_slice[-1]))
+        # print(self.x_compressed[-1])
 
         self.x_compressed = np.array(self.x_compressed)
         self.y_compressed = np.array(self.y_compressed)
         t = time.perf_counter()-t_start
-        print("Compression time\t%.3f ms" % (t*1e3))
-        print("Length of compressed array\t%i"%len(self.x_compressed))
+        if verbosity>0: print("Compression time\t%.1f ms" % (t*1e3))
+        if verbosity>0: print("Length of compressed array\t%i"%len(self.x_compressed))
         compression_residual = len(self.x_compressed)/len(self.x_data)
-        print("Compression factor\t%.3f %%" % (compression_residual*1e2))
+        if verbosity>0: print("Compression factor\t%.3f %%" % (compression_residual*1e2))
     #───────────────────────────────────────────────────────────────
-    def simplecompress(self,atol=1e-5, mins=30):
+    def simplecompress(self,atol=1e-5, mins=30,verbosity=0):
 
         t_start = time.perf_counter()
 
@@ -184,13 +178,13 @@ class Data():
         self.x_compressed = np.array(self.x_compressed)
         self.y_compressed = np.array(self.y_compressed)
         t = time.perf_counter()-t_start
-        print("Compression time\t%.3f ms" % (t*1e3))
-        print("Length of compressed array\t%i"%len(self.x_compressed))
+        if verbosity>0: print("Compression time\t%.1f ms" % (t*1e3))
+        if verbosity>0: print("Length of compressed array\t%i"%len(self.x_compressed))
         compression_residual = len(self.x_compressed)/len(self.x_data)
-        print("Compression factor\t%.3f %%" % (compression_residual*1e2))
+        if verbosity>0: print("Compression factor\t%.3f %%" % (compression_residual*1e2))
     #───────────────────────────────────────────────────────────────
-    def fastcompress(self, atol=1e-5, mins = 30):
-        
+    def fastcompress(self, atol=1e-5, mins = 30, verbosity=0):
+        t_start = time.perf_counter()
         # t_start = time.perf_counter()
         self.atol = atol
         def rec(a, b):
@@ -210,11 +204,11 @@ class Data():
 
         self.x_compressed = self.x_data[indices]
         self.y_compressed = self.y_data[indices]
-        # t = time.perf_counter()-t_start
-        # print("Compression time\t%.3f ms" % (t*1e3))
-        # print("Length of compressed array\t%i"%len(self.x_compressed))
-        # compression_residual = 1 - len(self.x_compressed)/len(self.x_data)
-        # print("Compression factor\t%.3f %%" % (compression_residual*1e2))
+        t = time.perf_counter()-t_start
+        if verbosity>0: print("Compression time\t%.3f ms" % (t*1e3))
+        if verbosity>0: print("Length of compressed array\t%i"%len(self.x_compressed))
+        compression_residual = 1 - len(self.x_compressed)/len(self.x_data)
+        if verbosity>0: print("Compression factor\t%.3f %%" % (compression_residual*1e2))
 
     #───────────────────────────────────────────────────────────────────
     def make_lerp(self):
@@ -222,7 +216,7 @@ class Data():
                                          self.y_compressed,
                                          assume_sorted=True)
     #───────────────────────────────────────────────────────────────────
-    def residual(self):
+    def residuals(self):
         """Error residuals"""
         return self.lerp(self.x_data) - self.y_data
 
@@ -306,53 +300,6 @@ def droot(f, y0, x2, limit):
         y2, fit = f(x2)
     return interval2(f,x1, y1, x2, y2)
 ###═════════════════════════════════════════════════════════════════════
-
-n_data = int(float(sys.argv[1]))
-atol = float(sys.argv[2])
-mins = int(float(sys.argv[3]))
-b = int(float(sys.argv[4]))
-data = Data(n_data=n_data,b=b)
-
-data.compress(atol=atol,mins = mins)
-
-plt.figure()
-plt.plot(data.x_data,data.y_data)
-plt.plot(data.x_compressed,data.y_compressed,"-o")
-
-# data.make_lerp()
-# plt.figure()
-# tol = abs(data.residual())-data.atol
-# plt.plot(data.x_data,tol)
-
-data2 = Data(n_data=n_data,b=b)
-data2.simplecompress(atol=atol,mins = mins)
-
-# plt.figure()
-# plt.plot(data2.x_data,data2.y_data)
-# plt.plot(data2.x_compressed,data2.y_compressed,"-o")
-
-
-data3 = Data(n_data=n_data,b=b)
-
-t_start = time.perf_counter()
-data3.fastcompress(atol=atol, mins = mins*10)
-xce, yce = data3.x_compressed, data3.y_compressed
-t = time.perf_counter()-t_start
-print("Compression time\t%.3f ms" % (t*1e3))
-print("Length of compressed array\t%i"%len(xce))
-compression_residual = len(xce)/len(data3.x_data)
-print("Compression factor\t%.3f %%" % (compression_residual*1e2))
-
-
-# plt.figure()
-# plt.plot(data3.x_data,data3.y_data)
-# plt.plot(data3.x_compressed,data3.y_compressed,"-o")
-# data3.make_lerp()
-# tol = abs(data3.residual())-data3.atol
-# print(max(tol))
-# plt.figure()
-# plt.plot(data3.x_data,tol)
-
 def fastcompress(x, y, atol=1e-5, mins = 100):
     '''Fast compression using sampling and splitting from largest error
     x: 1D numpy array
@@ -360,46 +307,14 @@ def fastcompress(x, y, atol=1e-5, mins = 100):
     atol: absolute error tolerance
     mins: minimum number of samples, don't change if you don't understand
     '''
-    def rec(a, b):
+    def r(a, b):
         '''Recurser'''
         n = b-a-1
-        step = 1 if n<=mins else round(n / (2*(n - mins)**0.5 + mins))
+        step = 1 if n<=mins*2 else round(n / (2*(n - mins)**0.5 + mins))
 
-        err = lambda xf, yf: np.abs((y[b]- y[a]) /(x[b] - x[a])* (xf - x[a]) + y[a] - yf)
-        i = a + step*np.argmax(err(x[a+1:b-1:step], y[a+1:b-1:step]))
+        e = lambda xf, yf: np.abs((y[b]- y[a]) /(x[b] - x[a])* (xf - x[a]) + y[a] - yf)
+        i = a + step*np.argmax(e(x[a+1:b-1:step], y[a+1:b-1:step]))
 
-        return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > atol else (a,b)
+        return np.concatenate((r(a,i), r(i,b)[1:])) if e(x[i], y[i]) > atol else (a,b)
 
     return rec(0,len(x)-1)
-
-# t_start = time.perf_counter()
-# indices = fastcompress(data3.x_data, data3.y_data, atol=atol, mins = mins)
-
-# data3.x_compressed, data3.y_compressed = data3.x_data[indices], data3.y_data[indices]
-# t = time.perf_counter()-t_start
-# print("Compression time\t%.3f ms" % (t*1e3))
-# print("Length of compressed array\t%i"%len(xce))
-# compression_residual = 1 - len(xce)/len(data3.x_data)
-# print("Compression factor\t%.3f %%" % (compression_residual*1e2))
-
-# data3.make_lerp()
-# tol = abs(data3.residual())-data3.atol
-# print(max(tol))
-# plt.figure()
-# plt.plot(data3.x_data,tol)
-
-# c = 0.5
-# n = 30
-# x = np.linspace(0,1,n)
-# xm = 2*x-1
-# y = xm*((1-c)*xm**2+c)/2+0.5
-# plt.figure()
-# plt.plot(x,y,"o")
-# plt.plot(y,np.zeros(n),"o")
-
-# density = 1/np.diff(y)
-# dx = x[:-1] + np.diff(x)/2
-# plt.figure()
-# plt.plot(dx,density/(min(density)),"o")
-
-plt.show()

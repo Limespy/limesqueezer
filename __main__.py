@@ -8,23 +8,22 @@ import sys
 import os
 import pathlib
 import matplotlib.pyplot as plt
-
+import time
 import numpy as np
-import math
 
-helpstring = "No arguments given"
+helpstring = 'No arguments given'
 
-is_verbose = "--verbose" or "-v" in sys.argv
+verbosity = 1 if ("--verbose" in sys.argv or '-v' in sys.argv) else 0
 is_plot = "--plot" in sys.argv
 is_save = "--save" in sys.argv
 is_show = "--show" in sys.argv
-
+print(verbosity)
 if len(sys.argv)==1:
     print(helpstring)
     exit()
 else:
     path_cwd = pathlib.Path(os.getcwd()).absolute()
-    if is_verbose: print("Selected path is:\n\t%s" % path_cwd)
+    if verbosity>0: print("Selected path is:\n\t%s" % path_cwd)
 
     #───────────────────────────────────────────────────────────────────────
     elif sys.argv[1] == "sandbox":
@@ -38,44 +37,96 @@ else:
 path_home = pathlib.Path(__file__).parent.absolute()
 
 path_figures = path_home / "figures"
+###═════════════════════════════════════════════════════════════════════
+n_data = int(float(sys.argv[1]))
+atol = float(sys.argv[2])
+mins = int(float(sys.argv[3]))
+b = int(float(sys.argv[4]))
+data = lc.Data(n_data=n_data,b=b)
+data.compress(atol=atol,mins = mins,verbosity=verbosity)
+#───────────────────────────────────────────────────────────────────
+if is_plot:
+    plt.figure()
+    plt.plot(data.x_data,data.y_data)
+    plt.plot(data.x_compressed,data.y_compressed,"-o")
+    title = "LSQ compressed data"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
+    #───────────────────────────────────────────────────────────────────
+    data.make_lerp()
 
+    plt.figure()
+    plt.plot(data.x_data,data.residuals())
+    title = "LSQ compressed residuals"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
+#───────────────────────────────────────────────────────────────────
+data2 = lc.Data(n_data=n_data,b=b)
+data2.simplecompress(atol=atol,mins = mins,verbosity=verbosity)
 
-def reference(x):
-    # return np.sin(x) + 2
-    return 2/(x-2) + 2
+if is_plot:
+    plt.figure()
+    plt.plot(data2.x_data,data2.y_data)
+    plt.plot(data2.x_compressed,data2.y_compressed,"-o")
+    title = "Simple compressed data"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
+    #───────────────────────────────────────────────────────────────────
+    data2.make_lerp()
+    plt.figure()
+    
+    plt.plot(data2.x_data,data2.residuals())
+    title = "Simple compressed residuals"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
+#───────────────────────────────────────────────────────────────────
+data3 = lc.Data(n_data=n_data,b=b)
+data3.fastcompress(atol=atol, mins = mins*10,verbosity = verbosity)
 
+if is_plot:
+    plt.figure()
+    plt.plot(data3.x_data,data3.y_data)
+    plt.plot(data3.x_compressed,data3.y_compressed,"-o")
+    title = "Split compressed data"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
+    #───────────────────────────────────────────────────────────────────
+    data3.make_lerp()
 
-compression = lc.Compression() 
+    plt.figure()
+    plt.plot(data3.x_data,data3.residuals())
+    title = "Split compressed residuals"
+    plt.title(title)
+    if is_save: plt.savefig(path_figures/(title+".png"), bbox_inches="tight")
 
-errtol = float(sys.argv[2])
+# t_start = time.perf_counter()
+# indices = lc.fastcompress(data3.x_data, data3.y_data, atol=atol, mins = mins)
 
-print(len(compression.y_data))
+# data3.x_compressed, data3.y_compressed = data3.x_data[indices], data3.y_data[indices]
+# t = time.perf_counter()-t_start
+# print("Compression time\t%.3f ms" % (t*1e3))
+# print("Length of compressed array\t%i"%len(xce))
+# compression_residual = 1 - len(xce)/len(data3.x_data)
+# print("Compression factor\t%.3f %%" % (compression_residual*1e2))
 
-print(compression.err_n(1520)-errtol)
-
-# x1, y1, x2, y2 = lc.reach(lambda x: lc.err_n(x,errtol), -errtol)
-
-# n_lim = lc.int_bisect(lambda x: lc.err_n(x,errtol), x1, y1, x2, y2)+2
-# print(n_lim)
-# print(lc.err_max_LSQ(x_input[:n_lim],y_input[:n_lim])-errtol)
-# print(lc.err_max_LSQ(x_input[:n_lim+1],y_input[:n_lim+1])-errtol)
-
-# err_budget = np.array([lc.err_n(n,errtol) for n in range(80)])
-
+# data3.make_lerp()
+# tol = abs(data3.residual())-data3.atol
+# print(max(tol))
 # plt.figure()
-# plt.plot(range(80),err_budget)
-# plt.plot([0,80],[0,0])
-# plt.plot([70,70],[-errtol,+errtol])
-# plt.plot([69,69],[-errtol,+errtol])
+# plt.plot(data3.x_data,tol)
 
-def plot():
-    pass
+# c = 0.5
+# n = 30
+# x = np.linspace(0,1,n)
+# xm = 2*x-1
+# y = xm*((1-c)*xm**2+c)/2+0.5
+# plt.figure()
+# plt.plot(x,y,"o")
+# plt.plot(y,np.zeros(n),"o")
 
+# density = 1/np.diff(y)
+# dx = x[:-1] + np.diff(x)/2
+# plt.figure()
+# plt.plot(dx,density/(min(density)),"o")
 
-# Prediction heuristic 2
-# Function is approximately a*x^2 - atol
-# Fitting a*x1^2 - atol = y1 -> a = (y1-atol)/x1^2
-# Root a*x^2 -atol = 0 -> x = sqrt(atol/a) 
-# Root a*x^2 -atol = 0 -> Prediction_1 = x1 / sqrt(y1/atol-1) 
-
-
+if is_show: plt.show()
