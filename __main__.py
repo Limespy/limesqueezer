@@ -57,9 +57,11 @@ if is_plot:
     if is_save: plt.savefig(path_figures/(title+'.png'), bbox_inches='tight')
     #───────────────────────────────────────────────────────────────────
     data.make_lerp()
+    print(data.NRMSE)
+    print(data.covariance)
 
     plt.figure()
-    plt.plot(data.x,data.residuals())
+    plt.plot(data.x,data.residuals)
     title = 'LSQ compressed residuals'
     plt.title(title)
     if is_save: plt.savefig(path_figures/(title+'.png'), bbox_inches='tight')

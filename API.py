@@ -22,6 +22,8 @@ class Data():
             self.n_data = int(1e5) if not n_data else int(n_data)
             self.x = np.linspace(0,1,int(self.n_data))
             self.y = self.reference(self.x,b)
+        
+        self.y_range = np.max(self.y)-np.min(self.y)
 
         self.x_compressed = None
         self.y_compressed = None
@@ -34,11 +36,9 @@ class Data():
     def make_lerp(self):
         self.lerp = interpolate.interp1d(self.x_compressed, self.y_compressed,
                                             assume_sorted=True)
-    #───────────────────────────────────────────────────────────────────
-    def residuals(self):
-        '''Error residuals'''
-        return self.lerp(self.x) - self.y
-    #───────────────────────────────────────────────────────────────────
+        self.residuals = self.lerp(self.x) - self.y
+        self.NRMSE = np.std(self.residuals)/self.y_range
+        self.covariance = np.cov((self.lerp(self.x), self.y))
 ###═════════════════════════════════════════════════════════════════════
 ### AUXILIARY FUNCTIONS
 def interval2(f,x1,y1,x2,y2):
@@ -92,6 +92,8 @@ def n_lines(x,y,x0,y0,step,atol):
      - y[:-1:step]))/atol
     return errscale**0.5 + 1
 ###═════════════════════════════════════════════════════════════════════
+
+###═════════════════════════════════════════════════════════════════════
 ### COMPRESSION FUNCTIONS
 def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     '''Compresses the data of type y = f(x) using linear least squares fitting
@@ -101,12 +103,11 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     '''
     if is_timed: t_start = time.perf_counter()
     zero = 1
-    
-    left = len(x)-1
+    left = len(x)-1 - zero
     estimate = int(left/n_lines(x,y,x[0],y[0],int(left/5),atol) )+1
     #───────────────────────────────────────────────────────────────
     def initial_f2zero(n):
-        '''Function such that n is optimal when initialf2zero(n) = 0'''
+        '''Function such that n is optimal when initial_f2zero(n) = 0'''
         step = 1 if n<=mins*2 else int(n / ((n * 2 - mins)**0.5 + mins / 2))
         n += zero
         fit = lfit(x[:n+1:step], y[:n+1:step], 1)
@@ -114,9 +115,8 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     #───────────────────────────────────────────────────────────────
     n2, fit = droot(initial_f2zero, -atol, estimate, left)
     zero += n2 + 1
-    left -= zero
-    x_c = [0, x[zero-1]]
-    y_c = [fit(0), fit(x[zero-1])]
+    left -= n2 + 1
+    x_c, y_c  = [0, x[zero-1]], [fit(0), fit(x[zero-1])]
     #───────────────────────────────────────────────────────────────
     def f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
@@ -133,7 +133,7 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     
         estimate = int((n2 + left/(n_lines(x[zero+1:], y[zero+1:], 
                                            x_c[-1], y_c[-1], 
-                                           int(left/10)+1, atol)))/2)
+                                           int(left/5)+1, atol)))/2)
         estimate = min(left, estimate)
         n2, fit = droot(f2zero,-atol, estimate, left)
         
