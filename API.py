@@ -42,8 +42,7 @@ class Data():
 ###═════════════════════════════════════════════════════════════════════
 ### AUXILIARY FUNCTIONS
 def interval2(f,x1,y1,x2,y2):
-    '''Returns the last x where f(x)<0
-    lerp'''
+    '''Returns the last x where f(x)<0'''
     
     while x2 - x1 > 2:
         # Average between linear estimate and half
@@ -69,7 +68,6 @@ def interval2(f,x1,y1,x2,y2):
 ###═════════════════════════════════════════════════════════════════════
 def droot(f, y0, x2, limit):
     '''Finds the upper limit to interval
-    Limited 2nd degree polynomial
     '''
     x1, y1 = 0, y0
     y2, fit = f(x2)
@@ -173,7 +171,7 @@ def pick(x,y,atol=1e-5, mins=30, verbosity=0, is_timed=False):
     x_c = [x_slice[0]]
     y_c = [y_slice[0]]
     step = int(limit/5)
-    scaler = n_lines(x_slice,y_slice,x_slice[0],y_slice[0],step,atol) 
+    scaler = n_lines(x_slice,y_slice,x_slice[0],y_slice[0],int(limit/5),atol) 
     estimate = min(limit,int(limit/scaler+1))
     # print('estimate',estimate)
 
@@ -224,10 +222,6 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
         x2, y2 = x[b], y[b]
         err = lambda x, y: np.abs((y2- y1) /(x2 - x1)* (x - x1) + y1 - y)
         i = a + 1 + step*np.argmax(err(x[a+1:b-1:step], y[a+1:b-1:step]))
-        # print(index)
-        # time.sleep(0.5)
-        # print(a,b)
-        # print(err(x[index], y[index]))
         return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > atol else [a,b]
     indices= rec(0,len(x)-1)
 
