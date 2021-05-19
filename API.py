@@ -60,11 +60,11 @@ def interval2(f,x1,y1,x2,y2):
             x1, y1 = xn, yn
 
     if x2 - x1 == 2:
-        yn, fit = f(x1+1)
-        return (x1, fit) if yn >0 else (x1+1, fit)
+        yn, fit = f(x2-1)
+        return (x2-1, fit) if yn >0 else (x2, fit)
     else:
-        _, fit = f(x1)
-        return (x1, fit)
+        _, fit = f(x2)
+        return (x2, fit)
 ###═════════════════════════════════════════════════════════════════════
 def droot(f, y0, x2, limit):
     '''Finds the upper limit to interval
@@ -78,7 +78,7 @@ def droot(f, y0, x2, limit):
         if x2 >= limit:
             y2, fit = f(limit)
             if y2<0:
-                return limit, fit
+                return limit+1, fit
             else:
                 x2 = limit
                 break
@@ -114,8 +114,8 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
         return max(abs(fit(x[0])- y[0]),abs(fit(x[n])- y[n])) - atol, fit
     #───────────────────────────────────────────────────────────────
     n2, fit = droot(initial_f2zero, -atol, estimate, left)
-    zero += n2 + 1
-    left -= n2 + 1
+    zero += n2
+    left -= n2
     x_c, y_c  = [0, x[zero-1]], [fit(0), fit(x[zero-1])]
     #───────────────────────────────────────────────────────────────
     def f2zero(n):
@@ -137,8 +137,59 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
         estimate = min(left, estimate)
         n2, fit = droot(f2zero,-atol, estimate, left)
         
-        zero += n2 + 1
-        left -= n2 + 1
+        zero += n2
+        left -= n2
+        x_c.append(x[zero-1])
+        y_c.append(fit(x_c[-1]))
+
+    if is_timed: t = time.perf_counter()-t_start
+    if verbosity>0: 
+        text = 'Length of compressed array\t%i'%len(x_c)
+        text += '\nCompression factor\t%.3f %%' % (100*len(x_c)/len(x))
+        if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
+        print(text)
+    print(x_c[-1])
+    return np.array(x_c), np.array(y_c)
+###═════════════════════════════════════════════════════════════════════
+def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
+    '''Compresses the data of type y = f(x) using linear least squares fitting
+    Works best if
+    dy/dx < 0
+    d2y/dx2 < 0
+    '''
+    if is_timed: t_start = time.perf_counter()
+    zero = 1
+    left = len(x)-1 - zero
+    estimate = int(left/n_lines(x,y,x[0],y[0],int(left/5),atol) )+1
+    x_c, y_c  = [x[0]], [y[0]]
+    #───────────────────────────────────────────────────────────────
+    def f2zero(n):
+        '''Function such that n is optimal when f2zero(n) = 0'''
+        step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
+        n += zero
+        Dx = x[zero:n+1:step]-x_c[-1]
+        Dy = y[zero:n+1:step]-y_c[-1]
+        a = np.sum(Dy*Dx)/np.sum(Dx*Dx)
+        b = y_c[-1] - a * x_c[-1]
+        fit = lambda x: a*x + b
+        return max(abs(fit(x[zero])-y[zero]),abs(fit(x[n])-y[n]))-atol, fit
+    #───────────────────────────────────────────────────────────────
+    n2, fit = droot(f2zero,-atol, estimate, left)
+        
+    zero += n2
+    left -= n2
+    x_c.append(x[zero-1])
+    y_c.append(fit(x_c[-1]))
+    while left > 0:
+
+        estimate = int((n2 + left/(n_lines(x[zero+1:], y[zero+1:], 
+                                           x_c[-1], y_c[-1], 
+                                           int(left/5)+1, atol)))/2)
+        estimate = min(left, estimate)
+        n2, fit = droot(f2zero,-atol, estimate, left)
+
+        zero += n2
+        left -= n2
         x_c.append(x[zero-1])
         y_c.append(fit(x_c[-1]))
 
@@ -180,13 +231,13 @@ def pick(x,y,atol=1e-5, mins=30, verbosity=0, is_timed=False):
     # print('n2',n2)
     # print(estimate/n2-1)
 
-    while n2 < limit:
-        x_c.append(x_slice[n2+1])
-        y_c.append(y_slice[n2+1])
-        x_slice = x_slice[n2+1:]
-        y_slice = y_slice[n2+1:]
+    while n2-1 < limit:
+        x_c.append(x_slice[n2])
+        y_c.append(y_slice[n2])
+        x_slice = x_slice[n2:]
+        y_slice = y_slice[n2:]
 
-        limit -= n2 + 2
+        limit -= n2 + 1
         step = int(limit/5)
         errscale = 0.5*np.max(np.abs((y_slice[-1]- y_slice[0])
                             /(x_slice[-1] - x_slice[0])
@@ -194,7 +245,7 @@ def pick(x,y,atol=1e-5, mins=30, verbosity=0, is_timed=False):
                             + y_slice[0] - y_slice[1:limit:step])) / atol
         scaler = errscale**0.5 + 1
         # print('from scaler',limit/scaler)
-        estimate = min(limit,int((limit/scaler+1+n2)/2))
+        estimate = min(limit,int((limit/scaler+n2)/2))
         # print('estimate',estimate)
 
         n2, _ = droot(lambda n: f2zero(n, x_slice, y_slice, atol),
@@ -246,6 +297,7 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
 # When this is normalised so Delta_y = 1 and Delta_x = n,
 # delta_x ~ n * sqrt(atol)
 methods = {'LSQ1': LSQ1,
+           'LSQ10': LSQ10,
            'pick': pick,
            'split': split}
 
@@ -269,6 +321,11 @@ def fastcompress(x, y, atol=1e-5, mins = 100):
 
     return r(0,len(x)-1)
 
-def compress(*args, method='LSQ1', **kwargs):
+def compress(*args, method='LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
-    return methods[method](*args,**kwargs)
+    try:
+        compressor = methods[method]
+    except KeyError:
+        raise NotImplementedError("Method not in the dictionary of methods")
+
+    return compressor(*args,**kwargs)
