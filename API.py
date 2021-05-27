@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import time
 from numpy.polynomial import polynomial as poly
 import numba
+from collections import abc
 
 def lfit(*args):
     return poly.Polynomial.fit(*args)
@@ -187,9 +188,21 @@ def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
                                            int(left/5)+1, atol)))/2)
         estimate = min(left, estimate)
         n2, fit = droot(f2zero,-atol, estimate, left)
+        # print('n2',n2)
+        # print('low',n2+zero-1)
+        # # print('high',n2+zero)
+        # try:
+        #     y1,_ = f2zero(n2-1)
+        #     y2,_ = f2zero(n2)
+        #     print('check_low', y1)
+        #     print('check_high',y2)
+        # except:
+        #     pass
 
         zero += n2
+        # print("zero",zero)
         left -= n2
+        
         x_c.append(x[zero-1])
         y_c.append(fit(x_c[-1]))
 
@@ -285,6 +298,88 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
         if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
         print(text)
     return x_c, y_c
+###═════════════════════════════════════════════════════════════════════
+class Compressed(abc.Sized):
+    def __init__(self, x0 ,y0, mins=10, ytol=1e-4):
+        self.x_buffer = [x0]
+        self.y_buffer = [y0]
+        self.x = [x0]
+        self.y = [y0]
+        self.y_estimate = float('-inf')
+        self.n1 = 0
+        self.n2 = 2
+        self.mins = mins
+        self.ytol = ytol
+        self.y_limit0 = self.ytol*2
+    #───────────────────────────────────────────────────────────────────
+    def _f2zero(self,n):
+        '''Function such that n is optimal when f2zero(n) = 0'''
+        step = 1 if n<=self.mins*2 else int(n/((n*2 - self.mins)**0.5 + self.mins/2))
+        #print(self.x_buffer)
+        # print('n',n)
+        Dx = self.x_buffer[:n+1:step]-self.x[-1]
+        Dy = self.y_buffer[:n+1:step]-self.y[-1]
+        #print(self)
+        a = Dy.dot(Dx)/Dx.dot(Dx)
+        #print(a)
+        b = self.y[-1] - a * self.x[-1]
+        fit = lambda x: a*x + b
+        err0 = abs(fit(self.x_buffer[0]) - self.y_buffer[0])
+        errn = abs(fit(self.x_buffer[n]) - self.y_buffer[n])
+        return max(err0,errn)-self.ytol, fit
+    #───────────────────────────────────────────────────────────────────
+    def _batch(self):
+        cutoff, fit = interval2(self._f2zero,self.n1,self.tol1,
+                                        self.limit,self.tol2)
+        self.n1, self.tol1 = 0, -self.ytol
+        self.n2 = cutoff
+        self.x.append(self.x_buffer[cutoff-1])
+        # print(cutoff)
+        # y1, _ = self._f2zero(cutoff-1)
+        # y2, _ = self._f2zero(cutoff)
+        # print('y1',y1)
+        # print('y2',y2)
+        # print(self.x_buffer[cutoff-1])
+        self.y.append(fit(self.x[-1]))
+
+        self.x_buffer = list(self.x_buffer[cutoff:])
+        self.y_buffer = list(self.y_buffer[cutoff:])
+    #───────────────────────────────────────────────────────────────────
+    def __call__(self,x_input,y_input):
+        self.x_buffer.append(x_input)
+        self.y_buffer.append(y_input)
+        self.limit  = len(self.x_buffer) - 1 
+        if  self.limit > self.n2:
+            self.x_buffer = np.array(self.x_buffer)
+            self.y_buffer = np.array(self.y_buffer)
+            
+            self.tol2, _ = self._f2zero(self.limit)
+            if self.tol2 < 0:
+                self.tol1 = self.tol2
+                self.n1 = self.n2
+                self.n2 *= 2
+                self.x_buffer = list(self.x_buffer)
+                self.y_buffer = list(self.y_buffer)
+            else:
+                self._batch()
+    #───────────────────────────────────────────────────────────────────
+    def close(self):
+        self.x_buffer = np.array(self.x_buffer)
+        self.y_buffer = np.array(self.y_buffer)
+        self.tol2, fit = self._f2zero(self.limit)
+        while self.tol2 > 0:
+            self._batch()
+            self.limit  = len(self.x_buffer) - 1
+            self.tol2, fit = self._f2zero(self.limit)
+        
+        self.x.append(self.x_buffer[-1])
+        self.y.append(fit(self.x[-1]))
+        self.x = np.array(self.x)
+        self.y = np.array(self.y)
+    #───────────────────────────────────────────────────────────────────
+    def __len__(self):
+        return len(self.x)
+    #───────────────────────────────────────────────────────────────────
 
 # Given atol and Delta_y, 
 # in the best case 1 line would be enough 
@@ -329,3 +424,4 @@ def compress(*args, method='LSQ10', **kwargs):
         raise NotImplementedError("Method not in the dictionary of methods")
 
     return compressor(*args,**kwargs)
+

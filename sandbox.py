@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import API
 
 def fastcompress(x, y, atol=2e-2, mins = 100):
     '''Fast compression using sampling and splitting from largest error
