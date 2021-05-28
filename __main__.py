@@ -29,6 +29,7 @@ else:
     elif sys.argv[1] == 'sandbox':
         args = sys.argv[2:]
         import sandbox
+        exit()
     #───────────────────────────────────────────────────────────────────────
     elif sys.argv[1] == 'cwd':
         print(os.getcwd())
@@ -47,20 +48,24 @@ data.x_compressed, data.y_compressed = lc.compress(data.x,data.y,
                                                    atol=atol, mins = mins,
                                                    verbosity = verbosity,
                                                    is_timed = is_timed)
+print(data.x_compressed[-1])
+y0 = np.array([data.y[0],data.y[0]+data.x[0]])
 
-compressed = lc.Compressed(data.x[0], data.y[0],ytol=atol, mins=mins)
-t_start = time.perf_counter()
-for x,y in zip(data.x,data.y):
-    compressed(x,y)
-
-compressed.close()
-
+with lc.Compressed(data.x[0], y0,ytol=atol, mins=mins) as compressed:
+    t_start = time.perf_counter()
+    for x,y in zip(data.x,data.y):
+        compressed(x,np.array([y, y+x]))
 
 print("compression time",time.perf_counter()-t_start)
-# for x,y in zip(compressed.x,data.x_compressed):
-#     print(x,y)
+# # print(compressed)
+
+# # for x,y in zip(compressed.x,data.x_compressed):
+# #     print(x,y)
 
 print(len(compressed))
+# # print(compressed.y[:,0])
+# print(compressed.x[-1])
+# print(data.x[-1])
 # print(data.x_compressed - compressed.x)
 #───────────────────────────────────────────────────────────────────
 if is_plot:
@@ -73,19 +78,19 @@ if is_plot:
     #───────────────────────────────────────────────────────────────────
     data.make_lerp()
     print(data.NRMSE)
-    print('maxres',max(abs(data.residuals)))
+    print('maxres: function',max(abs(data.residuals)))
     plt.figure()
     plt.plot(data.x,data.residuals)
     title = 'LSQ compressed residuals'
     plt.title(title)
     if is_save: plt.savefig(path_figures/(title+'.pdf'), bbox_inches='tight')
 
-    lerp = interpolate.interp1d(compressed.x,compressed.y, assume_sorted=True)
+    lerp = interpolate.interp1d(compressed.x,compressed.y[:,0], assume_sorted=True)
     residuals = lerp(data.x) - data.y
-    print('maxres',max(abs(residuals)))
+    print('max relative residual',np.amax(np.abs(residuals))/atol)
 
     plt.figure()
-    plt.plot(compressed.x,compressed.y,'-o')
+    plt.plot(compressed.x,compressed.y[:,0],'-o')
     title = 'Loooped compressed data'
     plt.title(title)
     if is_save: plt.savefig(path_figures/(title+'.pdf'), bbox_inches='tight')

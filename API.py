@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+from os import X_OK
 import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
@@ -40,9 +41,31 @@ class Data():
         self.residuals = self.lerp(self.x) - self.y
         self.NRMSE = np.std(self.residuals)/self.y_range
         self.covariance = np.cov((self.lerp(self.x), self.y))
-###═════════════════════════════════════════════════════════════════════
-### AUXILIARY FUNCTIONS
-def interval2(f,x1,y1,x2,y2):
+#%%═════════════════════════════════════════════════════════════════════
+# COMPRESSOR AUXILIARIES
+def interval(f,x1,y1,x2,y2,fit1):
+    '''Returns the last x where f(x)<0'''
+    while x2 - x1 > 2:
+        # Average between linear estimate and half
+        x = int((x1-y1/(y2-y1)*(x2-x1) + (x2 + x1)/2)/2) + 1
+        if x == x1:    # To stop repetition in close cases
+            x += 1
+        elif x == x2:
+            x -= 1
+
+        y, fit = f(x)
+        if y > 0:
+            x2, y2 = x, y
+        else: 
+            x1, y1, fit1 = x, y, fit
+
+    if x2 - x1 == 2:
+        y, fit = f(x1+1)
+        return (x1+1, fit) if y <0 else (x1, fit1)
+    else:
+        return (x1, fit1)
+#%%═════════════════════════════════════════════════════════════════════
+def interval2(f,x1,y1,x2,y2,fit1):
     '''Returns the last x where f(x)<0'''
     
     while x2 - x1 > 2:
@@ -58,39 +81,39 @@ def interval2(f,x1,y1,x2,y2):
         if yn > 0:
             x2, y2 = xn, yn
         else: 
-            x1, y1 = xn, yn
+            x1, y1, fit1 = xn, yn, fit
 
     if x2 - x1 == 2:
-        yn, fit = f(x2-1)
-        return (x2-1, fit) if yn >0 else (x2, fit)
+        yn, fit2 = f(x2-1)
+        return (x1, fit1) if yn >0 else (x1+1, fit2)
     else:
-        _, fit = f(x2)
-        return (x2, fit)
+        return (x1, fit1)
 ###═════════════════════════════════════════════════════════════════════
 def droot(f, y0, x2, limit):
     '''Finds the upper limit to interval
     '''
     x1, y1 = 0, y0
-    y2, fit = f(x2)
-
+    y2, fit2 = f(x2)
+    fit1 = None
     while y2 < 0:
-        x1, y1 = x2, y2
+        x1, y1, fit1 = x2, y2, fit2
         x2 *= 2
         if x2 >= limit:
-            y2, fit = f(limit)
+            y2, fit2 = f(limit)
             if y2<0:
-                return limit+1, fit
+                return limit, fit2
             else:
                 x2 = limit
                 break
-        y2, fit = f(x2)
-    return interval2(f,x1, y1, x2, y2)
+        y2, fit2 = f(x2)
+    return interval2(f,x1, y1, x2, y2,fit1)
 ###═════════════════════════════════════════════════════════════════════
 # @numba.jit(nopython=True,cache=True)
-def n_lines(x,y,x0,y0,step,atol):
+def n_lines(x,y,x0,y0,atol):
     '''Estimates number of lines required to fit within error tolearance'''
-    errscale = 0.5*np.max(np.abs((y[-1]- y0)/(x[-1] - x0)* (x[:-1:step]-x0)+ y0
-     - y[:-1:step]))/atol
+    indices = np.rint(np.linspace(0,len(x)-2,15)).astype(int)
+    errscale = 0.5*np.max(np.abs((y[-1]- y0)/(x[-1] - x0)*(x[indices]-x0)+ y0
+     - y[indices]))/atol
     return errscale**0.5 + 1
 ###═════════════════════════════════════════════════════════════════════
 
@@ -133,8 +156,7 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     while left > 0:
     
         estimate = int((n2 + left/(n_lines(x[zero+1:], y[zero+1:], 
-                                           x_c[-1], y_c[-1], 
-                                           int(left/5)+1, atol)))/2)
+                                           x_c[-1], y_c[-1], atol)))/2)
         estimate = min(left, estimate)
         n2, fit = droot(f2zero,-atol, estimate, left)
         
@@ -161,50 +183,40 @@ def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     if is_timed: t_start = time.perf_counter()
     zero = 1
     left = len(x)-1 - zero
-    estimate = int(left/n_lines(x,y,x[0],y[0],int(left/5),atol) )+1
+    estimate = int(left/n_lines(x,y,x[0],y[0],atol) )+1
     x_c, y_c  = [x[0]], [y[0]]
     #───────────────────────────────────────────────────────────────
     def f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
-        n += zero
-        Dx = x[zero:n+1:step]-x_c[-1]
-        Dy = y[zero:n+1:step]-y_c[-1]
-        a = np.sum(Dy*Dx)/np.sum(Dx*Dx)
+        n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
+        indices = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
+
+        Dx = x[indices] - x_c[-1]
+        Dy = y[indices] - y_c[-1]
+
+        a = np.matmul(Dx,Dy)/Dx.dot(Dx)
         b = y_c[-1] - a * x_c[-1]
-        fit = lambda x: a*x + b
-        return max(abs(fit(x[zero])-y[zero]),abs(fit(x[n])-y[n]))-atol, fit
+
+        errmax = np.amax(np.abs(a*x[indices] + b - y[indices]))
+        return errmax-atol, (a,b)
     #───────────────────────────────────────────────────────────────
     n2, fit = droot(f2zero,-atol, estimate, left)
-        
+    n2 += 1
     zero += n2
     left -= n2
     x_c.append(x[zero-1])
-    y_c.append(fit(x_c[-1]))
+    y_c.append(fit[0]*x_c[-1]+fit[1])
     while left > 0:
-
         estimate = int((n2 + left/(n_lines(x[zero+1:], y[zero+1:], 
-                                           x_c[-1], y_c[-1], 
-                                           int(left/5)+1, atol)))/2)
+                                           x_c[-1], y_c[-1], atol)))/2)
         estimate = min(left, estimate)
         n2, fit = droot(f2zero,-atol, estimate, left)
-        # print('n2',n2)
-        # print('low',n2+zero-1)
-        # # print('high',n2+zero)
-        # try:
-        #     y1,_ = f2zero(n2-1)
-        #     y2,_ = f2zero(n2)
-        #     print('check_low', y1)
-        #     print('check_high',y2)
-        # except:
-        #     pass
-
+        n2 += 1
         zero += n2
-        # print("zero",zero)
         left -= n2
         
         x_c.append(x[zero-1])
-        y_c.append(fit(x_c[-1]))
+        y_c.append(fit[0]*x_c[-1] + fit[1])
 
     if is_timed: t = time.perf_counter()-t_start
     if verbosity>0: 
@@ -299,87 +311,95 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
         print(text)
     return x_c, y_c
 ###═════════════════════════════════════════════════════════════════════
-class Compressed(abc.Sized):
-    def __init__(self, x0 ,y0, mins=10, ytol=1e-4):
-        self.x_buffer = [x0]
-        self.y_buffer = [y0]
-        self.x = [x0]
-        self.y = [y0]
-        self.y_estimate = float('-inf')
+class CompressedContainer(abc.Sized):
+    def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
+        self.xb = [x0]
+        self.yb = [np.array(y0)] # Variables are columns, e.g. 3xn
+        self.x = [self.xb[0]]
+        self.y = [self.yb[0]]
         self.n1 = 0
         self.n2 = 2
         self.mins = mins
-        self.ytol = ytol
-        self.y_limit0 = self.ytol*2
+        self.ytol = np.array(ytol)
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self,n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        step = 1 if n<=self.mins*2 else int(n/((n*2 - self.mins)**0.5 + self.mins/2))
-        #print(self.x_buffer)
-        # print('n',n)
-        Dx = self.x_buffer[:n+1:step]-self.x[-1]
-        Dy = self.y_buffer[:n+1:step]-self.y[-1]
-        #print(self)
-        a = Dy.dot(Dx)/Dx.dot(Dx)
-        #print(a)
+        n_steps = n+1 if n+1<=self.mins else int((n+1 - self.mins)**0.5 + self.mins)
+        indices = np.rint(np.linspace(0,n,n_steps)).astype(int)
+        Dx = self.xb[indices]-self.x[-1]
+        Dy = self.yb[indices]-self.y[-1]
+        a = np.matmul(Dx,Dy)/Dx.dot(Dx)
         b = self.y[-1] - a * self.x[-1]
-        fit = lambda x: a*x + b
-        err0 = abs(fit(self.x_buffer[0]) - self.y_buffer[0])
-        errn = abs(fit(self.x_buffer[n]) - self.y_buffer[n])
-        return max(err0,errn)-self.ytol, fit
+        errmax = np.amax(np.abs(a*self.xb[indices].reshape([-1,1]) + b - self.yb[indices]),axis=0)
+        return np.amax(errmax/self.ytol-1), (a,b)
     #───────────────────────────────────────────────────────────────────
-    def _batch(self):
-        cutoff, fit = interval2(self._f2zero,self.n1,self.tol1,
-                                        self.limit,self.tol2)
-        self.n1, self.tol1 = 0, -self.ytol
-        self.n2 = cutoff
-        self.x.append(self.x_buffer[cutoff-1])
-        # print(cutoff)
-        # y1, _ = self._f2zero(cutoff-1)
-        # y2, _ = self._f2zero(cutoff)
-        # print('y1',y1)
-        # print('y2',y2)
-        # print(self.x_buffer[cutoff-1])
-        self.y.append(fit(self.x[-1]))
+    def compress(self):
+        cutoff, fit = interval(self._f2zero,self.n1,self.tol1, self.limit,self.tol2,self.fit1)
+        self.n1, self.n2, self.tol1 = 0, cutoff, -1.
+        self.x.append(self.xb[cutoff])
+        self.y.append(fit[0]*self.x[-1] + fit[1])
 
-        self.x_buffer = list(self.x_buffer[cutoff:])
-        self.y_buffer = list(self.y_buffer[cutoff:])
+        self.xb = self.xb[cutoff:]
+        self.yb = self.yb[cutoff:]
     #───────────────────────────────────────────────────────────────────
     def __call__(self,x_input,y_input):
-        self.x_buffer.append(x_input)
-        self.y_buffer.append(y_input)
-        self.limit  = len(self.x_buffer) - 1 
+        self.xb.append(x_input)
+        self.yb.append(y_input)
+        self.limit  = len(self.xb) - 1 
         if  self.limit > self.n2:
-            self.x_buffer = np.array(self.x_buffer)
-            self.y_buffer = np.array(self.y_buffer)
+            self.xb, self.yb = np.array(self.xb), np.array(self.yb)
             
-            self.tol2, _ = self._f2zero(self.limit)
+            self.tol2, self.fit2 = self._f2zero(self.limit)
+            # print(self.tol2)
             if self.tol2 < 0:
-                self.tol1 = self.tol2
-                self.n1 = self.n2
+                self.n1, self.tol1, self.fit1 = self.n2, self.tol2, self.fit2
                 self.n2 *= 2
-                self.x_buffer = list(self.x_buffer)
-                self.y_buffer = list(self.y_buffer)
             else:
-                self._batch()
+                self.compress()
+            self.xb, self.yb = list(self.xb), list(self.yb)
+        return len(self.x), len(self.xb)
     #───────────────────────────────────────────────────────────────────
     def close(self):
-        self.x_buffer = np.array(self.x_buffer)
-        self.y_buffer = np.array(self.y_buffer)
-        self.tol2, fit = self._f2zero(self.limit)
+        self.xb, self.yb = np.array(self.xb), np.array(self.yb)
+        self.n1, self.limit  = 0, len(self.xb) - 1
+        self.tol2, self.fit2 = self._f2zero(self.limit)
+
         while self.tol2 > 0:
-            self._batch()
-            self.limit  = len(self.x_buffer) - 1
-            self.tol2, fit = self._f2zero(self.limit)
+            self.compress()
+            self.limit  = len(self.xb) - 1
+            self.tol1, self.fit1 = -1, self.fit2
+            self.tol2, self.fit2 = self._f2zero(self.limit)
         
-        self.x.append(self.x_buffer[-1])
-        self.y.append(fit(self.x[-1]))
-        self.x = np.array(self.x)
-        self.y = np.array(self.y)
+        self.x.append(self.xb[-1])
+        self.y.append(self.yb[-1])
+        self.x, self.y = np.array(self.x), np.array(self.y)
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
         return len(self.x)
     #───────────────────────────────────────────────────────────────────
+    def __str__(self):
+        s = 'x = ' + str(self.x)
+        s += ' y = ' + str(self.y)
+        s += ' ytol = ' + str(self.ytol)
+        return s
+    #───────────────────────────────────────────────────────────────────
+###═════════════════════════════════════════════════════════════════════
+class Compressed():
+    def __init__(self, x0 ,y0, mins=20, ytol=1e-4, method='stream'):
+        self.x0 = x0
+        self.y0 = y0 # Variables are columns, e.g. 3xn
+        self.mins = mins
+        self.ytol = ytol
+        self.method = method
+    #───────────────────────────────────────────────────────────────────
+    def __enter__(self):
+        if self.method == 'stream':
+            self.container = CompressedContainer(self.x0, self.y0, 
+                                             mins=self.mins, ytol=self.ytol)
+        return self.container
+    #───────────────────────────────────────────────────────────────────
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.container.close()
 
 # Given atol and Delta_y, 
 # in the best case 1 line would be enough 
