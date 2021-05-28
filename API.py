@@ -64,30 +64,6 @@ def interval(f,x1,y1,x2,y2,fit1):
         return (x1+1, fit) if y <0 else (x1, fit1)
     else:
         return (x1, fit1)
-#%%═════════════════════════════════════════════════════════════════════
-def interval2(f,x1,y1,x2,y2,fit1):
-    '''Returns the last x where f(x)<0'''
-    
-    while x2 - x1 > 2:
-        # Average between linear estimate and half
-        xn = int((x1-y1/(y2-y1)*(x2-x1) + (x2 + x1)/2)/2) + 1
-
-        if xn == x1:    # To stop repetition in close cases
-            xn += 1
-        elif xn == x2:
-            xn -= 1
-
-        yn, fit = f(xn)
-        if yn > 0:
-            x2, y2 = xn, yn
-        else: 
-            x1, y1, fit1 = xn, yn, fit
-
-    if x2 - x1 == 2:
-        yn, fit2 = f(x2-1)
-        return (x1, fit1) if yn >0 else (x1+1, fit2)
-    else:
-        return (x1, fit1)
 ###═════════════════════════════════════════════════════════════════════
 def droot(f, y0, x2, limit):
     '''Finds the upper limit to interval
@@ -106,7 +82,7 @@ def droot(f, y0, x2, limit):
                 x2 = limit
                 break
         y2, fit2 = f(x2)
-    return interval2(f,x1, y1, x2, y2,fit1)
+    return interval(f,x1, y1, x2, y2,fit1)
 ###═════════════════════════════════════════════════════════════════════
 # @numba.jit(nopython=True,cache=True)
 def n_lines(x,y,x0,y0,atol):
