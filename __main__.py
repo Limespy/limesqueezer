@@ -52,16 +52,40 @@ print(data.x_compressed[-1])
 y0 = np.array([data.y[0],data.y[0]+data.x[0]])
 
 with lc.Compressed(data.x[0], y0,ytol=atol, mins=mins) as compressed:
+    plt.ion()
+    
+    fig, ax = plt.subplots()
+    ax.set_title("interactive test")
+    ax.set_xlabel("index")
+    ax.set_adjustable("datalim")
+    ax.set_xlim(-0.1,1.1)
+    ax.set_ylim(-0.1,1.1)
+    ax.plot(data.x,data.y)
+    ln = ax.plot(compressed.x,compressed.y[:,0],'-o')
     t_start = time.perf_counter()
+    xlim = 0
     for x,y in zip(data.x,data.y):
         compressed(x,np.array([y, y+x]))
-
+        # print(compressed.x)
+        # print(compressed.y)
+        if x>xlim:
+            xlim += 0.01
+            if type(ln) == list:
+                for index, line in enumerate(ln):
+                    line.set_xdata(compressed.x)
+                    line.set_ydata(compressed.y[:,index])
+            else:
+                ln.set_xdata(compressed.x)
+                ln.set_ydata(compressed.y)
+            fig.canvas.draw()
+    plt.show()
+    time.sleep(2)
 print("compression time",time.perf_counter()-t_start)
 # # print(compressed)
 
 # # for x,y in zip(compressed.x,data.x_compressed):
 # #     print(x,y)
-
+plt.show()
 print(len(compressed))
 # # print(compressed.y[:,0])
 # print(compressed.x[-1])

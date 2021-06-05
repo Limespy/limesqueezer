@@ -33,7 +33,7 @@ class Data():
     def reference(self, x,c):
         # Setting up the reference data
         # return 2 - x/ (1+c-c*x)
-        return np.sin(x**2*c*2)+3
+        return np.sin(x**2*c*2)/2+0.5
     #───────────────────────────────────────────────────────────────────
     def make_lerp(self):
         self.lerp = interpolate.interp1d(self.x_compressed, self.y_compressed,
@@ -174,7 +174,8 @@ def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
         b = y_c[-1] - a * x_c[-1]
 
         errmax = np.amax(np.abs(a*x[indices] + b - y[indices]))
-        return errmax-atol, (a,b)
+        errmax = np.amax(np.abs(a*x[indices].reshape([-1,1]) + b - y[indices]),axis=0)
+        return np.amax(errmax/atol-1), (a,b)
     #───────────────────────────────────────────────────────────────
     n2, fit = droot(f2zero,-atol, estimate, left)
     n2 += 1
@@ -186,7 +187,7 @@ def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
         estimate = int((n2 + left/(n_lines(x[zero+1:], y[zero+1:], 
                                            x_c[-1], y_c[-1], atol)))/2)
         estimate = min(left, estimate)
-        n2, fit = droot(f2zero,-atol, estimate, left)
+        n2, fit = droot(f2zero,-1, estimate, left)
         n2 += 1
         zero += n2
         left -= n2
@@ -204,65 +205,44 @@ def LSQ10(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     return np.array(x_c), np.array(y_c)
 ###═════════════════════════════════════════════════════════════════════
 def pick(x,y,atol=1e-5, mins=30, verbosity=0, is_timed=False):
+    '''Returns indices of data points to select'''
 
     if is_timed: t_start = time.perf_counter()
 
-    x_slice = x
-    y_slice = y
-
-    limit = len(x)-3
-    atol = atol
-    #───────────────────────────────────────────────────────────────
+    zero = 1
+    left = len(x)- 1 - zero
+    estimate = int(left/n_lines(x,y,x[0],y[0],atol) )+1
+    indices = [0]
+    #───────────────────────────────────────────────────────────────────
     def f2zero(n,xs, ys,atol):
-        n = int(n)+2
-        step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
-        a = (ys[n] - ys[0])/(xs[n] - xs[0])
-        b = ys[0] - a * xs[0]
-        return max(np.abs(a*xs[0:n:step]+ b - ys[0:n:step]))-atol , None
-    #───────────────────────────────────────────────────────────────
-    x_c = [x_slice[0]]
-    y_c = [y_slice[0]]
-    step = int(limit/5)
-    scaler = n_lines(x_slice,y_slice,x_slice[0],y_slice[0],int(limit/5),atol) 
-    estimate = min(limit,int(limit/scaler+1))
-    # print('estimate',estimate)
+        n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
+        indices_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
 
-    n2, _ = droot(lambda n: f2zero(n, x_slice, y_slice, atol),
-                    -atol, estimate, limit)
-    # print('n2',n2)
-    # print(estimate/n2-1)
+        a = (y[n+zero] - y[zero])/(x[n+zero] - x[zero])
+        b = y[zero] - a * xs[zero]
 
-    while n2-1 < limit:
-        x_c.append(x_slice[n2])
-        y_c.append(y_slice[n2])
-        x_slice = x_slice[n2:]
-        y_slice = y_slice[n2:]
+        errmax = np.amax(np.abs(a*x[indices_test].reshape([-1,1]) + b - y[indices_test]),axis=0)
+        return np.amax(errmax/atol-1), None
+    #───────────────────────────────────────────────────────────────────
+    while left > 0:
+        estimate = int((n2 + left/(n_lines(x[zero:], y[zero:], 
+                                           x[indices[-1]], y[indices[-1]], atol)))/2)
+        estimate = min(left, estimate)
+        n2, _ = droot(f2zero,-atol, estimate, left)
+        n2 += 1
+        zero += n2
+        left -= n2
+        
+        indices.append(zero-1)
 
-        limit -= n2 + 1
-        step = int(limit/5)
-        errscale = 0.5*np.max(np.abs((y_slice[-1]- y_slice[0])
-                            /(x_slice[-1] - x_slice[0])
-                            * (x_slice[1:limit:step]-x_slice[0])
-                            + y_slice[0] - y_slice[1:limit:step])) / atol
-        scaler = errscale**0.5 + 1
-        # print('from scaler',limit/scaler)
-        estimate = min(limit,int((limit/scaler+n2)/2))
-        # print('estimate',estimate)
-
-        n2, _ = droot(lambda n: f2zero(n, x_slice, y_slice, atol),
-                        -atol, estimate, limit)
-        # print('n2',n2)
-        # print(estimate/n2-1)
-    #───────────────────────────────────────────────────────────────
-    x_c = np.array(x_c.append(x_slice[-1]))
-    y_c = np.array(y_c.append(y_slice[-1]))
     if is_timed: t = time.perf_counter()-t_start
     if verbosity>0: 
-        text = 'Length of compressed array\t%i'%len(x_c)
-        text += '\nCompression factor\t%.3f %%' % 100*len(x_c)/len(x)
+        text = 'Length of compressed array\t%i'%len(indices)
+        text += '\nCompression factor\t%.3f %%' % (100*len(indices)/len(x))
         if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
         print(text)
-    return x_c, y_c
+    
+    return np.array(indices)
 ###═════════════════════════════════════════════════════════════════════
 def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
     t_start = time.perf_counter()
@@ -289,31 +269,40 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
 ###═════════════════════════════════════════════════════════════════════
 class CompressedContainer(abc.Sized):
     def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
-        self.xb = [x0]
-        self.yb = [np.array(y0)] # Variables are columns, e.g. 3xn
-        self.x = [self.xb[0]]
-        self.y = [self.yb[0]]
+        self.xb = []
+        self.yb = [] # Variables are columns, e.g. 3xn
+        self._x = [x0]
+        self._y = [np.array(y0)]
         self.n1 = 0
         self.n2 = 2
         self.mins = mins
         self.ytol = np.array(ytol)
+        self.state = 'open'
+    #───────────────────────────────────────────────────────────────────
+    @property
+    def x(self):
+        return self._x if self.state == 'closed' else np.array(self._x + self.xb[-1:])
+    #───────────────────────────────────────────────────────────────────
+    @property
+    def y(self):
+        return self._y if self.state == 'closed' else np.array(self._y + self.yb[-1:])
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self,n):
         '''Function such that n is optimal when f2zero(n) = 0'''
         n_steps = n+1 if n+1<=self.mins else int((n+1 - self.mins)**0.5 + self.mins)
         indices = np.rint(np.linspace(0,n,n_steps)).astype(int)
-        Dx = self.xb[indices]-self.x[-1]
-        Dy = self.yb[indices]-self.y[-1]
+        Dx = self.xb[indices]-self._x[-1]
+        Dy = self.yb[indices]-self._y[-1]
         a = np.matmul(Dx,Dy)/Dx.dot(Dx)
-        b = self.y[-1] - a * self.x[-1]
+        b = self._y[-1] - a * self._x[-1]
         errmax = np.amax(np.abs(a*self.xb[indices].reshape([-1,1]) + b - self.yb[indices]),axis=0)
         return np.amax(errmax/self.ytol-1), (a,b)
     #───────────────────────────────────────────────────────────────────
     def compress(self):
         cutoff, fit = interval(self._f2zero,self.n1,self.tol1, self.limit,self.tol2,self.fit1)
         self.n1, self.n2, self.tol1 = 0, cutoff, -1.
-        self.x.append(self.xb[cutoff])
-        self.y.append(fit[0]*self.x[-1] + fit[1])
+        self._x.append(self.xb[cutoff])
+        self._y.append(fit[0]*self._x[-1] + fit[1])
 
         self.xb = self.xb[cutoff:]
         self.yb = self.yb[cutoff:]
@@ -333,9 +322,10 @@ class CompressedContainer(abc.Sized):
             else:
                 self.compress()
             self.xb, self.yb = list(self.xb), list(self.yb)
-        return len(self.x), len(self.xb)
+        return len(self._x), len(self.xb)
     #───────────────────────────────────────────────────────────────────
     def close(self):
+        self.state = 'closing'
         self.xb, self.yb = np.array(self.xb), np.array(self.yb)
         self.n1, self.limit  = 0, len(self.xb) - 1
         self.tol2, self.fit2 = self._f2zero(self.limit)
@@ -346,12 +336,13 @@ class CompressedContainer(abc.Sized):
             self.tol1, self.fit1 = -1, self.fit2
             self.tol2, self.fit2 = self._f2zero(self.limit)
         
-        self.x.append(self.xb[-1])
-        self.y.append(self.yb[-1])
-        self.x, self.y = np.array(self.x), np.array(self.y)
+        self._x.append(self.xb[-1])
+        self._y.append(self.yb[-1])
+        self._x, self._y = np.array(self._x), np.array(self._y)
+        self.state = 'closed'
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
-        return len(self.x)
+        return len(self._x) +len(self.xb)
     #───────────────────────────────────────────────────────────────────
     def __str__(self):
         s = 'x = ' + str(self.x)
