@@ -1,13 +1,11 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from os import X_OK
 import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import time
 from numpy.polynomial import polynomial as poly
-import numba
 from collections import abc
 
 def lfit(*args):
@@ -255,17 +253,15 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
         err = lambda x, y: np.abs((y2- y1) /(x2 - x1)* (x - x1) + y1 - y)
         i = a + 1 + step*np.argmax(err(x[a+1:b-1:step], y[a+1:b-1:step]))
         return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > atol else [a,b]
-    indices= rec(0,len(x)-1)
+    indices = rec(0,len(x)-1)
 
-    x_c = x[indices]
-    y_c = y[indices]
     if is_timed: t = time.perf_counter()-t_start
     if verbosity>0:
-        text = 'Length of compressed array\t%i'%len(x_c)
-        text += '\nCompression factor\t%.3f %%' % 100*len(x_c)/len(x)
+        text = 'Length of compressed array\t%i'%len(indices)
+        text += '\nCompression factor\t%.3f %%' % 100*len(indices)/len(x)
         if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
         print(text)
-    return x_c, y_c
+    return indices
 ###═════════════════════════════════════════════════════════════════════
 class CompressedContainer(abc.Sized):
     def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
