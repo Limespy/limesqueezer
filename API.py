@@ -3,13 +3,12 @@
 
 import numpy as np
 from scipy import interpolate
-import matplotlib.pyplot as plt
 import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
 
 def lfit(*args):
-    return poly.Polynomial.fit(*args)
+    return 
 ###═════════════════════════════════════════════════════════════════════
 class Data():
     '''Data container'''
@@ -90,9 +89,7 @@ def n_lines(x,y,x0,y0,atol):
      - y[indices]))/atol
     return errscale**0.5 + 1
 ###═════════════════════════════════════════════════════════════════════
-
-###═════════════════════════════════════════════════════════════════════
-### COMPRESSION FUNCTIONS
+### BLOCK COMPRESSION
 def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
     '''Compresses the data of type y = f(x) using linear least squares fitting
     Works best if
@@ -108,7 +105,7 @@ def LSQ1(x,y,atol=1e-5, mins=10, verbosity=0, is_timed=False):
         '''Function such that n is optimal when initial_f2zero(n) = 0'''
         step = 1 if n<=mins*2 else int(n / ((n * 2 - mins)**0.5 + mins / 2))
         n += zero
-        fit = lfit(x[:n+1:step], y[:n+1:step], 1)
+        fit = poly.Polynomial.fit(x[:n+1:step], y[:n+1:step], 1)
         return max(abs(fit(x[0])- y[0]),abs(fit(x[n])- y[n])) - atol, fit
     #───────────────────────────────────────────────────────────────
     n2, fit = droot(initial_f2zero, -atol, estimate, left)
@@ -263,7 +260,9 @@ def split(x,y,atol=1e-5, mins=100, verbosity=0, is_timed=False):
         print(text)
     return indices
 ###═════════════════════════════════════════════════════════════════════
+### STREAM COMPRESSION
 class CompressedContainer(abc.Sized):
+    '''Context manager for stream compression'''
     def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
         self.xb = []
         self.yb = [] # Variables are columns, e.g. 3xn
@@ -275,11 +274,11 @@ class CompressedContainer(abc.Sized):
         self.ytol = np.array(ytol)
         self.state = 'open'
     #───────────────────────────────────────────────────────────────────
-    @property
+    @property # An optimization
     def x(self):
         return self._x if self.state == 'closed' else np.array(self._x + self.xb[-1:])
     #───────────────────────────────────────────────────────────────────
-    @property
+    @property # An optimization
     def y(self):
         return self._y if self.state == 'closed' else np.array(self._y + self.yb[-1:])
     #───────────────────────────────────────────────────────────────────
@@ -364,40 +363,13 @@ class Compressed():
     def __exit__(self, exc_type, exc_value, traceback):
         self.container.close()
 
-# Given atol and Delta_y, 
-# in the best case 1 line would be enough 
-# and in the worst case Delta_y / atol.
-#
-# Geometric mean between these would maybe be good choice,
-# so likely around n_lines ~ sqrt(Delta_y / atol)
-# meaning delta_x ~ Delta_x * sqrt(atol / Delta_y)
-# 
-# When this is normalised so Delta_y = 1 and Delta_x = n,
-# delta_x ~ n * sqrt(atol)
+#%%═════════════════════════════════════════════════════════════════════
+# WRAPPING
+
 methods = {'LSQ1': LSQ1,
            'LSQ10': LSQ10,
            'pick': pick,
            'split': split}
-
-###═════════════════════════════════════════════════════════════════════
-def fastcompress(x, y, atol=1e-5, mins = 100):
-    '''Fast compression using sampling and splitting from largest error
-    x: 1D numpy array
-    y: 1D numpy array
-    atol: absolute error tolerance
-    mins: minimum number of samples, don't change if you don't understand
-    '''
-    def r(a, b):
-        '''Recurser'''
-        n = b-a-1
-        step = 1 if n<=mins*2 else round(n / (2*(n - mins)**0.5 + mins))
-
-        e = lambda xf, yf: np.abs((y[b]- y[a]) /(x[b] - x[a])* (xf - x[a]) + y[a] - yf)
-        i = a + step*np.argmax(e(x[a+1:b-1:step], y[a+1:b-1:step]))
-
-        return np.concatenate((r(a,i), r(i,b)[1:])) if e(x[i], y[i]) > atol else (a,b)
-
-    return r(0,len(x)-1)
 
 def compress(*args, method='LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
