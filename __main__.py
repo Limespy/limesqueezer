@@ -56,8 +56,7 @@ with lc.Compressed(data.x[0], y0,ytol=atol, mins=mins) as compressed:
     
     fig, ax = plt.subplots()
     ax.set_title("interactive test")
-    ax.set_xlabel("index")
-    ax.set_adjustable("datalim")
+    ax.set_xlabel("x")
     ax.set_xlim(-0.1,1.1)
     ax.set_ylim(-0.1,1.1)
     ax.plot(data.x,data.y)

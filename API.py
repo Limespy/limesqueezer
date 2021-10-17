@@ -7,8 +7,6 @@ import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
 
-def lfit(*args):
-    return 
 ###═════════════════════════════════════════════════════════════════════
 class Data():
     '''Data container'''
