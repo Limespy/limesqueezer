@@ -48,7 +48,7 @@ references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
 #───────────────────────────────────────────────────────────────────────
 def generate(function, method, ytol=1e-3):
     x_ref, y_ref = raw[function]()
-    xc, yc = compression.compress(x_ref, y_ref, method=method, ytol=[ytol,2*ytol])
+    xc, yc, _ = compression.compress(x_ref, y_ref, method=method, ytol=[ytol,2*ytol])
     print('xc',xc)
     print('xc reshape', xc.reshape([-1,1]))
     print(yc)
