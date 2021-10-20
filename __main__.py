@@ -33,25 +33,27 @@ else:
     #───────────────────────────────────────────────────────────────────────
     elif sys.argv[1] == 'cwd':
         print(os.getcwd())
-
+if sys.argv[1] == 'tests':
+    import tests
+    exit()
 
 path_home = pathlib.Path(__file__).parent.absolute()
 
 path_figures = path_home / 'figures'
 ###═════════════════════════════════════════════════════════════════════
 n_data = int(float(sys.argv[1]))
-atol = float(sys.argv[2])
+ytol = float(sys.argv[2])
 mins = int(float(sys.argv[3]))
 b = int(float(sys.argv[4]))
 data = lc.Data(n_data=n_data,b=b)
 data.x_compressed, data.y_compressed = lc.compress(data.x,data.y,
-                                                   atol=atol, mins = mins,
+                                                   ytol=ytol, mins = mins,
                                                    verbosity = verbosity,
                                                    is_timed = is_timed)
 print(data.x_compressed[-1])
 y0 = np.array([data.y[0],data.y[0]+data.x[0]])
 
-with lc.Compressed(data.x[0], y0,ytol=atol, mins=mins) as compressed:
+with lc.Compressed(data.x[0], y0,ytol=ytol, mins=mins) as compressed:
     plt.ion()
     
     fig, ax = plt.subplots()
@@ -110,7 +112,7 @@ if is_plot:
 
     lerp = interpolate.interp1d(compressed.x,compressed.y[:,0], assume_sorted=True)
     residuals = lerp(data.x) - data.y
-    print('max relative residual',np.amax(np.abs(residuals))/atol)
+    print('max relative residual',np.amax(np.abs(residuals))/ytol)
 
     plt.figure()
     plt.plot(compressed.x,compressed.y[:,0],'-o')
@@ -125,7 +127,7 @@ if is_plot:
     if is_save: plt.savefig(path_figures/(title+'.pdf'), bbox_inches='tight')
 #───────────────────────────────────────────────────────────────────
 # data2 = lc.Data(n_data=n_data,b=b)
-# data2.simplecompress(atol=atol,mins = mins,verbosity=verbosity)
+# data2.simplecompress(ytol=ytol,mins = mins,verbosity=verbosity)
 
 # if is_plot:
 #     plt.figure()
@@ -144,7 +146,7 @@ if is_plot:
 #     if is_save: plt.savefig(path_figures/(title+'.png'), bbox_inches='tight')
 # #───────────────────────────────────────────────────────────────────
 # data3 = lc.Data(n_data=n_data,b=b)
-# data3.fastcompress(atol=atol, mins = mins*10,verbosity = verbosity)
+# data3.fastcompress(ytol=ytol, mins = mins*10,verbosity = verbosity)
 
 # if is_plot:
 #     plt.figure()
@@ -163,7 +165,7 @@ if is_plot:
 #     if is_save: plt.savefig(path_figures/(title+'.png'), bbox_inches='tight')
 
 # # t_start = time.perf_counter()
-# indices = lc.fastcompress(data3.x, data3.y, atol=atol, mins = mins)
+# indices = lc.fastcompress(data3.x, data3.y, ytol=ytol, mins = mins)
 
 # data3.x_compressed, data3.y_compressed = data3.x[indices], data3.y[indices]
 # t = time.perf_counter()-t_start
@@ -173,7 +175,7 @@ if is_plot:
 # print('Compression factor\t%.3f %%' % (compression_residual*1e2))
 
 # data3.make_lerp()
-# tol = abs(data3.residual())-data3.atol
+# tol = abs(data3.residual())-data3.ytol
 # print(max(tol))
 # plt.figure()
 # plt.plot(data3.x,tol)
