@@ -37,6 +37,8 @@ if sys.argv[1] == 'tests':
     import tests
     exit()
 
+
+
 path_home = pathlib.Path(__file__).parent.absolute()
 
 path_figures = path_home / 'figures'
@@ -81,6 +83,11 @@ with lc.Compressed(data.x[0], y0,ytol=ytol, mins=mins) as compressed:
             fig.canvas.draw()
     plt.show()
     time.sleep(2)
+    # if verbosity>0: 
+    #     text = 'Length of compressed array\t%i'%len(x_c)
+    #     text += '\nCompression factor\t%.3f %%' % (100*len(x_c)/len(x))
+    #     if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
+    #     print(text)
 print("compression time",time.perf_counter()-t_start)
 # # print(compressed)
 

@@ -154,9 +154,10 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
     dy/dx < 0
     d2y/dx2 < 0
     '''
+    runtime = None
     if is_timed: t_start = time.perf_counter()
     start = 1 # Index of starting point for looking for optimum
-    end = len(x) - 2 # Number of uncompressed datapoints -1, i.e. the index
+    end = len(x) - 2 # Number of uncompressed datapoints -2, i.e. the index
     offset = -1
     fit = None
     ytol = np.array(ytol)
@@ -177,45 +178,31 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
 
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = y_c[-1] - a * x_c[-1]
-        # print('start', start, n,indices)
+        
         errmax = np.amax(np.abs(a*x[indices].reshape([-1,1]) + b - y[indices]),
                          axis=0)
-        # print('err', np.amax(errmax/ytol-1))
-        # print('fit', a, b)
+
         return np.amax(errmax/ytol-1), (a,b)
     #───────────────────────────────────────────────────────────────
     while end > 0:
         x_c.append(x[offset + start])
-        #print('y slice', y[offset + start])
         y_c.append(fit[0]*x_c[-1] + fit[1] if fit else y[offset + start])
-        start += offset + 1 # Number of datapoints compressed is offset index + 1
+        start += offset + 1 # Start shifted by the number compressed
         # Estimated number of lines needed
         lines = n_lines(x[start:], y[start:], x_c[-1], y_c[-1], ytol)
         # Arithmetic mean between previous step length and line estimate,
         # limited to end index of the array
         estimate = min(end, np.amin(((offset + (end+1) / lines)/2)).astype(int))
-        # print('end', end)
-        #print('estimate', estimate)
-        # print('start',start)
-        # print('end', end)
-        # print()
+
         offset, fit = droot(_f2zero, -1, estimate, end)
         end -= offset + 1
-        # print('offset', offset)
-        # print(fit)
-        # print('start',start)
     # Last data point is same as in the uncompressed data
     x_c.append(x[-1])
     y_c.append(y[-1])
 
-    if is_timed: t = time.perf_counter() - t_start
-    if verbosity>0: 
-        text = 'Length of compressed array\t%i'%len(x_c)
-        text += '\nCompression factor\t%.3f %%' % (100*len(x_c)/len(x))
-        if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
-        print(text)
+    if is_timed: runtime = time.perf_counter() - t_start
     
-    return np.array(x_c), np.array(y_c)
+    return np.array(x_c), np.array(y_c), runtime
 ###═════════════════════════════════════════════════════════════════════
 def pick(x,y,ytol=1e-5, mins=30, verbosity=0, is_timed=False):
     '''Returns indices of data points to select'''
