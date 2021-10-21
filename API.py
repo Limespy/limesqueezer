@@ -5,35 +5,7 @@ from scipy import interpolate
 import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
-###═════════════════════════════════════════════════════════════════════
-class Data():
-    '''Data container'''
-    def __init__(self,x=None,y=None,n_data=None, b = 3):
-        if x:
-            self.x = x
-            self.n_data = len(self.x)
-            self.y = y if y else self.reference(self.x,b)
-        else:
-            self.n_data = int(1e5) if not n_data else int(n_data)
-            self.x = np.linspace(0,1,int(self.n_data))
-            self.y = self.reference(self.x,b)
-        
-        self.y_range = np.max(self.y)-np.min(self.y)
 
-        self.x_compressed = None
-        self.y_compressed = None
-    #─────────────────────────────────────────────────────────────────── 
-    def reference(self, x,c):
-        # Setting up the reference data
-        # return 2 - x/ (1+c-c*x)
-        return np.sin(x**2*c*2)/2+0.5
-    #───────────────────────────────────────────────────────────────────
-    def make_lerp(self):
-        self.lerp = interpolate.interp1d(self.x_compressed, self.y_compressed,
-                                            assume_sorted=True)
-        self.residuals = self.lerp(self.x) - self.y
-        self.NRMSE = np.std(self.residuals)/self.y_range
-        self.covariance = np.cov((self.lerp(self.x), self.y))
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES
 def interval(f,x1,y1,x2,y2,fit1):
@@ -163,10 +135,9 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
     ytol = np.array(ytol)
     x_c, y_c = [], []
     if len(y.shape) == 1: # Converting to correct shape for this function
-        y = y.reshape(-1,1)
+        y = y.reshape(len(x),1)
     elif y.shape[0] != len(x):
         y = y.T
-    print('y',y)
     #───────────────────────────────────────────────────────────────
     def _f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
@@ -178,7 +149,7 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
 
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = y_c[-1] - a * x_c[-1]
-        
+
         errmax = np.amax(np.abs(a*x[indices].reshape([-1,1]) + b - y[indices]),
                          axis=0)
 
@@ -202,7 +173,7 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
 
     if is_timed: runtime = time.perf_counter() - t_start
     
-    return np.array(x_c), np.array(y_c), runtime
+    return np.array(x_c).reshape(-1,1), np.array(y_c), runtime
 ###═════════════════════════════════════════════════════════════════════
 def pick(x,y,ytol=1e-5, mins=30, verbosity=0, is_timed=False):
     '''Returns indices of data points to select'''

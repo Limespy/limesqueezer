@@ -1,3 +1,6 @@
 import reference
+import plotters
 
-reference.generate('poly2', 'LSQ10')
+data = reference.generate('poly2', 'LSQ10')
+
+plotters.plot_1_data_compressed(data)

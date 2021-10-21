@@ -1,9 +1,12 @@
+import sys
 import pathlib
 import numpy as np
 from collections import namedtuple
+from scipy import interpolate
+
 path_package = pathlib.Path(__file__).parent.absolute()
 
-import sys
+
 sys.path.insert(1,str(path_package.parent))
 import API as compression
 #%%═════════════════════════════════════════════════════════════════════
@@ -35,23 +38,37 @@ def raw_poly1(n=1e1):
 #───────────────────────────────────────────────────────────────────────
 def raw_poly2(n=1e2):
     x = np.linspace(0,1,int(n))
-    return x, np.array([x**2,2*x**2])
+    return x, np.array(x**2)
 #───────────────────────────────────────────────────────────────────────
 raw = {'poly0': raw_poly0,
        'poly1': raw_poly1,
        'poly2': raw_poly2}
-
-#───────────────────────────────────────────────────────────────────────
-
+###═════════════════════════════════════════════════════════════════════
+class Data():
+    '''Data container'''
+    def __init__(self, function, ytol=1e-2):
+        
+        self.x, self.y = raw[function]()
+        self.y_range = np.max(self.y) - np.min(self.y)
+        self.ytol = ytol
+        self.xc = None
+        self.yc = None
+    #───────────────────────────────────────────────────────────────────
+    def make_lerp(self):
+        self.lerp = interpolate.interp1d(self.xc.flatten(), self.yc.flatten(),
+                                            assume_sorted=True)
+        self.residuals = self.lerp(self.x) - self.y
+        self.residuals_relative = self.residuals / self.ytol
+        self.NRMSE = np.std(self.residuals)/self.y_range
+        self.covariance = np.cov((self.lerp(self.x), self.y))
 #───────────────────────────────────────────────────────────────────────
 references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
 #───────────────────────────────────────────────────────────────────────
 def generate(function, method, ytol=1e-3):
-    x_ref, y_ref = raw[function]()
-    xc, yc, _ = compression.compress(x_ref, y_ref, method=method, ytol=[ytol,2*ytol])
-    print('xc',xc)
-    print('xc reshape', xc.reshape([-1,1]))
-    print(yc)
-
+    data = Data(function)
+    data.xc, data.yc, _ = compression.compress(data.x, data.y, method=method, ytol=data.ytol)
+    data.make_lerp()
+    print(np.amax(data.residuals/ytol))
     np.savetxt(path_data / (function+'_'+method+'.csv'),
-               np.concatenate((xc.reshape([-1,1]), yc), axis=1), delimiter=',')
+               np.concatenate((data.xc, data.yc), axis=1), delimiter=',', header='hmm')
+    return data
