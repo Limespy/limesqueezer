@@ -13,6 +13,7 @@ def plot_1_data_compressed(data):
     axs[0].legend(['Original', 'Compressed'])
     # Residual relative to tolerance
     axs[1].plot(data.x, data.residuals_relative, color = colors['AuroraBlue'])
+    axs[1].legend(['Relative Residual'])
     fig.tight_layout()
     plt.show()
 
