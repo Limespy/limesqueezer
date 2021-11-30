@@ -65,7 +65,7 @@ def n_lines(x,y,x0,y0,ytol):
     
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ1(x,y,ytol=1e-5, mins=10, verbosity=0, is_timed=False):
+def LSQ1(x,y,ytol=1e-2, mins=10, verbosity=0, is_timed=False):
     '''Compresses the data of type y = f(x) using linear least squares fitting
     Works best if
     dy/dx < 0
@@ -120,11 +120,9 @@ def LSQ1(x,y,ytol=1e-5, mins=10, verbosity=0, is_timed=False):
     print(x_c[-1])
     return np.array(x_c), np.array(y_c)
 ###═════════════════════════════════════════════════════════════════════
-def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
-    '''Compresses the data of type y = f(x) using linear least squares fitting
-    Works best if
-    dy/dx < 0
-    d2y/dx2 < 0
+def LSQ10(x, y, ytol=1e-2, verbosity=0, is_timed=False):
+    '''Compresses the data of 1-dimensional system of equations
+    i.e. single input variable and one or more output variable
     '''
     runtime = None
     if is_timed: t_start = time.perf_counter()
@@ -141,8 +139,7 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
     #───────────────────────────────────────────────────────────────
     def _f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
-        indices = np.rint(np.linspace(start, n + start, n_steps)).astype(int)
+        indices = np.linspace(start, n + start, int((n+1)**0.5)+ 2).astype(int)
 
         Dx = x[indices] - x_c[-1]
         Dy = y[indices] - y_c[-1]
@@ -175,7 +172,7 @@ def LSQ10(x, y, ytol=1e-5, mins=10, verbosity=0, is_timed=False):
     
     return np.array(x_c).reshape(-1,1), np.array(y_c), runtime
 ###═════════════════════════════════════════════════════════════════════
-def pick(x,y,ytol=1e-5, mins=30, verbosity=0, is_timed=False):
+def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
     '''Returns indices of data points to select'''
 
     if is_timed: t_start = time.perf_counter()
@@ -215,7 +212,7 @@ def pick(x,y,ytol=1e-5, mins=30, verbosity=0, is_timed=False):
     
     return np.array(indices)
 ###═════════════════════════════════════════════════════════════════════
-def split(x,y,ytol=1e-5, mins=100, verbosity=0, is_timed=False):
+def split(x,y,ytol=1e-2, mins=100, verbosity=0, is_timed=False):
     t_start = time.perf_counter()
     def rec(a, b):
         n = b-a-1
@@ -238,8 +235,11 @@ def split(x,y,ytol=1e-5, mins=100, verbosity=0, is_timed=False):
 ###═════════════════════════════════════════════════════════════════════
 ### STREAM COMPRESSION
 class _StreamCompressedContainer(abc.Sized):
-    '''Class for doing stream compression'''
-    def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
+    '''Class for doing stream compression for data of 1-dimensional
+    system of equations 
+    i.e. single input variable and one or more output variable
+    '''
+    def __init__(self, x0 ,y0, mins=20, ytol=1e-2):
         self.xb = []
         self.yb = [] # Variables are columns, e.g. 3xn
         self._x = [x0]
@@ -260,10 +260,12 @@ class _StreamCompressedContainer(abc.Sized):
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self,n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        n_steps = n+1 if n+1<=self.mins else int((n+1 - self.mins)**0.5 + self.mins)
-        indices = np.rint(np.linspace(0,n,n_steps)).astype(int)
+        #indices = np.rint(np.linspace(0,n,n_steps)).astype(int)
+        indices = np.linspace(0, n, int((n+1)**0.5)+ 2).astype(int)
+
         Dx = self.xb[indices] - self._x[-1]
         Dy = self.yb[indices] - self._y[-1]
+        
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = self._y[-1] - a * self._x[-1]
         errmax = np.amax(np.abs(a*self.xb[indices].reshape([-1,1]) + b - self.yb[indices]),axis=0)
@@ -322,8 +324,9 @@ class _StreamCompressedContainer(abc.Sized):
     #───────────────────────────────────────────────────────────────────
 ###═════════════════════════════════════════════════════════════════════
 class Stream():
-    '''Context manager for stream compression'''
-    def __init__(self, x0 ,y0, mins=20, ytol=1e-4):
+    '''Context manager for stream compression of data of 
+    1 dimensional system of equations'''
+    def __init__(self, x0 ,y0, mins=20, ytol=1e-2):
         self.x0 = x0
         self.y0 = y0 # Variables are columns, e.g. 3xn
         self.mins = mins

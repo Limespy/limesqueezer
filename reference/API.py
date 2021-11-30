@@ -40,7 +40,7 @@ def raw_poly2(n=1e2):
     x = np.linspace(0,1,int(n))
     return x, np.array(x**2)
 #───────────────────────────────────────────────────────────────────────
-def raw_sine(n=1e2):
+def raw_sine(n=1e4):
     x = np.linspace(0,1,int(n))
     return x, np.array(np.sin(x*6))
 #───────────────────────────────────────────────────────────────────────
@@ -64,6 +64,7 @@ class Data():
                                             assume_sorted=True)
         self.residuals = self.lerp(self.x) - self.y
         self.residuals_relative = self.residuals / self.ytol
+        self.residuals_relative_cumulative = np.cumsum(self.residuals_relative)
         self.NRMSE = np.std(self.residuals)/self.y_range
         self.covariance = np.cov((self.lerp(self.x), self.y))
 #───────────────────────────────────────────────────────────────────────
