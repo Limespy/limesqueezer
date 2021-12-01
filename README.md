@@ -16,6 +16,11 @@ Lossy compression of numerical data using interpolation
     - [Both](#both)
     - [Smaller](#smaller)
   - [Math stuff](#math-stuff)
+  - [Visualiser](#visualiser)
+    - [Plot](#plot)
+      - [Top](#top)
+      - [Mid](#mid)
+      - [Bottom](#bottom)
 
 ## Use
 
@@ -139,3 +144,38 @@ meaning delta_x ~ Delta_x * sqrt(atol / Delta_y)
 
 When this is normalised so Delta_y = 1 and Delta_x = n,
 delta_x ~ n * sqrt(atol)
+
+## Visualiser
+
+Three domains --> three subplots
+1. Data and fitted points in (x, y)
+2. Of the latest fit in (x, error)
+3. Reference error vesus the reach of the fit (n, toleranced error)
+
+
+Loop is:
+1. Calculate some step
+2. Update plots
+3. Wait for user input to continue
+
+### Plot
+
+
+#### Top
+
+1. Given data
+2. Compressed points with lines
+3. Next point candidate with line to last compressed
+
+
+#### Mid
+
+1. Residuals
+2. Residuals of candidate point and line
+
+
+#### Bottom
+
+1. Previaous attempts
+2. Left and right
+3. 
