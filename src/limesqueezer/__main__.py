@@ -10,10 +10,7 @@ Why does this file exist, and why __main__? For more info, read:
 - https://docs.python.org/2/using/cmdline.html#cmdoption-m
 - https://docs.python.org/3/using/cmdline.html#cmdoption-m
 """
-from limesqueezer.cli import main
 
-if __name__ == "__main__":
-    main()
 ###═════════════════════════════════════════════════════════════════════
 ### IMPORT
 import API as lc
@@ -50,12 +47,17 @@ else:
 if sys.argv[1] == 'tests':
     import tests
     exit()
-
+elif sys.argv[1] == 'debug':
+    import plotters
+    debugplot = plotters.Debug()
+    debugplot.run()
+    exit()
 
 
 path_home = pathlib.Path(__file__).parent.absolute()
 
 path_figures = path_home / 'figures'
+
 ###═════════════════════════════════════════════════════════════════════
 n_data = int(float(sys.argv[1]))
 ytol = float(sys.argv[2])

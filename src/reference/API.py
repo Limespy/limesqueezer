@@ -3,6 +3,7 @@ import pathlib
 import numpy as np
 from collections import namedtuple
 from scipy import interpolate
+import math
 
 path_package = pathlib.Path(__file__).parent.absolute()
 
@@ -42,7 +43,7 @@ def raw_poly2(n=1e2):
 #───────────────────────────────────────────────────────────────────────
 def raw_sine(n=1e4):
     x = np.linspace(0,1,int(n))
-    return x, np.array(np.sin(x*6))
+    return x, np.array(np.sin(x*2*math.pi))
 #───────────────────────────────────────────────────────────────────────
 raw = {'poly0': raw_poly0,
        'poly1': raw_poly1,
