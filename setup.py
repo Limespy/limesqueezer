@@ -23,7 +23,7 @@ def read(*names, **kwargs):
 
 setup(
     name='limesqueezer',
-    version='1.0.4',
+    version='1.0.5',
     license='MIT',
     description='Lossy compression tools for smooth data series',
     long_description='%s\n%s' % (
