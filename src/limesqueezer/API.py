@@ -1,10 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import numpy as np
-from scipy import interpolate
 import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
+
+import sys
+
+import plotters
+
 
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES

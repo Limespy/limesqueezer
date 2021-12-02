@@ -13,7 +13,8 @@ Why does this file exist, and why __main__? For more info, read:
 
 ###═════════════════════════════════════════════════════════════════════
 ### IMPORT
-import API as lc
+
+
 from scipy import interpolate
 import sys
 import os
@@ -21,6 +22,9 @@ import pathlib
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+
+sys.path.insert(1,str(pathlib.Path(__file__).parent.absolute()))
+import API as lc
 
 helpstring = 'No arguments given'
 
