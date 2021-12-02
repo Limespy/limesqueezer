@@ -48,16 +48,19 @@ class Debug:
         for ax in self.axs:
             ax.grid()
         self.axs[2].set_ylabel('Tolerance left')
-        self.line_data = self.axs[0].plot(self.x_data, self.y_data)
+        self.line_data, = self.axs[0].plot(self.x_data, self.y_data)
+
+        self.line_fit, = self.axs[0].plot(0,0,'-',color='orange')
     #───────────────────────────────────────────────────────────────────
     def run(self):
         plt.ion()
         plt.show()
         self.x_compressed, self.y_compressed = self.LSQ10()
+        plt.ioff()
         pass
     #───────────────────────────────────────────────────────────────────
-    def update_plot(self):
-        self.axs[2].plot(self.xmid, self.y_mid)
+    def __getitem__(self, items):
+        return (self.x_data[items], self.y_data[items])
     #───────────────────────────────────────────────────────────────────
     def LSQ10(self):
         '''Compresses the data of 1-dimensional system of equations
@@ -75,8 +78,26 @@ class Debug:
             a = np.matmul(Dx,Dy) / Dx.dot(Dx)
             b = self.y_c[-1] - a * self.x_c[-1]
 
-            errmax = np.amax(np.abs(a*self.x_data[indices].reshape([-1,1]) + b - self.y_data[indices]),
-                            axis=0)
+            selected_residuals = np.abs(a*self.x_data[indices].reshape([-1,1]) + b - self.y_data[indices])
+
+            errmax = np.amax(selected_residuals, axis=0)
+            indices_all = np.arange(self.start,self.start + int(n)+1)
+            x, y = self[indices_all]
+            all_residuals = (np.abs(a*x.reshape([-1,1])  + b - y))/self.ytol - 1
+            x_root, y_root = self[self.start-1]
+
+            self.line_fit.set_xdata([x_root, x[-1]])
+            self.line_fit.set_ydata([y_root, y[-1]])
+
+            self.axs[1].clear()
+            self.axs[1].grid()
+            self.axs[1].set_ylabel('Residual relative to tolerance')
+            self.axs[1].plot(indices_all-self.start, all_residuals,label='ignored')
+            self.axs[1].plot(indices-self.start,selected_residuals/self.ytol - 1,'.',color='red',label='measured')
+            self.axs[2].legend()
+            # Selected
+            print(self)
+            input('Fitting\n')
             return np.amax(errmax/self.ytol-1), (a,b)
         #───────────────────────────────────────────────────────────────
         while self.end > 0:
@@ -85,21 +106,24 @@ class Debug:
             self.x_c.append(self.x_data[self.offset + self.start])
             self.y_c.append(self.fit[0]*self.x_c[-1] + self.fit[1] if self.fit else self.y_data[self.offset + self.start])
             self.start += self.offset + 1 # self.start shifted by the number compressed
-            self.axs[0].plot(self.x_data[self.start], self.y_data[self.start],'.', color='red')
             # Estimated number of lines needed
             lines = ls.n_lines(self.x_data[self.start:], self.y_data[self.start:], self.x_c[-1], self.y_c[-1], self.ytol)
             # Arithmetic mean between previous step length and line self.estimate,
             # limited to self.end index of the array
             self.estimate = min(self.end, np.amin(((self.offset + (self.end+1) / lines)/2)).astype(int))
-
-            print(f'error? {(self.y_c[-1]-self.y_data[self.start-1])/self.ytol-1}')
+            err0 = abs(self.y_c[-1]-self.y_data[self.start-1])/self.ytol-1
+            print(f'error? {err0}')
             self.x2 = self.estimate
             self.limit = self.end
             print(self)
             input('Ready to call droot\n')
-            self.offset, self.fit = self.droot(_f2zero, -1)
+            self.offset, self.fit = self.droot(_f2zero, err0*2)
             self.axs[2].clear()
             self.axs[2].grid()
+            self.axs[2].set_ylabel('Maximum residual')
+            
+            self.axs[0].plot([self.x_c[-1], self.x_data[self.offset + self.start]],
+             [self.y_c[-1], self.fit[0]*self.x_data[self.offset + self.start] + self.fit[1]], color='green')
 
             self.end -= self.offset + 1
         # Last data point is same as in the uncompressed data
