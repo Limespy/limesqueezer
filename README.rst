@@ -30,9 +30,9 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/limesqueezer
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/limespy/limesqueezer/v1.0.6.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/limespy/limesqueezer/v1.0.7.svg
     :alt: Commits since latest release
-    :target: https://github.com/limespy/limesqueezer/compare/v1.0.6...master
+    :target: https://github.com/limespy/limesqueezer/compare/v1.0.7...master
 
 
 
