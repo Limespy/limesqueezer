@@ -14,6 +14,8 @@ if len(sys.argv)==1:
     exit()
 elif sys.argv[1] == 'debug':
     import plotters
-    debugplot = plotters.Debug()
+    print(sys.argv[2])
+    debugplot = plotters.Debug(errorf=sys.argv[2] if len(sys.argv)>2 else 'maxmaxabs',
+                                fitf = sys.argv[3] if len(sys.argv)>3 else 'poly1')
     debugplot.run()
-    exit()
+    input()

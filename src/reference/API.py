@@ -45,6 +45,11 @@ def raw_sine(n=1e4):
     x = np.linspace(0,1,int(n))
     return x, np.array(np.sin(x*2*math.pi))
 #───────────────────────────────────────────────────────────────────────
+def raw_sine_normal(n=1e4, std=0.1):
+    rng = np.random.default_rng(12345)
+    x = np.linspace(0,1,int(n))
+    return x, np.array(np.sin(x*2*math.pi)) + std*rng.standard_normal(int(n))
+#───────────────────────────────────────────────────────────────────────
 raw = {'poly0': raw_poly0,
        'poly1': raw_poly1,
        'poly2': raw_poly2,

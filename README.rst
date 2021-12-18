@@ -38,7 +38,7 @@ Overview
 
 .. end-badges
 
-Lossy compression tools for smooth data series
+Lossy compression tools for smooth data series. WIP
 
 * Free software: MIT license
 

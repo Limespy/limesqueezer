@@ -1,5 +1,7 @@
 # interp-compression
-Lossy compression of numerical data using interpolation
+
+Lossy compression tools for smooth data series.
+WIP
 
 - [interp-compression](#interp-compression)
   - [Use](#use)

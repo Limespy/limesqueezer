@@ -5,13 +5,96 @@ import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
 
-import sys
-
-import plotters
-
-
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES
+#%%═════════════════════════════════════════════════════════════════════
+## ERROR TERM
+errorfunctions = {'maxmaxabs':
+                  lambda r,t: np.amax(np.amax(np.abs(r), axis=0)/t-1),
+                  'maxRMS':
+                  lambda r,t: np.amax(np.sqrt(np.mean(r*r,axis=0))/t-1)}
+#%%═════════════════════════════════════════════════════════════════════
+## FITTING
+def _fit_poly1(x_data, y_data, x0, y0):
+    '''Does first degree polynomial fit and returns residuals and
+     the y value at the end'''
+    Dx = x_data - x0
+    Dy = y_data - y0[0]
+    a = np.matmul(Dx,Dy) / Dx.dot(Dx)
+    return a*Dx.reshape([-1,1]) - Dy, a*Dx[-1]+y0[0], a
+#───────────────────────────────────────────────────────────────────────
+def _fit_poly2_2(x_data, y_data, x0, y0):
+    '''Does second degree polynomial fit with two free parameters.
+    Returns residuals and the y value at the end'''
+    Dx = (x_data - x0)
+    Dx2 = Dx*Dx
+    print(f'shape of y_data\t{y_data.shape}')
+    print(f'shape of Dx\t{Dx.shape}')
+    Dy = y_data - y0[0]
+    print(f'shape of Dy\t{Dy.shape}')
+    yr = Dy/Dx.reshape([-1,1])
+    x_mean, y_mean = np.mean(Dx), np.mean(yr, axis=0)
+    a = np.matmul((Dx-x_mean),(yr-y_mean))/np.sum(Dx2)
+    b = y_mean - a*x_mean
+    print(f'shape of a\t{a.shape}')
+    print(f'shape of b\t{b.shape}')
+    y_next = [a*Dx2[-1]+ b*Dx[-1]+y0[0]]
+    res = Dy - a*Dx2.reshape([-1,1]) - b*Dx.reshape([-1,1])
+    print(f'shape of res\t{res.shape}')
+    return res, y_next, (a,b)
+#───────────────────────────────────────────────────────────────────────
+def _fit_poly3(x_data, y_data, x0, y0):
+    '''Does first degree polynomial fit and returns residuals and
+     the y value at the end'''
+    Dx = (x_data - x0)
+    Dx2 = Dx*Dx
+    Dx3 = Dx2 * Dx
+    y_res = (y0[2]*Dx2 + y0[1]*Dx + y0[0]).reshape([-1,1])
+    print(f'shape of y_data\t{y_data.shape}')
+    print(f'shape of Dx\t{Dx.shape}')
+    print(f'shape of y_res\t{y_res.shape}')
+    
+    Dy = y_data - y_res
+    print(f'shape of Dy\t{Dy.shape}')
+    print((y_data - y0[0]).shape)
+    # hmm = np.matmul(Dx,y_data - y0[0]) / Dx.dot(Dx)
+    # print(f'shape of hmm\t{hmm.shape}')
+    a = np.matmul(Dx3,Dy) / Dx3.dot(Dx3)
+    print(f'shape of a\t{a.shape}')
+    y_next = [a*Dx3[-1]+y_res[-1], 3*a*Dx2[-1]+2*y0[2]*Dx[-1]+y0[1], 6*a*Dx[-1] + 2*y0[2]]
+    res = a*Dx3.reshape([-1,1]) - Dy
+    print(f'shape of res\t{res.shape}')
+    return res, y_next, a
+#───────────────────────────────────────────────────────────────────────
+def _fit_poly4(x_data, y_data, x0, y0):
+    '''Does first degree polynomial fit and returns residuals and
+     the y value at the end'''
+    Dx = (x_data - x0)
+    Dx2 = Dx*Dx
+    Dx3 = Dx2 * Dx
+    y_res = (y0[2]*Dx2 + y0[1]*Dx + y0[0]).reshape([-1,1])
+    print(f'shape of y_data\t{y_data.shape}')
+    print(f'shape of Dx\t{Dx.shape}')
+    print(f'shape of y_res\t{y_res.shape}')
+    
+    Dy = y_data - y_res
+    print(f'shape of Dy\t{Dy.shape}')
+    print((y_data - y0[0]).shape)
+    # hmm = np.matmul(Dx,y_data - y0[0]) / Dx.dot(Dx)
+    # print(f'shape of hmm\t{hmm.shape}')
+    a = np.matmul(Dx3,Dy) / Dx3.dot(Dx3)
+    print(f'shape of a\t{a.shape}')
+    y_next = [a*Dx3[-1]+y_res[-1], 3*a*Dx2[-1]+2*y0[2]*Dx[-1]+y0[1], 6*a*Dx[-1] + 2*y0[2]]
+    res = a*Dx3.reshape([-1,1]) - Dy
+    print(f'shape of res\t{res.shape}')
+    return res, y_next, a
+#───────────────────────────────────────────────────────────────────────
+fitfunctions = {'poly1': _fit_poly1,
+                'poly2_2': _fit_poly2_2,
+                'poly3': _fit_poly3,
+                'poly4': _fit_poly4}
+#%%═════════════════════════════════════════════════════════════════════
+## ROOT FINDING
 def interval(f,x1,y1,x2,y2,fit1):
     '''Returns the last x where f(x)<0'''
     while x2 - x1 > 2:
@@ -58,12 +141,13 @@ def droot(f, y0, x2, limit):
 def n_lines(x,y,x0,y0,ytol):
     '''Estimates number of lines required to fit within error tolerance'''
     if (length := len(x)) > 1:
-        indices = np.rint(np.linspace(1,len(x)-2,int(length**0.5))).astype(int)
-        Dx = (x[indices] - x0).reshape([-1,1])
-        Dy = y[indices] - y0
-        a = (y[-1]- y0)/(x[-1] - x0)
-        errscale = 0.5*np.amax(np.abs(a*Dx - Dy) / ytol, axis=0)
-        return errscale**0.5 + 1
+        inds = np.rint(np.linspace(1,length-2,int(length**0.5))).astype(int)
+        return (0.5*np.amax(np.abs(
+                                    (y[-1]-y0)/(x[-1]-x0)*(x[inds]-x0).reshape([-1,1])
+                                    - (y[inds]-y0)
+                                    ) / ytol,
+                                     axis=0)
+                                     )**0.5 + 1
     else:
         return 1
     
@@ -143,15 +227,15 @@ def LSQ10(x, y, ytol=1e-2, verbosity=0, is_timed=False):
     #───────────────────────────────────────────────────────────────
     def _f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        indices = np.linspace(start, n + start, int((n+1)**0.5)+ 2).astype(int)
+        inds = np.linspace(start, n + start, int((n+1)**0.5)+ 2).astype(int)
 
-        Dx = x[indices] - x_c[-1]
-        Dy = y[indices] - y_c[-1]
+        Dx = x[inds] - x_c[-1]
+        Dy = y[inds] - y_c[-1]
 
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = y_c[-1] - a * x_c[-1]
 
-        errmax = np.amax(np.abs(a*x[indices].reshape([-1,1]) + b - y[indices]),
+        errmax = np.amax(np.abs(a*x[inds].reshape([-1,1]) + b - y[inds]),
                          axis=0)
 
         return np.amax(errmax/ytol-1), (a,b)
@@ -177,44 +261,44 @@ def LSQ10(x, y, ytol=1e-2, verbosity=0, is_timed=False):
     return np.array(x_c).reshape(-1,1), np.array(y_c), runtime
 ###═════════════════════════════════════════════════════════════════════
 def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
-    '''Returns indices of data points to select'''
+    '''Returns inds of data points to select'''
 
     if is_timed: t_start = time.perf_counter()
 
     zero = 1
     end = len(x)- 1 - zero
     estimate = int(end/n_lines(x,y,x[0],y[0],ytol) )+1
-    indices = [0]
+    inds = [0]
     #───────────────────────────────────────────────────────────────────
     def f2zero(n,xs, ys,ytol):
         n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
-        indices_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
+        inds_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
 
         a = (y[n+zero] - y[zero])/(x[n+zero] - x[zero])
         b = y[zero] - a * xs[zero]
 
-        errmax = np.amax(np.abs(a*x[indices_test].reshape([-1,1]) + b - y[indices_test]),axis=0)
+        errmax = np.amax(np.abs(a*x[inds_test].reshape([-1,1]) + b - y[inds_test]),axis=0)
         return np.amax(errmax/ytol-1), None
     #───────────────────────────────────────────────────────────────────
     while end > 0:
         estimate = int((end + end/(n_lines(x[zero:], y[zero:], 
-                                           x[indices[-1]], y[indices[-1]], ytol)))/2)
+                                           x[inds[-1]], y[inds[-1]], ytol)))/2)
         estimate = min(end, estimate)
         end, _ = droot(f2zero,-ytol, estimate, end)
         end += 1
         zero += end
         end -= end
         
-        indices.append(zero-1)
+        inds.append(zero-1)
 
     if is_timed: t = time.perf_counter()-t_start
     if verbosity>0: 
-        text = 'Length of compressed array\t%i'%len(indices)
-        text += '\nCompression factor\t%.3f %%' % (100*len(indices)/len(x))
+        text = 'Length of compressed array\t%i'%len(inds)
+        text += '\nCompression factor\t%.3f %%' % (100*len(inds)/len(x))
         if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
         print(text)
     
-    return np.array(indices)
+    return np.array(inds)
 ###═════════════════════════════════════════════════════════════════════
 def split(x,y,ytol=1e-2, mins=100, verbosity=0, is_timed=False):
     t_start = time.perf_counter()
@@ -227,15 +311,15 @@ def split(x,y,ytol=1e-2, mins=100, verbosity=0, is_timed=False):
         err = lambda x, y: np.abs((y2- y1) /(x2 - x1)* (x - x1) + y1 - y)
         i = a + 1 + step*np.argmax(err(x[a+1:b-1:step], y[a+1:b-1:step]))
         return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > ytol else [a,b]
-    indices = rec(0,len(x)-1)
+    inds = rec(0,len(x)-1)
 
     if is_timed: t = time.perf_counter()-t_start
     if verbosity>0:
-        text = 'Length of compressed array\t%i'%len(indices)
-        text += '\nCompression factor\t%.3f %%' % 100*len(indices)/len(x)
+        text = 'Length of compressed array\t%i'%len(inds)
+        text += '\nCompression factor\t%.3f %%' % 100*len(inds)/len(x)
         if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
         print(text)
-    return indices
+    return inds
 ###═════════════════════════════════════════════════════════════════════
 ### STREAM COMPRESSION
 class _StreamCompressedContainer(abc.Sized):
@@ -264,15 +348,15 @@ class _StreamCompressedContainer(abc.Sized):
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self,n):
         '''Function such that n is optimal when f2zero(n) = 0'''
-        #indices = np.rint(np.linspace(0,n,n_steps)).astype(int)
-        indices = np.linspace(0, n, int((n+1)**0.5)+ 2).astype(int)
+        #inds = np.rint(np.linspace(0,n,n_steps)).astype(int)
+        inds = np.linspace(0, n, int((n+1)**0.5)+ 2).astype(int)
 
-        Dx = self.xb[indices] - self._x[-1]
-        Dy = self.yb[indices] - self._y[-1]
+        Dx = self.xb[inds] - self._x[-1]
+        Dy = self.yb[inds] - self._y[-1]
         
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = self._y[-1] - a * self._x[-1]
-        errmax = np.amax(np.abs(a*self.xb[indices].reshape([-1,1]) + b - self.yb[indices]),axis=0)
+        errmax = np.amax(np.abs(a*self.xb[inds].reshape([-1,1]) + b - self.yb[inds]),axis=0)
         return np.amax(errmax/self.ytol-1), (a,b)
     #───────────────────────────────────────────────────────────────────
     def compress(self):

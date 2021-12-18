@@ -53,9 +53,10 @@ if sys.argv[1] == 'tests':
     exit()
 elif sys.argv[1] == 'debug':
     import plotters
-    debugplot = plotters.Debug()
+    print(sys.argv[2])
+    debugplot = plotters.Debug(errorf=sys.argv[2] if len(sys.argv)>2 else 'maxmaxabs')
     debugplot.run()
-    exit()
+    input()
 
 
 path_home = pathlib.Path(__file__).parent.absolute()

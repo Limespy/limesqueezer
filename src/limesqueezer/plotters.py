@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 import API as ls
 import reference as ref
@@ -12,9 +13,11 @@ colors = {'AuroraBlue': '#0e1c3f',
 def plot_1_data_compressed(data):
     fig, axs = plt.subplots(2,1, sharex=True)
     # Data and compressed
-    axs[0].plot(data.self.x_data, data.y, color = colors['AuroraBlue'] )
-    axs[0].plot(data.xc, data.yc, '-o', color = colors['AuroraCyan'] )
-    axs[0].legend(['Original', 'Compressed'])
+    axs[0].plot(data.self.x_data, data.y,
+                color = colors['AuroraBlue'], lable='Original')
+    axs[0].plot(data.xc, data.yc,
+                '-o', color = colors['AuroraCyan'], label ='Compressed')
+    axs[1].legend()
     # Residual relative to tolerance
     axs[1].plot(data.x, data.residuals_relative, color = colors['AuroraBlue'])
     axs[1].plot([data.x[0],data.x[-1]], [-1,-1], color = colors['AuroraCyan'])
@@ -25,20 +28,27 @@ def plot_1_data_compressed(data):
 
 class Debug:
 
-    def __init__(self, x_data=None, y_data=None, ytol=1e-2):
+    def __init__(self, x_data=None, y_data=None, ytol=2e-2, errorf='maxmaxabs', fitf='poly1'):
         self.x_data , self.y_data = ref.raw_sine(1e3) if y_data is None else (x_data, y_data)
         self.start = 1 # Index of starting point for looking for optimum
         self.end = len(self.x_data) - 2 # Number of uncompressed datapoints -2, i.e. the index
         self.offset = -1
         self.fit = None
         self.ytol = np.array(ytol)
-        self.x_c, self.y_c = [], []
+        self.errorf = ls.errorfunctions[errorf]
+        self.fitf = ls.fitfunctions[fitf]
 
         if len(self.y_data.shape) == 1: # Converting to correct shape for this function
             self.y_data = self.y_data.reshape(len(self.x_data),1)
         elif self.y_data.shape[0] != len(self.x_data):
             self.y_data = self.y_data.T
-
+        
+        
+        self.x_c, self.y_c = [self.x_data[0]], [self.y_data[0]]
+        if fitf == 'poly1' or 'poly2_2':
+            self.y0 = [self.y_c[0]]
+        elif fitf == 'poly3':
+            self.y0 = [self.y_c[0],2*math.pi,0]
         # Solvers stuff
         self.fit1 = self.fit2 = None
         self.x1 = self.x_mid =  self.x2 = self.y1 = self.y_mid = self.y2 = None
@@ -48,7 +58,8 @@ class Debug:
         for ax in self.axs:
             ax.grid()
         self.axs[2].set_ylabel('Tolerance left')
-        self.line_data, = self.axs[0].plot(self.x_data, self.y_data)
+        self.axs[0].plot(self.x_data, self.y_data+self.ytol, color='blue')
+        self.axs[0].plot(self.x_data, self.y_data-self.ytol, color='blue')
 
         self.line_fit, = self.axs[0].plot(0,0,'-',color='orange')
     #───────────────────────────────────────────────────────────────────
@@ -57,6 +68,7 @@ class Debug:
         plt.show()
         self.x_compressed, self.y_compressed = self.LSQ10()
         plt.ioff()
+        print(f'Compression factor {(1-len(self.x_compressed)/len(self.x_data))*100:.1f} %')
         pass
     #───────────────────────────────────────────────────────────────────
     def __getitem__(self, items):
@@ -70,44 +82,46 @@ class Debug:
         #───────────────────────────────────────────────────────────────
         def _f2zero(n):
             '''Function such that n is optimal when f2zero(n) = 0'''
-            indices = np.linspace(self.start, n + self.start, int((n+1)**0.5)+ 2).astype(int)
-
-            Dx = self.x_data[indices] - self.x_c[-1]
-            Dy = self.y_data[indices] - self.y_c[-1]
-
-            a = np.matmul(Dx,Dy) / Dx.dot(Dx)
-            b = self.y_c[-1] - a * self.x_c[-1]
-
-            selected_residuals = np.abs(a*self.x_data[indices].reshape([-1,1]) + b - self.y_data[indices])
-
-            errmax = np.amax(selected_residuals, axis=0)
+            indices_sel = np.linspace(self.start, n + self.start, int((n+1)**0.5)+ 2).astype(int)
             indices_all = np.arange(self.start,self.start + int(n)+1)
-            x, y = self[indices_all]
-            all_residuals = (np.abs(a*x.reshape([-1,1])  + b - y))/self.ytol - 1
-            x_root, y_root = self[self.start-1]
+            self.x_plot, y = self[indices_all]
+            res_sel, y_next, a = self.fitf(self.x_data[indices_sel],
+                                        self.y_data[indices_sel],
+                                        self.x_c[-1], self.y0)
+            Dx = self.x_plot.reshape([-1,1]) - self.x_c[-1]
+            # y_fit = a*Dx*Dx*Dx + self.y0[2]*Dx*Dx + self.y0[1]*Dx + self.y0[0]
+            # self.y_plot = a[0]*Dx*Dx + a[1]*Dx + self.y0[0]
+            self.y_plot = a*Dx + self.y0[0]
+            res_all = self.y_plot-y
 
-            self.line_fit.set_xdata([x_root, x[-1]])
-            self.line_fit.set_ydata([y_root, y[-1]])
+            self.line_fit.set_xdata(self.x_plot)
+            self.line_fit.set_ydata(self.y_plot)
 
             self.axs[1].clear()
             self.axs[1].grid()
             self.axs[1].set_ylabel('Residual relative to tolerance')
-            self.axs[1].plot(indices_all-self.start, all_residuals,label='ignored')
-            self.axs[1].plot(indices-self.start,selected_residuals/self.ytol - 1,'.',color='red',label='measured')
-            self.axs[2].legend()
+            self.axs[1].plot(indices_all-self.start, np.abs(res_all)/self.ytol -1,
+                             '.', color = 'blue', label='ignored')
+            self.axs[1].plot(indices_sel-self.start, np.abs(res_sel)/self.ytol-1,
+                             'o', color='red', label='sampled')
+            self.axs[1].legend()
             # Selected
             print(self)
             input('Fitting\n')
-            return np.amax(errmax/self.ytol-1), (a,b)
+            if y_next is None:
+                print('y_next is none')
+            print(self.errorf(res_sel,self.ytol))
+            return self.errorf(res_sel,self.ytol), y_next
         #───────────────────────────────────────────────────────────────
-        while self.end > 0:
+
+        for _ in range(int(len(self.x_data)/2)): # for to prevent infinite loop
             print(self)
             input('Next iteration\n')
-            self.x_c.append(self.x_data[self.offset + self.start])
-            self.y_c.append(self.fit[0]*self.x_c[-1] + self.fit[1] if self.fit else self.y_data[self.offset + self.start])
             self.start += self.offset + 1 # self.start shifted by the number compressed
             # Estimated number of lines needed
-            lines = ls.n_lines(self.x_data[self.start:], self.y_data[self.start:], self.x_c[-1], self.y_c[-1], self.ytol)
+            lines = ls.n_lines(self.x_data[self.start:],
+                               self.y_data[self.start:],
+                               self.x_c[-1], self.y_c[-1], self.ytol)
             # Arithmetic mean between previous step length and line self.estimate,
             # limited to self.end index of the array
             self.estimate = min(self.end, np.amin(((self.offset + (self.end+1) / lines)/2)).astype(int))
@@ -118,17 +132,23 @@ class Debug:
             print(self)
             input('Ready to call droot\n')
             self.offset, self.fit = self.droot(_f2zero, err0*2)
+            self.y0 = self.fit
             self.axs[2].clear()
             self.axs[2].grid()
             self.axs[2].set_ylabel('Maximum residual')
-            
-            self.axs[0].plot([self.x_c[-1], self.x_data[self.offset + self.start]],
-             [self.y_c[-1], self.fit[0]*self.x_data[self.offset + self.start] + self.fit[1]], color='green')
-
+            self.axs[0].plot(self.x_plot, self.y_plot, color='red')
             self.end -= self.offset + 1
-        # Last data point is same as in the uncompressed data
-        self.x_c.append(self.x_data[-1])
-        self.y_c.append(self.y_data[-1])
+
+            if self.end > 0:
+                self.x_c.append(self.x_data[self.offset + self.start])
+                self.y_c.append(self.fit[0])
+            else:
+                # Last data point is same as in the uncompressed data
+                self.x_c[-1] = self.x_data[-1]
+                self.y_c[-1] = self.y_data[-1]
+                break
+        else:
+            raise Warning('Maximum number of iterations reached, something is wrong')
 
         return np.array(self.x_c).reshape(-1,1), np.array(self.y_c)
     #───────────────────────────────────────────────────────────────────
@@ -137,9 +157,10 @@ class Debug:
         s += f'Start\t\t{self.start}\n'
         s += f'End\t\t{self.end}\n'
         s += f'Offset\t\t{self.offset}\n'
-        s += f'Fit\t\t{((self.fit[0][0], self.fit[1][0]) if self.fit is not None else None)}\n'
-        s += f'Fit1\t\t{((self.fit1[0][0], self.fit1[1][0]) if self.fit1 is not None else None)}\n'
-        s += f'Fit2\t\t{((self.fit2[0][0], self.fit2[1][0]) if self.fit2 is not None else None)}\n'
+        s += f'Y0\t\t{self.y0}\n'
+        s += f'Fit\t\t{self.fit}\n'
+        s += f'Fit1\t\t{self.fit1}\n'
+        s += f'Fit2\t\t{self.fit2}\n'
         s += f'Estimate\t{self.estimate}\n'
         s += f'Limit\t\t{self.limit}\n'
         s += f'x1\t\t{self.x1}\n'
@@ -157,7 +178,7 @@ class Debug:
             print(self)
             input('Calculating new attempt in interval\n')
             # Arithmetic mean between linear estimate and half
-            self.x_mid = int((self.x1-self.y1/(self.y2-self.y1)*(self.x2-self.x1) + (self.x2 + self.x1)/2)/2) + 1
+            self.x_mid = int((self.x2 + self.x1)/2) + 1
             if self.x_mid == self.x1:    # To stop repetition in close cases
                 print(self)
                 input('Midpoint same x as lower one\n')
