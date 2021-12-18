@@ -31,7 +31,7 @@ setup(
         re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
     ),
     author='Limespy',
-    author_email='contact@ionelmc.ro',
+    author_email='',
     url='https://github.com/limespy/limesqueezer',
     packages=find_packages('src'),
     package_dir={'': 'src'},
