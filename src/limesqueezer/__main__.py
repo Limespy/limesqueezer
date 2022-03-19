@@ -2,13 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Entrypoint module, in case you use `python -m limesqueezer`.
-
-
-Why does this file exist, and why __main__? For more info, read:
-
-- https://www.python.org/dev/peps/pep-0338/
-- https://docs.python.org/2/using/cmdline.html#cmdoption-m
-- https://docs.python.org/3/using/cmdline.html#cmdoption-m
 """
 
 ###═════════════════════════════════════════════════════════════════════
@@ -24,7 +17,8 @@ import time
 import numpy as np
 
 sys.path.insert(1,str(pathlib.Path(__file__).parent.absolute()))
-import API as lc
+import API as ls
+import reference as ref
 
 helpstring = 'No arguments given'
 
@@ -53,10 +47,20 @@ if sys.argv[1] == 'tests':
     exit()
 elif sys.argv[1] == 'debug':
     import plotters
-    print(sys.argv[2])
     debugplot = plotters.Debug(errorf=sys.argv[2] if len(sys.argv)>2 else 'maxmaxabs')
     debugplot.run()
     input()
+    exit()
+elif sys.argv[1] == 'debug2':
+    x_data, y_data = ref.raw_sine(1e3)
+    ytol = 2e-2
+    ls.G['debug'] = True
+    xc, yc = ls.compress(x_data, y_data, ytol = 2e-2)
+    len(xc)
+    print(xc)
+    print(yc)
+    input()
+    exit()
 
 
 path_home = pathlib.Path(__file__).parent.absolute()
@@ -68,15 +72,15 @@ n_data = int(float(sys.argv[1]))
 ytol = float(sys.argv[2])
 mins = int(float(sys.argv[3]))
 b = int(float(sys.argv[4]))
-data = lc.Data(n_data=n_data,b=b)
-data.x_compressed, data.y_compressed = lc.compress(data.x,data.y,
+data = ls.Data(n_data=n_data,b=b)
+data.x_compressed, data.y_compressed = ls.compress(data.x,data.y,
                                                    ytol=ytol, mins = mins,
                                                    verbosity = verbosity,
                                                    is_timed = is_timed)
 print(data.x_compressed[-1])
 y0 = np.array([data.y[0],data.y[0]+data.x[0]])
 
-with lc.Compressed(data.x[0], y0,ytol=ytol, mins=mins) as compressed:
+with ls.Compressed(data.x[0], y0,ytol=ytol, mins=mins) as compressed:
     plt.ion()
     
     fig, ax = plt.subplots()

@@ -26,7 +26,13 @@ Reference = namedtuple('Reference',
 ##%%════════════════════════════════════════════════════════════════════
 ## Auxiliary functions
 
-
+##%%═════════════════════════════════════════════════════════════════════
+## Reference functions
+def f2zero_100(n: int) -> float:
+    '''returns < 0 for values 0 to 100 and >0 for values > 100'''
+    if round(n) != n: raise ValueError('Not whole number')
+    if n < 0: raise ValueError('Input must be >= 0')
+    return np.sqrt(n) - 10.01, True
 #%%═════════════════════════════════════════════════════════════════════
 # Reference raw data
 def raw_poly0(n=1e1):

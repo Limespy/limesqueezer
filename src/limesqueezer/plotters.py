@@ -36,7 +36,18 @@ class Debug:
         self.fit = None
         self.ytol = np.array(ytol)
         self.errorf = ls.errorfunctions[errorf]
-        self.fitf = ls.fitfunctions[fitf]
+
+        
+        # Solvers stuff
+        self.fit1 = self.fit2 = None
+        self.x1 = self.x_mid =  self.x2 = self.y1 = self.y_mid = self.y2 = None
+        self.limit = self.estimate = None
+
+        self.fig, self.axs = plt.subplots(3,1)
+        for ax in self.axs:
+            ax.grid()
+        self.axs[2].set_ylabel('Tolerance left')
+        self.axs[0].fill_between(self.x_data, self.y_data-self.ytol, self.y_data+self.ytol, alpha=.3, color='blue')
 
         if len(self.y_data.shape) == 1: # Converting to correct shape for this function
             self.y_data = self.y_data.reshape(len(self.x_data),1)
@@ -49,17 +60,6 @@ class Debug:
             self.y0 = [self.y_c[0]]
         elif fitf == 'poly3':
             self.y0 = [self.y_c[0],2*math.pi,0]
-        # Solvers stuff
-        self.fit1 = self.fit2 = None
-        self.x1 = self.x_mid =  self.x2 = self.y1 = self.y_mid = self.y2 = None
-        self.limit = self.estimate = None
-
-        self.fig, self.axs = plt.subplots(3,1)
-        for ax in self.axs:
-            ax.grid()
-        self.axs[2].set_ylabel('Tolerance left')
-        self.axs[0].plot(self.x_data, self.y_data+self.ytol, color='blue')
-        self.axs[0].plot(self.x_data, self.y_data-self.ytol, color='blue')
 
         self.line_fit, = self.axs[0].plot(0,0,'-',color='orange')
     #───────────────────────────────────────────────────────────────────
@@ -83,16 +83,19 @@ class Debug:
         def _f2zero(n):
             '''Function such that n is optimal when f2zero(n) = 0'''
             indices_sel = np.linspace(self.start, n + self.start, int((n+1)**0.5)+ 2).astype(int)
-            indices_all = np.arange(self.start,self.start + int(n)+1)
-            self.x_plot, y = self[indices_all]
-            res_sel, y_next, a = self.fitf(self.x_data[indices_sel],
+
+            res_sel, fit = ls.Poly1.fit(self.x_data[indices_sel], 
                                         self.y_data[indices_sel],
                                         self.x_c[-1], self.y0)
-            Dx = self.x_plot.reshape([-1,1]) - self.x_c[-1]
-            # y_fit = a*Dx*Dx*Dx + self.y0[2]*Dx*Dx + self.y0[1]*Dx + self.y0[0]
-            # self.y_plot = a[0]*Dx*Dx + a[1]*Dx + self.y0[0]
-            self.y_plot = a*Dx + self.y0[0]
-            res_all = self.y_plot-y
+
+            y_next = ls.Poly1.y_from_fit(fit, self.x_data[indices_sel][-1])
+
+            # Plotting
+            indices_all = np.arange(self.start,self.start + int(n)+1)
+            self.x_plot, y = self[indices_all]
+            self.y_plot = ls.Poly1.y_from_fit(fit, self.x_plot)
+
+            res_all = self.y_plot - y
 
             self.line_fit.set_xdata(self.x_plot)
             self.line_fit.set_ydata(self.y_plot)
@@ -105,7 +108,7 @@ class Debug:
             self.axs[1].plot(indices_sel-self.start, np.abs(res_sel)/self.ytol-1,
                              'o', color='red', label='sampled')
             self.axs[1].legend()
-            # Selected
+
             print(self)
             input('Fitting\n')
             if y_next is None:
@@ -132,7 +135,7 @@ class Debug:
             print(self)
             input('Ready to call droot\n')
             self.offset, self.fit = self.droot(_f2zero, err0*2)
-            self.y0 = self.fit
+            self.y0 = ls.Poly1.y_from_fit(self.fit, self.x_data[self.start+ self.offset])
             self.axs[2].clear()
             self.axs[2].grid()
             self.axs[2].set_ylabel('Maximum residual')
@@ -141,7 +144,7 @@ class Debug:
 
             if self.end > 0:
                 self.x_c.append(self.x_data[self.offset + self.start])
-                self.y_c.append(self.fit[0])
+                self.y_c.append(self.y0)
             else:
                 # Last data point is same as in the uncompressed data
                 self.x_c[-1] = self.x_data[-1]
@@ -233,6 +236,7 @@ class Debug:
             self.xy1.set_xdata(self.x1)
             self.xy1.set_ydata(self.y1)
             self.x2 *= 2
+            self.x2 += 1
             self.xy2.set_xdata(self.x2)
             if self.x2 >= self.limit:
                 self.axs[2].plot([self.limit,self.limit], [self.y1,0],'.', color='blue')

@@ -4,9 +4,15 @@ import numpy as np
 import time
 from numpy.polynomial import polynomial as poly
 from collections import abc
+import matplotlib.pyplot as plt
 
+global G
+G = {}
+G['timed'] = False
+G['debug'] = False
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES
+
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
 errorfunctions = {'maxmaxabs':
@@ -15,127 +21,104 @@ errorfunctions = {'maxmaxabs':
                   lambda r,t: np.amax(np.sqrt(np.mean(r*r,axis=0))/t-1)}
 #%%═════════════════════════════════════════════════════════════════════
 ## FITTING
-def _fit_poly1(x_data, y_data, x0, y0):
-    '''Does first degree polynomial fit and returns residuals and
-     the y value at the end'''
-    Dx = x_data - x0
-    Dy = y_data - y0[0]
-    a = np.matmul(Dx,Dy) / Dx.dot(Dx)
-    return a*Dx.reshape([-1,1]) - Dy, a*Dx[-1]+y0[0], a
-#───────────────────────────────────────────────────────────────────────
-def _fit_poly2_2(x_data, y_data, x0, y0):
-    '''Does second degree polynomial fit with two free parameters.
-    Returns residuals and the y value at the end'''
-    Dx = (x_data - x0)
-    Dx2 = Dx*Dx
-    print(f'shape of y_data\t{y_data.shape}')
-    print(f'shape of Dx\t{Dx.shape}')
-    Dy = y_data - y0[0]
-    print(f'shape of Dy\t{Dy.shape}')
-    yr = Dy/Dx.reshape([-1,1])
-    x_mean, y_mean = np.mean(Dx), np.mean(yr, axis=0)
-    a = np.matmul((Dx-x_mean),(yr-y_mean))/np.sum(Dx2)
-    b = y_mean - a*x_mean
-    print(f'shape of a\t{a.shape}')
-    print(f'shape of b\t{b.shape}')
-    y_next = [a*Dx2[-1]+ b*Dx[-1]+y0[0]]
-    res = Dy - a*Dx2.reshape([-1,1]) - b*Dx.reshape([-1,1])
-    print(f'shape of res\t{res.shape}')
-    return res, y_next, (a,b)
-#───────────────────────────────────────────────────────────────────────
-def _fit_poly3(x_data, y_data, x0, y0):
-    '''Does first degree polynomial fit and returns residuals and
-     the y value at the end'''
-    Dx = (x_data - x0)
-    Dx2 = Dx*Dx
-    Dx3 = Dx2 * Dx
-    y_res = (y0[2]*Dx2 + y0[1]*Dx + y0[0]).reshape([-1,1])
-    print(f'shape of y_data\t{y_data.shape}')
-    print(f'shape of Dx\t{Dx.shape}')
-    print(f'shape of y_res\t{y_res.shape}')
-    
-    Dy = y_data - y_res
-    print(f'shape of Dy\t{Dy.shape}')
-    print((y_data - y0[0]).shape)
-    # hmm = np.matmul(Dx,y_data - y0[0]) / Dx.dot(Dx)
-    # print(f'shape of hmm\t{hmm.shape}')
-    a = np.matmul(Dx3,Dy) / Dx3.dot(Dx3)
-    print(f'shape of a\t{a.shape}')
-    y_next = [a*Dx3[-1]+y_res[-1], 3*a*Dx2[-1]+2*y0[2]*Dx[-1]+y0[1], 6*a*Dx[-1] + 2*y0[2]]
-    res = a*Dx3.reshape([-1,1]) - Dy
-    print(f'shape of res\t{res.shape}')
-    return res, y_next, a
-#───────────────────────────────────────────────────────────────────────
-def _fit_poly4(x_data, y_data, x0, y0):
-    '''Does first degree polynomial fit and returns residuals and
-     the y value at the end'''
-    Dx = (x_data - x0)
-    Dx2 = Dx*Dx
-    Dx3 = Dx2 * Dx
-    y_res = (y0[2]*Dx2 + y0[1]*Dx + y0[0]).reshape([-1,1])
-    print(f'shape of y_data\t{y_data.shape}')
-    print(f'shape of Dx\t{Dx.shape}')
-    print(f'shape of y_res\t{y_res.shape}')
-    
-    Dy = y_data - y_res
-    print(f'shape of Dy\t{Dy.shape}')
-    print((y_data - y0[0]).shape)
-    # hmm = np.matmul(Dx,y_data - y0[0]) / Dx.dot(Dx)
-    # print(f'shape of hmm\t{hmm.shape}')
-    a = np.matmul(Dx3,Dy) / Dx3.dot(Dx3)
-    print(f'shape of a\t{a.shape}')
-    y_next = [a*Dx3[-1]+y_res[-1], 3*a*Dx2[-1]+2*y0[2]*Dx[-1]+y0[1], 6*a*Dx[-1] + 2*y0[2]]
-    res = a*Dx3.reshape([-1,1]) - Dy
-    print(f'shape of res\t{res.shape}')
-    return res, y_next, a
-#───────────────────────────────────────────────────────────────────────
-fitfunctions = {'poly1': _fit_poly1,
-                'poly2_2': _fit_poly2_2,
-                'poly3': _fit_poly3,
-                'poly4': _fit_poly4}
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f,x1,y1,x2,y2,fit1):
     '''Returns the last x where f(x)<0'''
+    is_debug = G['debug']
+    if is_debug:
+        G['mid'], = G['ax_root'].plot(x1, y1,'.', color='blue')
     while x2 - x1 > 2:
+        if is_debug:
+            input('Calculating new attempt in interval\n')
         # Arithmetic mean between linear estimate and half
-        x = int((x1-y1/(y2-y1)*(x2-x1) + (x2 + x1)/2)/2) + 1
-        if x == x1:    # To stop repetition in close cases
-            x += 1
-        elif x == x2:
-            x -= 1
+        x_mid = int((x1-y1/(y2-y1)*(x2-x1) + (x2 + x1)/2)/2) + 1
 
-        y, fit = f(x)
-        if y > 0:
-            x2, y2 = x, y
-        else: 
-            x1, y1, fit1 = x, y, fit
+        if x_mid == x1:    # To stop repetition in close cases
+            x_mid += 1
+        elif x_mid == x2:
+            x_mid -= 1
+
+        y_mid, fit = f(x_mid)
+        if is_debug:
+            print(f'{x_mid=}')
+            print(f'{y_mid=}')
+            G['mid'].set_xdata(x_mid)
+            G['mid'].set_ydata(y_mid)
+        if y_mid > 0:
+            if is_debug:
+                input('Error over tolerance\n')
+                G['ax_root'].plot(x2, y2,'.', color='black')
+            x2, y2 = x_mid, y_mid
+            if is_debug:
+                G['xy2'].set_xdata(x2)
+                G['xy2'].set_ydata(y2)
+        else:
+            if is_debug:
+                input('Error under tolerance\n')
+                G['ax_root'].plot(x1, y1,'.', color='black')
+            x1, y1, fit1 = x_mid, y_mid, fit
+            if is_debug:
+                G['xy1'].set_xdata(x1)
+                G['xy1'].set_ydata(y1)
 
     if x2 - x1 == 2: # Points have only on e point in between
-        y, fit = f(x1+1) # Testing that point
-        return (x1+1, fit) if (y <0) else (x1, fit1) # If under, give that fit
+        if is_debug:
+            input('Points have only one point in between\n')
+        y_mid, fit = f(x1+1) # Testing that point
+        return (x1+1, fit) if (y_mid <0) else (x1, fit1) # If under, give that fit
     else:
+        if is_debug:
+            input('Points have no point in between\n')
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
 def droot(f, y0, x2, limit):
     '''Finds the upper limit to interval
     '''
+    is_debug = G['debug']
     x1, y1 = 0, y0
+    
     y2, fit2 = f(x2)
+    if is_debug:
+        G['xy1'], = G['ax_root'].plot(x1, y1,'.', color='green')
+        G['xy2'], = G['ax_root'].plot(x2, y2,'.', color='blue')
     fit1 = None
     while y2 < 0:
+        if is_debug:
+            input('Calculating new attempt in droot\n')
+            G['ax_root'].plot(x1, y1,'.', color='black')
         x1, y1, fit1 = x2, y2, fit2
         x2 *= 2
+        x2 += 1
+        if is_debug:
+            print(f'{limit=}')
+            print(f'{x1=}')
+            print(f'{y1=}')
+            print(f'{x2=}')
+            G['xy1'].set_xdata(x1)
+            G['xy1'].set_ydata(y1)
+            G['xy2'].set_xdata(x2)
         if x2 >= limit:
+            if is_debug:
+                G['ax_root'].plot([limit, limit], [y1,0],'.', color='blue')
             y2, fit2 = f(limit)
             if y2<0:
+                if is_debug:
+                    input('End reached within tolerance\n')
                 return limit, fit2
             else:
+                if is_debug:
+                    input('End reached outside tolerance\n')
                 x2 = limit
                 break
         y2, fit2 = f(x2)
+        if is_debug:
+            print(f'{y2=}')
+            G['xy2'].set_ydata(y2)
+    if is_debug:
+        G['xy2'].set_color('red')
+        input('Points for interval found\n')
     return interval(f,x1, y1, x2, y2,fit1)
-
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
 def n_lines(x,y,x0,y0,ytol):
@@ -150,115 +133,111 @@ def n_lines(x,y,x0,y0,ytol):
                                      )**0.5 + 1
     else:
         return 1
-    
+
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ1(x,y,ytol=1e-2, mins=10, verbosity=0, is_timed=False):
-    '''Compresses the data of type y = f(x) using linear least squares fitting
-    Works best if
-    dy/dx < 0
-    d2y/dx2 < 0
-    '''
-    if is_timed: t_start = time.perf_counter()
-    zero = 1
-    end = len(x)-1 - zero
-    estimate = int(end / n_lines(x,y,x[0],y[0],int(end/5),ytol) )
-    #───────────────────────────────────────────────────────────────
-    def initial_f2zero(n):
-        '''Function such that n is optimal when initial_f2zero(n) = 0'''
-        step = 1 if n<=mins*2 else int(n / ((n * 2 - mins)**0.5 + mins / 2))
-        n += zero
-        fit = poly.Polynomial.fit(x[:n+1:step], y[:n+1:step], 1)
-        return max(abs(fit(x[0])- y[0]), abs(fit(x[n])- y[n])) - ytol, fit
-    #───────────────────────────────────────────────────────────────
-    end, fit = droot(initial_f2zero, -ytol, estimate, end)
-    zero += end
-    end -= end
-    x_c, y_c  = [0, x[zero-1]], [fit(0), fit(x[zero-1])]
-    #───────────────────────────────────────────────────────────────
-    def f2zero(n):
-        '''Function such that n is optimal when f2zero(n) = 0'''
-        step = 1 if n<=mins*2 else int(n/((n*2 - mins)**0.5 + mins/2))
-        n += zero
-        Dx = x[zero:n+1:step]-x_c[-1]
-        Dy = y[zero:n+1:step]-y_c[-1]
-        a = np.sum(Dy*Dx)/np.sum(Dx*Dx)
-        b = y_c[-1] - a * x_c[-1]
-        fit = lambda x: a*x + b
-        return max(abs(fit(x[zero])-y[zero]),abs(fit(x[n])-y[n]))-ytol, fit
-    #───────────────────────────────────────────────────────────────
-    while end > 0:
-    
-        estimate = int((end + end/(n_lines(x[zero+1:], y[zero+1:], 
-                                           x_c[-1], y_c[-1], ytol)))/2)
-        estimate = min(end, estimate)
-        end, fit = droot(f2zero,-ytol, estimate, end)
-        
-        zero += end
-        end -= end
-        x_c.append(x[zero-1])
-        y_c.append(fit(x_c[-1]))
-
-    if is_timed: t = time.perf_counter()-t_start
-    if verbosity>0: 
-        text = 'Length of compressed array\t%i'%len(x_c)
-        text += '\nCompression factor\t%.3f %%' % (100*len(x_c)/len(x))
-        if is_timed: text += '\nCompression time\t%.1f ms' % (t*1e3)
-        print(text)
-    print(x_c[-1])
-    return np.array(x_c), np.array(y_c)
-###═════════════════════════════════════════════════════════════════════
-def LSQ10(x, y, ytol=1e-2, verbosity=0, is_timed=False):
+def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
     '''Compresses the data of 1-dimensional system of equations
     i.e. single input variable and one or more output variable
     '''
-    runtime = None
-    if is_timed: t_start = time.perf_counter()
+    is_debug = G['debug']
+    if G['timed']:
+        G['t_start'] = time.perf_counter()
+    if is_debug:
+        G['x'], G['y'] = x, y
+        G['fig'], axs = plt.subplots(3,1)
+        for ax in axs:
+            ax.grid()
+        G['ax_data'], G['ax_res'], G['ax_root'] = axs
+
+        
+        G['ax_data'].fill_between(x, y - ytol, y + ytol, alpha=.3, color='blue')
+
+        G['line_fit'], = G['ax_data'].plot(0,0,'-',color='orange')
+
+        G['ax_root'].set_ylabel('Tolerance left')
+
+        plt.ion()
+        plt.show()
+
     start = 1 # Index of starting point for looking for optimum
-    end = len(x) - 2 # Number of uncompressed datapoints -2, i.e. the index
-    offset = -1
+    end = len(x) - 1 # Number of uncompressed datapoints -1, i.e. the last index
+    offset = 0
     fit = None
     ytol = np.array(ytol)
-    x_c, y_c = [], []
-    if len(y.shape) == 1: # Converting to correct shape for this function
-        y = y.reshape(len(x),1)
-    elif y.shape[0] != len(x):
-        y = y.T
+    
+
+    errf = errorfunctions[errorfunction]
+    fitset = Poly1
+    f_fit = fitset.fit
+    f_y = fitset.y_from_fit
+
+    y = y.reshape(-1,1)
+    x_c, y_c = [x[0]], [np.array(y[0])]
     #───────────────────────────────────────────────────────────────
     def _f2zero(n):
         '''Function such that n is optimal when f2zero(n) = 0'''
         inds = np.linspace(start, n + start, int((n+1)**0.5)+ 2).astype(int)
-
-        Dx = x[inds] - x_c[-1]
-        Dy = y[inds] - y_c[-1]
-
-        a = np.matmul(Dx,Dy) / Dx.dot(Dx)
-        b = y_c[-1] - a * x_c[-1]
-
-        errmax = np.amax(np.abs(a*x[inds].reshape([-1,1]) + b - y[inds]),
-                         axis=0)
-
-        return np.amax(errmax/ytol-1), (a,b)
+        residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
+        if is_debug:
+            indices_all = np.arange(start, start + int(n) + 1)
+            G['x_plot'] = G['x'][indices_all]
+            G['y_plot'] = Poly1.y_from_fit(fit, G['x_plot'])
+            G['line_fit'].set_xdata(G['x_plot'])
+            G['line_fit'].set_ydata(G['y_plot'])
+            res_all = G['y_plot'] - G['y'][indices_all].reshape(-1,1)
+            G['ax_res'].clear()
+            G['ax_res'].grid()
+            G['ax_res'].set_ylabel('Residual relative to tolerance')
+            G['ax_res'].plot(indices_all - start, np.abs(res_all) / ytol -1,
+                             '.', color = 'blue', label='ignored')
+            G['ax_res'].plot(inds - start, np.abs(residuals) / ytol-1,
+                             'o', color='red', label='sampled')
+            G['ax_res'].legend()
+            input('Fitting\n')
+        return errf(residuals, ytol), fit
     #───────────────────────────────────────────────────────────────
-    while end > 0:
-        x_c.append(x[offset + start])
-        y_c.append(fit[0]*x_c[-1] + fit[1] if fit else y[offset + start])
-        start += offset + 1 # Start shifted by the number compressed
+
+    for _ in range(end): # Prevents infinite loop in case error
+        if is_debug:
+                input('Next iteration\n')
         # Estimated number of lines needed
         lines = n_lines(x[start:], y[start:], x_c[-1], y_c[-1], ytol)
         # Arithmetic mean between previous step length and line estimate,
         # limited to end index of the array
-        estimate = min(end, np.amin(((offset + (end+1) / lines)/2)).astype(int))
-
-        offset, fit = droot(_f2zero, -1, estimate, end)
-        end -= offset + 1
+        limit = end - start
+        estimate = min(limit, np.amin(((offset + (limit+1) / lines)/2)).astype(int))
+        if is_debug:
+            print(f'{lines=}')
+            print(f'{estimate=}')
+        offset, fit = droot(_f2zero, -1, estimate, limit)
+        if is_debug:
+            print(f'err {errf(f_y(fit, x[start + offset]) - y[start + offset], ytol)}')
+            print(f'{start=}')
+            print(f'{offset=}')
+            print(f'{end=}')
+            print(f'{fit=}')
+            G['ax_root'].clear()
+            G['ax_root'].grid()
+            G['ax_root'].set_ylabel('Maximum residual')
+            G['ax_data'].plot(G['x_plot'], G['y_plot'], color='red')
+        start += offset + 1 # Start shifted by the number compressed and the
+        if end <=  start:
+            break
+        x_c.append(x[start - 1])
+        y_c.append(f_y(fit, x_c[-1]).flatten())
+    else:
+        raise Warning('Maximum number of iterations reached')
     # Last data point is same as in the uncompressed data
     x_c.append(x[-1])
     y_c.append(y[-1])
 
-    if is_timed: runtime = time.perf_counter() - t_start
+    if G['timed']:
+        G['runtime'] = time.perf_counter() - G['t_start']
     
-    return np.array(x_c).reshape(-1,1), np.array(y_c), runtime
+    if is_debug:
+        plt.ioff()
+    return np.array(x_c).reshape(-1,1), np.array(y_c)
 ###═════════════════════════════════════════════════════════════════════
 def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
     '''Returns inds of data points to select'''
@@ -270,7 +249,7 @@ def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
     estimate = int(end/n_lines(x,y,x[0],y[0],ytol) )+1
     inds = [0]
     #───────────────────────────────────────────────────────────────────
-    def f2zero(n,xs, ys,ytol):
+    def f2zero(n,xs, ys, ytol):
         n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
         inds_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
 
@@ -430,8 +409,7 @@ class Stream():
 #%%═════════════════════════════════════════════════════════════════════
 # WRAPPING
 
-methods = {'LSQ1': LSQ1,
-           'LSQ10': LSQ10,
+methods = {'LSQ10': LSQ10,
            'pick': pick,
            'split': split}
 
@@ -443,4 +421,36 @@ def compress(*args, method='LSQ10', **kwargs):
         raise NotImplementedError("Method not in the dictionary of methods")
 
     return compressor(*args,**kwargs)
+
+#%%═════════════════════════════════════════════════════════════════════
+# CUSTOM FUNCTIONS
+
+class Poly1:
+    #───────────────────────────────────────────────────────────────────
+    @staticmethod
+    def fit(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
+        '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
+        Dx = x - x0
+        Dy = y - y0.reshape([1, -1])
+
+        a = np.matmul(Dx,Dy) / Dx.dot(Dx)
+        b = y0 - a * x0
+        return (a*x.reshape([-1, 1]) + b - y, (a,  b))
+    #───────────────────────────────────────────────────────────────────
+    @staticmethod
+    def y_from_fit(fit: tuple, x: np.ndarray) -> np.ndarray:
+        '''Converts the fitting parameters and x to storable y values'''
+        return fit[0]*x.reshape([-1,1]) + fit[1]
+    #───────────────────────────────────────────────────────────────────
+    @staticmethod
+    def fit_from_end(ends: np.ndarray) -> tuple:
+        '''Takes storable y values and return fitting parameters'''
+        a = (ends[1,1:]- ends[0,1:]) / (ends[1,0] - ends[0,0])
+        b = ends[0,1:] - a * ends[0,0]
+        return a, b
+    #───────────────────────────────────────────────────────────────────
+    @staticmethod
+    def full_reconstruct(fit_array: np.ndarray, x_values: np.ndarray):
+        '''Takes array of fitting parameters and constructs whole function'''
+        raise NotImplementedError
 
