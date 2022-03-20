@@ -72,7 +72,8 @@ elif sys.argv[1] == 'timed':
     # x_data, y_data = ref.raw_sine(1e3)
     print(x_data[-1])
     ls.G['timed'] = True
-    xc, yc = ls.compress(x_data, y_data, tol = 1e-2)
+    xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
+                             use_numba = int(sys.argv[2]) if len(sys.argv) == 3 else 0)
     print(f'{len(x_data)=}')
     print(f'{len(xc)=}')
     print(f'runtime {ls.G["runtime"]*1e3:.1f} ms')
@@ -86,10 +87,15 @@ elif sys.argv[1] == 'benchmark':
     # x_data, y_data = ref.raw_sine(1e3)
     print(x_data[-1])
     ls.G['timed'] = True
-    xc, yc = ls.compress(x_data, y_data, tol = 1e-2)
+    runtime = 0
+    is_numba = sys.argv[2] if len(sys.argv) == 3 else 0
+    for _ in range(100):
+        xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
+                             use_numba = int(sys.argv[2]) if len(sys.argv) == 3 else 0)
+        runtime += ls.G["runtime"]
     print(f'{len(x_data)=}')
     print(f'{len(xc)=}')
-    print(f'runtime {ls.G["runtime"]*1e3:.1f} ms')
+    print(f'runtime {runtime*1e3:.1f} ms')
     exit()
 
 

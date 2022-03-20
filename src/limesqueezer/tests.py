@@ -35,10 +35,10 @@ class Test(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Auxiliaries
     def test_1_1_sqrtfill(self):
-        self.assertTrue(isinstance(ls.sqrtrange(1), np.ndarray))
+        self.assertTrue(isinstance(ls.sqrtrange(0, 1), np.ndarray))
         reltol = 5e-2
         for i in [1, 5 , 100, 1000, 10000]:
-            ins = ls.sqrtrange(i)
+            ins = ls.sqrtrange(0, i)
             arr = np.arange(i + 1)
             arr[ins]
             self.assertLess((len(ins) / (round((i**0.5)) + 1) - 1), reltol)

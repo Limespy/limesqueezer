@@ -14,31 +14,49 @@ G['debug'] = False
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES
 # ~ sqrt(n + 2) equally spaced integers including the i
-# sqrtrange = lambda i: np.linspace(0, i, round((i+2)**0.5)).astype(int)
-def sqrtrange(i: int):
+def sqrtrange(start: int, i: int):
     '''~ sqrt(n + 2) equally spaced integers including the i'''
-    inds = np.arange(0, i + 1, round(i**0.5))
-    inds[-1] = i
+    inds = np.arange(start, i + start + 1, round(i**0.5))
+    inds[-1] = i + start
     return inds
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
-# @numba.jit(nopython=True, cache=True)
-def _maxmaxabs(r: np.ndarray, t: np.ndarray) -> float:
-    return max(np.amax(np.abs(r, out = r), axis = 0) - t)
-
+def _maxmaxabs_python(r: np.ndarray, t: np.ndarray) -> float:
+    r = np.abs(r)
+    # print(f'{r.shape=}')
+    # print(f'{t.shape=}')
+    m = -1
+    for i, k in enumerate(t): # Yes, this is silly
+        # n = np.max(r[:,i]) - t[i]
+        n = np.max(r[:,i]) - k
+        if n > m: m = n
+    return m
+#───────────────────────────────────────────────────────────────────────
+@numba.jit(nopython=True, cache=True)
+def _maxmaxabs_numba(r: np.ndarray, t: np.ndarray) -> float:
+    r = np.abs(r)
+    # print(f'{r.shape=}')
+    # print(f'{t.shape=}')
+    m = -1
+    for i, k in enumerate(t): # Yes, this is silly
+        # n = np.max(r[:,i]) - t[i]
+        n = np.max(r[:,i]) - k
+        if n > m: m = n
+    return m
+#───────────────────────────────────────────────────────────────────────
 def _maxRMS(r: np.ndarray,t: np.ndarray)-> float:
     return np.amax(np.sqrt(np.mean(r * r, axis = 0)) - t)
-
+#───────────────────────────────────────────────────────────────────────
 def _maxsumabs(r: np.ndarray,t: np.ndarray) -> float:
-    return np.amax(np.sum(np.abs(r) - t, axis = 0))
+    return np.amax(np.sum(np.abs(r) - t, axis = 0) / t)
 
-errorfunctions = {'maxmaxabs': _maxmaxabs,
+errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
                   'maxRMS':_maxRMS}
 #%%═════════════════════════════════════════════════════════════════════
 ## FITTING
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
-def interval(f,x1,y1,x2,y2,fit1):
+def interval(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
     is_debug = G['debug']
     if is_debug:
@@ -140,19 +158,20 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
     '''Estimates number of lines required to fit within error tolerance'''
 
     if (length := len(x)) > 1:
-        inds = sqrtrange(length - 2) # indices so that x[-1] is not included
+        inds = sqrtrange(0, length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
         # print(f'sqrtmaxmaxabs {(_maxmaxabs(res, tol)/ tol)** 0.5}')
         # print(f'sqrtmaxsumabs {(_maxsumabs(res, tol)/ tol)** 0.5}')
         # print(f'sqrtmaxRMS {(_maxRMS(res, tol)/ tol)** 0.5}')
-        return 0.5 * (_maxsumabs(res, tol) / tol + 1) ** 0.5 + 1
+        # _maxsumabs(res, tol)
+        return 0.5 * (_maxsumabs(res, tol) + 1) ** 0.5 + 1
     else:
         return 1.
 
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
-          ) -> tuple:
+def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
+          use_numba = 0) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single input variable and one or more output variable
     '''
@@ -178,19 +197,26 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
     start = 1 # Index of starting point for looking for optimum
     end = len(x) - 1 # Number of uncompressed datapoints -1, i.e. the last index
     fit = None
-    tol = np.array(tol)
+    
     x = x.reshape([-1, 1])
     y = y.reshape([len(x), -1])
-    errf = errorfunctions[errorfunction]
+
+    if not isinstance(tol, (list, np.ndarray)):
+        tol = [tol] * y.shape[1]
+    tol = np.array(tol)
+
+    errf = errorfunctions[errorfunction][use_numba]
     fitset = Poly1
-    f_fit = fitset.fit
+    f_fit = fitset.fit[use_numba]
     f_y = fitset.y_from_fit
 
     x_c, y_c = [x[0]], [np.array(y[0])]
     #───────────────────────────────────────────────────────────────
     def _f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
-        inds = sqrtrange(i) + start
+        # inds = np.arange(start, i + start + 1, round(i**0.5))
+        # inds[-1] = i + start
+        inds = sqrtrange(start, i)
         residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
         if is_debug:
             indices_all = np.arange(-1, i + 1) + start 
@@ -202,8 +228,6 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
             G['ax_res'].clear()
             G['ax_res'].grid()
             G['ax_res'].set_ylabel('Residual relative to tolerance')
-            print(f'{inds.shape}')
-            print(f'{residuals.shape}')
             G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
                              '.', color = 'blue', label='ignored')
             G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
@@ -453,8 +477,23 @@ def compress(*args, method='LSQ10', **kwargs):
 class Poly1:
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    # @numba.jit(nopython=True, cache=True)
-    def fit(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
+    def fit_python(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
+        '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
+
+        Dx = x - x0
+        Dy = y - y0
+        a = Dx.T @ Dy / Dx.T.dot(Dx)
+        b = y0 - a * x0
+        # print(f'{a.shape=}')
+        # print(f'{Dx.shape=}')
+        # print(f'{y.shape=}')
+        # print(f'{y0.shape=}')
+        # print(f'{Dy.shape=}')
+        return (a * Dx - Dy, (a,  b))
+    #───────────────────────────────────────────────────────────────────
+    @staticmethod
+    @numba.jit(nopython=True, cache=True)
+    def fit_numba(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
 
         Dx = x - x0
@@ -484,4 +523,5 @@ class Poly1:
     def full_reconstruct(fit_array: np.ndarray, x_values: np.ndarray):
         '''Takes array of fitting parameters and constructs whole function'''
         raise NotImplementedError
-
+    #───────────────────────────────────────────────────────────────────
+    fit = (fit_python, fit_numba)
