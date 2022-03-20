@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import numpy as np
+import numba
 import time
-from numpy.polynomial import polynomial as poly
+
 from collections import abc
 import matplotlib.pyplot as plt
 
@@ -12,13 +13,27 @@ G['timed'] = False
 G['debug'] = False
 #%%═════════════════════════════════════════════════════════════════════
 # COMPRESSOR AUXILIARIES
-
+# ~ sqrt(n + 2) equally spaced integers including the i
+# sqrtrange = lambda i: np.linspace(0, i, round((i+2)**0.5)).astype(int)
+def sqrtrange(i: int):
+    '''~ sqrt(n + 2) equally spaced integers including the i'''
+    inds = np.arange(0, i + 1, round(i**0.5))
+    inds[-1] = i
+    return inds
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
-errorfunctions = {'maxmaxabs':
-                  lambda r,t: np.amax(np.amax(np.abs(r), axis=0)/t-1),
-                  'maxRMS':
-                  lambda r,t: np.amax(np.sqrt(np.mean(r*r,axis=0))/t-1)}
+# @numba.jit(nopython=True, cache=True)
+def _maxmaxabs(r: np.ndarray, t: np.ndarray) -> float:
+    return max(np.amax(np.abs(r, out = r), axis = 0) - t)
+
+def _maxRMS(r: np.ndarray,t: np.ndarray)-> float:
+    return np.amax(np.sqrt(np.mean(r * r, axis = 0)) - t)
+
+def _maxsumabs(r: np.ndarray,t: np.ndarray) -> float:
+    return np.amax(np.sum(np.abs(r) - t, axis = 0))
+
+errorfunctions = {'maxmaxabs': _maxmaxabs,
+                  'maxRMS':_maxRMS}
 #%%═════════════════════════════════════════════════════════════════════
 ## FITTING
 #%%═════════════════════════════════════════════════════════════════════
@@ -32,8 +47,8 @@ def interval(f,x1,y1,x2,y2,fit1):
         if is_debug:
             input('Calculating new attempt in interval\n')
         # Arithmetic mean between linear estimate and half
-        x_mid = int((x1-y1/(y2-y1)*(x2-x1) + (x2 + x1)/2)/2) + 1
-
+        x_mid = int((x1 - y1 / (y2 - y1) * (x2 - x1) + (x2 + x1) / 2) / 2) + 1
+        # x_mid = int((x2 + x1) / 2)
         if x_mid == x1:    # To stop repetition in close cases
             x_mid += 1
         elif x_mid == x2:
@@ -72,12 +87,11 @@ def interval(f,x1,y1,x2,y2,fit1):
             input('Points have no point in between\n')
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
-def droot(f, y0, x2, limit):
+def droot(f, y1, x2, limit):
     '''Finds the upper limit to interval
     '''
     is_debug = G['debug']
-    x1, y1 = 0, y0
-    
+    x1 = 0
     y2, fit2 = f(x2)
     if is_debug:
         G['xy1'], = G['ax_root'].plot(x1, y1,'.', color='green')
@@ -118,25 +132,27 @@ def droot(f, y0, x2, limit):
     if is_debug:
         G['xy2'].set_color('red')
         input('Points for interval found\n')
-    return interval(f,x1, y1, x2, y2,fit1)
+    return interval(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
-def n_lines(x,y,x0,y0,ytol):
+def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
+            ) -> float:
     '''Estimates number of lines required to fit within error tolerance'''
+
     if (length := len(x)) > 1:
-        inds = np.rint(np.linspace(1,length-2,int(length**0.5))).astype(int)
-        return (0.5*np.amax(np.abs(
-                                    (y[-1]-y0)/(x[-1]-x0)*(x[inds]-x0).reshape([-1,1])
-                                    - (y[inds]-y0)
-                                    ) / ytol,
-                                     axis=0)
-                                     )**0.5 + 1
+        inds = sqrtrange(length - 2) # indices so that x[-1] is not included
+        res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
+        # print(f'sqrtmaxmaxabs {_maxmaxabs(res, tol)** 0.5}')
+        # print(f'sqrtmaxsumabs {_maxsumabs(res, tol)** 0.5}')
+        # print(f'sqrtmaxRMS {_maxRMS(res, tol)** 0.5}')
+        return (0.5 * _maxRMS(res, tol) + 1) ** 0.5 + 1
     else:
-        return 1
+        return 1.
 
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
+def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
+          ) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single input variable and one or more output variable
     '''
@@ -150,8 +166,7 @@ def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
             ax.grid()
         G['ax_data'], G['ax_res'], G['ax_root'] = axs
 
-        
-        G['ax_data'].fill_between(x, y - ytol, y + ytol, alpha=.3, color='blue')
+        G['ax_data'].fill_between(x, y - tol, y + tol, alpha=.3, color='blue')
 
         G['line_fit'], = G['ax_data'].plot(0,0,'-',color='orange')
 
@@ -164,23 +179,22 @@ def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
     end = len(x) - 1 # Number of uncompressed datapoints -1, i.e. the last index
     offset = 0
     fit = None
-    ytol = np.array(ytol)
-    
+    tol = np.array(tol)
+    x = x.reshape([-1, 1])
 
     errf = errorfunctions[errorfunction]
     fitset = Poly1
     f_fit = fitset.fit
     f_y = fitset.y_from_fit
 
-    y = y.reshape(-1,1)
     x_c, y_c = [x[0]], [np.array(y[0])]
     #───────────────────────────────────────────────────────────────
-    def _f2zero(n):
-        '''Function such that n is optimal when f2zero(n) = 0'''
-        inds = np.linspace(start, n + start, int((n+1)**0.5)+ 2).astype(int)
+    def _f2zero(i: int) -> tuple:
+        '''Function such that i is optimal when f2zero(i) = 0'''
+        inds = sqrtrange(i) + start
         residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
         if is_debug:
-            indices_all = np.arange(start, start + int(n) + 1)
+            indices_all = np.arange(-1, i + 1) + start 
             G['x_plot'] = G['x'][indices_all]
             G['y_plot'] = Poly1.y_from_fit(fit, G['x_plot'])
             G['line_fit'].set_xdata(G['x_plot'])
@@ -189,30 +203,30 @@ def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
             G['ax_res'].clear()
             G['ax_res'].grid()
             G['ax_res'].set_ylabel('Residual relative to tolerance')
-            G['ax_res'].plot(indices_all - start, np.abs(res_all) / ytol -1,
+            G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
                              '.', color = 'blue', label='ignored')
-            G['ax_res'].plot(inds - start, np.abs(residuals) / ytol-1,
+            G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
                              'o', color='red', label='sampled')
             G['ax_res'].legend()
             input('Fitting\n')
-        return errf(residuals, ytol), fit
+        return errf(residuals, tol), fit
     #───────────────────────────────────────────────────────────────
-
+    limit = end - start
+    # Estimation for the first offset
+    offset = min(limit,
+                 round((limit + 1) / n_lines(x[start:round(end / 2)],
+                                             y[start:round(end / 2)],
+                                             x_c[-1], y_c[-1], tol)))
+    if is_debug:
+        input('Starting\n')
+        print(f'{offset=}')
     for _ in range(end): # Prevents infinite loop in case error
+        
+        offset, fit = droot(_f2zero, -1, offset, limit)
+
+        if fit is None: raise RuntimeError('Fit not found')
         if is_debug:
-                input('Next iteration\n')
-        # Estimated number of lines needed
-        lines = n_lines(x[start:], y[start:], x_c[-1], y_c[-1], ytol)
-        # Arithmetic mean between previous step length and line estimate,
-        # limited to end index of the array
-        limit = end - start
-        estimate = min(limit, np.amin(((offset + (limit+1) / lines)/2)).astype(int))
-        if is_debug:
-            print(f'{lines=}')
-            print(f'{estimate=}')
-        offset, fit = droot(_f2zero, -1, estimate, limit)
-        if is_debug:
-            print(f'err {errf(f_y(fit, x[start + offset]) - y[start + offset], ytol)}')
+            print(f'err {errf(f_y(fit, x[start + offset]) - y[start + offset], tol)}')
             print(f'{start=}')
             print(f'{offset=}')
             print(f'{end=}')
@@ -221,13 +235,20 @@ def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
             G['ax_root'].grid()
             G['ax_root'].set_ylabel('Maximum residual')
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color='red')
+        
         start += offset + 1 # Start shifted by the number compressed and the
-        if end <=  start:
+        if start > end:
             break
         x_c.append(x[start - 1])
         y_c.append(f_y(fit, x_c[-1]).flatten())
+        limit = end - start
+        offset = min(limit, offset) # Setting up to be next estimation
+
+        if is_debug:
+            G['ax_data'].plot(x_c[-1], y_c[-1],'.',color='green')
+            input('Next iteration\n')
     else:
-        raise Warning('Maximum number of iterations reached')
+        raise StopIteration('Maximum number of iterations reached')
     # Last data point is same as in the uncompressed data
     x_c.append(x[-1])
     y_c.append(y[-1])
@@ -239,17 +260,18 @@ def LSQ10(x, y, ytol=1e-2, errorfunction = 'maxmaxabs'):
         plt.ioff()
     return np.array(x_c).reshape(-1,1), np.array(y_c)
 ###═════════════════════════════════════════════════════════════════════
-def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
-    '''Returns inds of data points to select'''
+def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False):
+    '''Returns inds of data points to select.
+    Should be faster than LSQ based'''
 
     if is_timed: t_start = time.perf_counter()
 
     zero = 1
     end = len(x)- 1 - zero
-    estimate = int(end/n_lines(x,y,x[0],y[0],ytol) )+1
+    estimate = int(end/n_lines(x,y,x[0],y[0],tol) )+1
     inds = [0]
     #───────────────────────────────────────────────────────────────────
-    def f2zero(n,xs, ys, ytol):
+    def f2zero(n,xs, ys, tol):
         n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
         inds_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
 
@@ -257,13 +279,13 @@ def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
         b = y[zero] - a * xs[zero]
 
         errmax = np.amax(np.abs(a*x[inds_test].reshape([-1,1]) + b - y[inds_test]),axis=0)
-        return np.amax(errmax/ytol-1), None
+        return np.amax(errmax/tol-1), None
     #───────────────────────────────────────────────────────────────────
     while end > 0:
         estimate = int((end + end/(n_lines(x[zero:], y[zero:], 
-                                           x[inds[-1]], y[inds[-1]], ytol)))/2)
+                                           x[inds[-1]], y[inds[-1]], tol)))/2)
         estimate = min(end, estimate)
-        end, _ = droot(f2zero,-ytol, estimate, end)
+        end, _ = droot(f2zero,-tol, estimate, end)
         end += 1
         zero += end
         end -= end
@@ -279,7 +301,9 @@ def pick(x,y,ytol=1e-2, mins=30, verbosity=0, is_timed=False):
     
     return np.array(inds)
 ###═════════════════════════════════════════════════════════════════════
-def split(x,y,ytol=1e-2, mins=100, verbosity=0, is_timed=False):
+def split(x, y, tol=1e-2, mins=100, verbosity=0, is_timed=False):
+    '''Returns inds of data points to select.
+    Should be faster pick'''
     t_start = time.perf_counter()
     def rec(a, b):
         n = b-a-1
@@ -289,7 +313,7 @@ def split(x,y,ytol=1e-2, mins=100, verbosity=0, is_timed=False):
         x2, y2 = x[b], y[b]
         err = lambda x, y: np.abs((y2- y1) /(x2 - x1)* (x - x1) + y1 - y)
         i = a + 1 + step*np.argmax(err(x[a+1:b-1:step], y[a+1:b-1:step]))
-        return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > ytol else [a,b]
+        return np.concatenate((rec(a, i), rec(i, b)[1:])) if err(x[i], y[i]) > tol else [a,b]
     inds = rec(0,len(x)-1)
 
     if is_timed: t = time.perf_counter()-t_start
@@ -306,7 +330,7 @@ class _StreamCompressedContainer(abc.Sized):
     system of equations 
     i.e. single input variable and one or more output variable
     '''
-    def __init__(self, x0 ,y0, mins=20, ytol=1e-2):
+    def __init__(self, x0 ,y0, mins=20, tol=1e-2):
         self.xb = []
         self.yb = [] # Variables are columns, e.g. 3xn
         self._x = [x0]
@@ -314,7 +338,7 @@ class _StreamCompressedContainer(abc.Sized):
         self.start = 0 # Index of starting point for looking for optimum
         self.end = 2 # Index of end point for looking for optimum
         self.mins = mins
-        self.ytol = np.array(ytol)
+        self.tol = np.array(tol)
         self.state = 'open'
     #───────────────────────────────────────────────────────────────────
     @property # An optimization
@@ -336,7 +360,7 @@ class _StreamCompressedContainer(abc.Sized):
         a = np.matmul(Dx,Dy) / Dx.dot(Dx)
         b = self._y[-1] - a * self._x[-1]
         errmax = np.amax(np.abs(a*self.xb[inds].reshape([-1,1]) + b - self.yb[inds]),axis=0)
-        return np.amax(errmax/self.ytol-1), (a,b)
+        return np.amax(errmax/self.tol-1), (a,b)
     #───────────────────────────────────────────────────────────────────
     def compress(self):
         offset, fit = interval(self._f2zero,self.start,self.tol1, self.limit,self.tol2,self.fit1)
@@ -386,22 +410,22 @@ class _StreamCompressedContainer(abc.Sized):
     def __str__(self):
         s = 'x = ' + str(self.x)
         s += ' y = ' + str(self.y)
-        s += ' ytol = ' + str(self.ytol)
+        s += ' tol = ' + str(self.tol)
         return s
     #───────────────────────────────────────────────────────────────────
 ###═════════════════════════════════════════════════════════════════════
 class Stream():
     '''Context manager for stream compression of data of 
     1 dimensional system of equations'''
-    def __init__(self, x0 ,y0, mins=20, ytol=1e-2):
+    def __init__(self, x0 ,y0, mins=20, tol=1e-2):
         self.x0 = x0
         self.y0 = y0 # Variables are columns, e.g. 3xn
         self.mins = mins
-        self.ytol = ytol # Y value tokerances
+        self.tol = tol # Y value tokerances
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         self.container = _StreamCompressedContainer(self.x0, self.y0, 
-                                             mins=self.mins, ytol=self.ytol)
+                                             mins=self.mins, tol=self.tol)
         return self.container
     #───────────────────────────────────────────────────────────────────
     def __exit__(self, exc_type, exc_value, traceback):
@@ -428,14 +452,15 @@ def compress(*args, method='LSQ10', **kwargs):
 class Poly1:
     #───────────────────────────────────────────────────────────────────
     @staticmethod
+    # @numba.jit(nopython=True, cache=True)
     def fit(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
-        Dx = x - x0
-        Dy = y - y0.reshape([1, -1])
 
-        a = np.matmul(Dx,Dy) / Dx.dot(Dx)
+        Dx = x - x0
+        Dy = y - y0
+        a = Dx.T @ Dy / Dx.T.dot(Dx)
         b = y0 - a * x0
-        return (a*x.reshape([-1, 1]) + b - y, (a,  b))
+        return (a * Dx - Dy, (a,  b))
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def y_from_fit(fit: tuple, x: np.ndarray) -> np.ndarray:

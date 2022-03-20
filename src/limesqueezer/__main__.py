@@ -52,15 +52,33 @@ elif sys.argv[1] == 'debug':
     input()
     exit()
 elif sys.argv[1] == 'debug2':
-    x_data, y_data = ref.raw_sine(1e3)
-    ytol = 2e-2
+    import math
+    x_data = np.linspace(0,6,int(1e3))
+    y_data = np.array(np.sin(x_data*2*math.pi))
+    # x_data, y_data = ref.raw_sine(1e3)
+    print(x_data[-1])
     ls.G['debug'] = True
-    xc, yc = ls.compress(x_data, y_data, ytol = 2e-2)
+    xc, yc = ls.compress(x_data, y_data, tol = 2e-2)
     len(xc)
     print(xc)
     print(yc)
     input()
     exit()
+elif sys.argv[1] == 'timed':
+    import math
+    x_data = np.linspace(0,6,int(1e6))
+    y_data = np.array([np.sin(x_data*1.2*math.pi),np.sin(x_data*2*math.pi)]).T
+    print(f'{x_data.shape=}')
+    print(f'{y_data.shape=}')
+    # x_data, y_data = ref.raw_sine(1e3)
+    print(x_data[-1])
+    ls.G['timed'] = True
+    xc, yc = ls.compress(x_data, y_data, tol = 1e-2)
+    print(f'{len(x_data)=}')
+    print(f'{len(xc)=}')
+    print(f'runtime {ls.G["runtime"]*1e3:.1f} ms')
+    exit()
+
 
 
 path_home = pathlib.Path(__file__).parent.absolute()

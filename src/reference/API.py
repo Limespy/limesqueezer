@@ -48,7 +48,7 @@ def raw_poly2(n=1e2):
     return x, np.array(x**2)
 #───────────────────────────────────────────────────────────────────────
 def raw_sine(n=1e4):
-    x = np.linspace(0,1,int(n))
+    x = np.linspace(0,6,int(n))
     return x, np.array(np.sin(x*2*math.pi))
 #───────────────────────────────────────────────────────────────────────
 def raw_sine_normal(n=1e4, std=0.1):
