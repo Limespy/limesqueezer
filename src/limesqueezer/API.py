@@ -142,10 +142,10 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
     if (length := len(x)) > 1:
         inds = sqrtrange(length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
-        # print(f'sqrtmaxmaxabs {_maxmaxabs(res, tol)** 0.5}')
-        # print(f'sqrtmaxsumabs {_maxsumabs(res, tol)** 0.5}')
-        # print(f'sqrtmaxRMS {_maxRMS(res, tol)** 0.5}')
-        return (0.5 * _maxRMS(res, tol) + 1) ** 0.5 + 1
+        # print(f'sqrtmaxmaxabs {(_maxmaxabs(res, tol)/ tol)** 0.5}')
+        # print(f'sqrtmaxsumabs {(_maxsumabs(res, tol)/ tol)** 0.5}')
+        # print(f'sqrtmaxRMS {(_maxRMS(res, tol)/ tol)** 0.5}')
+        return 0.5 * (_maxsumabs(res, tol) / tol + 1) ** 0.5 + 1
     else:
         return 1.
 
@@ -177,11 +177,10 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
 
     start = 1 # Index of starting point for looking for optimum
     end = len(x) - 1 # Number of uncompressed datapoints -1, i.e. the last index
-    offset = 0
     fit = None
     tol = np.array(tol)
     x = x.reshape([-1, 1])
-
+    y = y.reshape([len(x), -1])
     errf = errorfunctions[errorfunction]
     fitset = Poly1
     f_fit = fitset.fit
@@ -203,6 +202,8 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs'
             G['ax_res'].clear()
             G['ax_res'].grid()
             G['ax_res'].set_ylabel('Residual relative to tolerance')
+            print(f'{inds.shape}')
+            print(f'{residuals.shape}')
             G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
                              '.', color = 'blue', label='ignored')
             G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
@@ -460,6 +461,11 @@ class Poly1:
         Dy = y - y0
         a = Dx.T @ Dy / Dx.T.dot(Dx)
         b = y0 - a * x0
+        # print(f'{a.shape=}')
+        # print(f'{Dx.shape=}')
+        # print(f'{y.shape=}')
+        # print(f'{y0.shape=}')
+        # print(f'{Dy.shape=}')
         return (a * Dx - Dy, (a,  b))
     #───────────────────────────────────────────────────────────────────
     @staticmethod
