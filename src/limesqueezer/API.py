@@ -238,10 +238,8 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
     #───────────────────────────────────────────────────────────────
     limit = end - start
     # Estimation for the first offset
-    offset = min(limit,
-                 round((limit + 1) / n_lines(x[start:round(end / 2)],
-                                             y[start:round(end / 2)],
-                                             x_c[-1], y_c[-1], tol)))
+    offset = round(limit / n_lines(x[start:(end // 2)], y[start:(end // 2)],
+                                   x[0], y[0], tol))
     if is_debug:
         input('Starting\n')
         print(f'{offset=}')
@@ -285,7 +283,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
         plt.ioff()
     return np.array(x_c).reshape(-1,1), np.array(y_c)
 ###═════════════════════════════════════════════════════════════════════
-def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False):
+def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
     '''Returns inds of data points to select.
     Should be faster than LSQ based'''
 
@@ -295,16 +293,24 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False):
     end = len(x)- 1 - zero
     estimate = int(end/n_lines(x,y,x[0],y[0],tol) )+1
     inds = [0]
+    errf = errorfunctions['maxmaxabs'][use_numba]
+
+    x = x.reshape([-1, 1])
+    y = y.reshape([len(x), -1])
+
+    if not isinstance(tol, (list, np.ndarray)):
+        tol = [tol] * y.shape[1]
+    tol = np.array(tol)
     #───────────────────────────────────────────────────────────────────
-    def f2zero(n,xs, ys, tol):
-        n_steps = n+1 if n+1<=mins else int((n+1 - mins)**0.5 + mins)
-        inds_test = np.rint(np.linspace(zero,n+ zero,n_steps)).astype(int)
+    def f2zero(n, xs, ys, tol):
+
+        inds = sqrtrange(zero, n)
 
         a = (y[n+zero] - y[zero])/(x[n+zero] - x[zero])
         b = y[zero] - a * xs[zero]
+        residuals = a * x[inds] + b - y[inds]
 
-        errmax = np.amax(np.abs(a*x[inds_test].reshape([-1,1]) + b - y[inds_test]),axis=0)
-        return np.amax(errmax/tol-1), None
+        return errf(residuals, tol), None
     #───────────────────────────────────────────────────────────────────
     while end > 0:
         estimate = int((end + end/(n_lines(x[zero:], y[zero:], 
