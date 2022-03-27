@@ -3,7 +3,7 @@
 # IMPORT
 import unittest
 import numpy as np
-import API as ls
+import limesqueezer as ls
 import reference as ref
 
 #%%═════════════════════════════════════════════════════════════════════
@@ -67,8 +67,8 @@ class Test(unittest.TestCase):
                 self.assertTrue(fit0)
     #───────────────────────────────────────────────────────────────────
     def test_1_4_nlines(self):
-        x, y = ref.raw_sine(1e3)
-        for end in np.logspace(1,3, 10).astype(int)+1:
+        x, y = ref.raw_sine(1e3 + 2)
+        for end in np.logspace(1,3, 10).astype(int) + 1:
             print(f'{end=}')
             print(ls.n_lines(x[1:end], y[1:end], x[0], y[0], 1e-2))
     #───────────────────────────────────────────────────────────────────
