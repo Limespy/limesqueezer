@@ -1,3 +1,9 @@
+'''
+Examples
+========================================================================
+
+A series of examples on how to use this package
+'''
 import API as ls
 import reference
 
