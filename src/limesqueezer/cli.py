@@ -40,7 +40,7 @@ def debug():
     x_data, y_data = ref.raw_sine_x2(1e4)
     print(f'{x_data.shape=}\t{y_data.shape=}')
     ls._G['debug'] = True
-    xc, yc = ls.compress(x_data, y_data, tol = 1e-2)
+    xc, yc = ls(x_data, y_data, tol = 1e-2)
     print(f'{len(x_data)=}\t{len(xc)=}')
     time.sleep(1)
     input()
@@ -50,7 +50,7 @@ def timed(use_numba: int):
     print(f'{x_data.shape=}\t{y_data.shape=}')
     ls._G['timed'] = True
 
-    xc, yc = ls.compress(x_data, y_data, tol = 1e-2, use_numba = use_numba)
+    xc, yc = ls(x_data, y_data, tol = 1e-2, use_numba = use_numba)
 
     print(f'{len(x_data)=}\t{len(xc)=}')
     print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
@@ -63,7 +63,7 @@ def benchmark(use_numba: int):
     runtime = 0
 
     for _ in range(100):
-        xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
+        xc, yc = ls(x_data, y_data, tol = 1e-2,
                             use_numba = use_numba)
         runtime += ls._G["runtime"]
     

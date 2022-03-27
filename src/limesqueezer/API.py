@@ -4,6 +4,7 @@ import numba
 import numpy as np
 import sys
 import time
+import types
 from collections import abc
 import matplotlib.pyplot as plt
 
@@ -177,8 +178,8 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
 
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
-          use_numba = 0) -> tuple:
+def LSQ10(x: np.ndarray, y: np.ndarray,
+          tol = 1e-2, errorfunction = 'maxmaxabs', use_numba = 0) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
     '''
@@ -366,7 +367,7 @@ class _StreamCompressedContainer(abc.Sized):
     system of equations 
     i.e. single wait variable and one or more output variable
     '''
-    def __init__(self, x0 ,y0, mins=20, tol=1e-2):
+    def __init__(self, x0 ,y0, mins = 20, tol = 1e-2):
         self.xb = []
         self.yb = [] # Variables are columns, e._G. 3xn
         self._x = [x0]
@@ -536,3 +537,20 @@ class Poly1:
         raise NotImplementedError
     #───────────────────────────────────────────────────────────────────
     fit = (fit_python, fit_numba)
+#%%═════════════════════════════════════════════════════════════════════
+# HACKS
+# A hack to make the package callable
+class Pseudomodule(types.ModuleType):
+    '''Class that wraps the individual plotting functions
+    an allows making the module callable'''
+    @staticmethod
+    def __call__(*args, method='LSQ10', **kwargs):
+        '''Wrapper for easier selection of compression method'''
+        try:
+            compressor = methods[method]
+        except KeyError:
+            raise NotImplementedError("Method not in the dictionary of methods")
+        return compressor(*args, **kwargs)
+#───────────────────────────────────────────────────────────────────────
+# Here the magic happens for making the API module itself also callable
+sys.modules[__name__].__class__ = Pseudomodule
