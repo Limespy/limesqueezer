@@ -1,24 +1,31 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import numpy as np
 import numba
+import numpy as np
+import sys
 import time
-
 from collections import abc
 import matplotlib.pyplot as plt
 
-global G
-G = {}
-G['timed'] = False
-G['debug'] = False
+from . import reference as ref # Careful with this circular import
+
+# This global dictionary _G is for passing some telemtery and debug arguments
+global _G
+_G = {}
+_G['timed'] = False
+_G['debug'] = False
+
 #%%═════════════════════════════════════════════════════════════════════
-# COMPRESSOR AUXILIARIES
+# AUXILIARIES
 # ~ sqrt(n + 2) equally spaced integers including the i
 def sqrtrange(start: int, i: int):
     '''~ sqrt(n + 2) equally spaced integers including the i'''
     inds = np.arange(start, i + start + 1, round(i**0.5))
     inds[-1] = i + start
     return inds
+#───────────────────────────────────────────────────────────────────────
+def wait(text: str):
+    if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
 def _maxmaxabs_python(r: np.ndarray, t: np.ndarray) -> float:
@@ -58,12 +65,12 @@ errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
 ## ROOT FINDING
 def interval(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
-    is_debug = G['debug']
+    is_debug = _G['debug']
     if is_debug:
-        G['mid'], = G['ax_root'].plot(x1, y1,'.', color='blue')
+        _G['mid'], = _G['ax_root'].plot(x1, y1,'.', color='blue')
     while x2 - x1 > 2:
         if is_debug:
-            input('Calculating new attempt in interval\n')
+            wait('Calculating new attempt in interval\n')
         # Arithmetic mean between linear estimate and half
         x_mid = int((x1 - y1 / (y2 - y1) * (x2 - x1) + (x2 + x1) / 2) / 2) + 1
         # x_mid = int((x2 + x1) / 2)
@@ -76,49 +83,49 @@ def interval(f, x1, y1, x2, y2, fit1):
         if is_debug:
             print(f'{x_mid=}')
             print(f'{y_mid=}')
-            G['mid'].set_xdata(x_mid)
-            G['mid'].set_ydata(y_mid)
+            _G['mid'].set_xdata(x_mid)
+            _G['mid'].set_ydata(y_mid)
         if y_mid > 0:
             if is_debug:
-                input('Error over tolerance\n')
-                G['ax_root'].plot(x2, y2,'.', color='black')
+                wait('Error over tolerance\n')
+                _G['ax_root'].plot(x2, y2,'.', color='black')
             x2, y2 = x_mid, y_mid
             if is_debug:
-                G['xy2'].set_xdata(x2)
-                G['xy2'].set_ydata(y2)
+                _G['xy2'].set_xdata(x2)
+                _G['xy2'].set_ydata(y2)
         else:
             if is_debug:
-                input('Error under tolerance\n')
-                G['ax_root'].plot(x1, y1,'.', color='black')
+                wait('Error under tolerance\n')
+                _G['ax_root'].plot(x1, y1,'.', color='black')
             x1, y1, fit1 = x_mid, y_mid, fit
             if is_debug:
-                G['xy1'].set_xdata(x1)
-                G['xy1'].set_ydata(y1)
+                _G['xy1'].set_xdata(x1)
+                _G['xy1'].set_ydata(y1)
 
-    if x2 - x1 == 2: # Points have only on e point in between
+    if x2 - x1 == 2: # Points have only one point in between
         if is_debug:
-            input('Points have only one point in between\n')
+            wait('Points have only one point in between\n')
         y_mid, fit = f(x1+1) # Testing that point
         return (x1+1, fit) if (y_mid <0) else (x1, fit1) # If under, give that fit
     else:
         if is_debug:
-            input('Points have no point in between\n')
+            wait('Points have no point in between\n')
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
 def droot(f, y1, x2, limit):
     '''Finds the upper limit to interval
     '''
-    is_debug = G['debug']
+    is_debug = _G['debug']
     x1 = 0
     y2, fit2 = f(x2)
     if is_debug:
-        G['xy1'], = G['ax_root'].plot(x1, y1,'.', color='green')
-        G['xy2'], = G['ax_root'].plot(x2, y2,'.', color='blue')
+        _G['xy1'], = _G['ax_root'].plot(x1, y1,'.', color='green')
+        _G['xy2'], = _G['ax_root'].plot(x2, y2,'.', color='blue')
     fit1 = None
     while y2 < 0:
         if is_debug:
-            input('Calculating new attempt in droot\n')
-            G['ax_root'].plot(x1, y1,'.', color='black')
+            wait('Calculating new attempt in droot\n')
+            _G['ax_root'].plot(x1, y1,'.', color='black')
         x1, y1, fit1 = x2, y2, fit2
         x2 *= 2
         x2 += 1
@@ -127,29 +134,29 @@ def droot(f, y1, x2, limit):
             print(f'{x1=}')
             print(f'{y1=}')
             print(f'{x2=}')
-            G['xy1'].set_xdata(x1)
-            G['xy1'].set_ydata(y1)
-            G['xy2'].set_xdata(x2)
+            _G['xy1'].set_xdata(x1)
+            _G['xy1'].set_ydata(y1)
+            _G['xy2'].set_xdata(x2)
         if x2 >= limit:
             if is_debug:
-                G['ax_root'].plot([limit, limit], [y1,0],'.', color='blue')
+                _G['ax_root'].plot([limit, limit], [y1,0],'.', color='blue')
             y2, fit2 = f(limit)
             if y2<0:
                 if is_debug:
-                    input('End reached within tolerance\n')
+                    wait('End reached within tolerance\n')
                 return limit, fit2
             else:
                 if is_debug:
-                    input('End reached outside tolerance\n')
+                    wait('End reached outside tolerance\n')
                 x2 = limit
                 break
         y2, fit2 = f(x2)
         if is_debug:
             print(f'{y2=}')
-            G['xy2'].set_ydata(y2)
+            _G['xy2'].set_ydata(y2)
     if is_debug:
-        G['xy2'].set_color('red')
-        input('Points for interval found\n')
+        _G['xy2'].set_color('red')
+        wait('Points for interval found\n')
     return interval(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
@@ -173,23 +180,23 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
 def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
           use_numba = 0) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
-    i.e. single input variable and one or more output variable
+    i.e. single wait variable and one or more output variable
     '''
-    is_debug = G['debug']
-    if G['timed']:
-        G['t_start'] = time.perf_counter()
+    is_debug = _G['debug']
+    if _G['timed']:
+        _G['t_start'] = time.perf_counter()
     if is_debug:
-        G['x'], G['y'] = x, y
-        G['fig'], axs = plt.subplots(3,1)
+        _G['x'], _G['y'] = x, y
+        _G['fig'], axs = plt.subplots(3,1)
         for ax in axs:
             ax.grid()
-        G['ax_data'], G['ax_res'], G['ax_root'] = axs
+        _G['ax_data'], _G['ax_res'], _G['ax_root'] = axs
 
-        G['ax_data'].fill_between(x, y - tol, y + tol, alpha=.3, color='blue')
+        _G['ax_data'].fill_between(x, y - tol, y + tol, alpha=.3, color='blue')
 
-        G['line_fit'], = G['ax_data'].plot(0,0,'-',color='orange')
+        _G['line_fit'], = _G['ax_data'].plot(0,0,'-',color='orange')
 
-        G['ax_root'].set_ylabel('Tolerance left')
+        _G['ax_root'].set_ylabel('Tolerance left')
 
         plt.ion()
         plt.show()
@@ -220,20 +227,20 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
         residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
         if is_debug:
             indices_all = np.arange(-1, i + 1) + start 
-            G['x_plot'] = G['x'][indices_all]
-            G['y_plot'] = Poly1.y_from_fit(fit, G['x_plot'])
-            G['line_fit'].set_xdata(G['x_plot'])
-            G['line_fit'].set_ydata(G['y_plot'])
-            res_all = G['y_plot'] - G['y'][indices_all].reshape(-1,1)
-            G['ax_res'].clear()
-            G['ax_res'].grid()
-            G['ax_res'].set_ylabel('Residual relative to tolerance')
-            G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
+            _G['x_plot'] = _G['x'][indices_all]
+            _G['y_plot'] = Poly1.y_from_fit(fit, _G['x_plot'])
+            _G['line_fit'].set_xdata(_G['x_plot'])
+            _G['line_fit'].set_ydata(_G['y_plot'])
+            res_all = _G['y_plot'] - _G['y'][indices_all].reshape(-1,1)
+            _G['ax_res'].clear()
+            _G['ax_res'].grid()
+            _G['ax_res'].set_ylabel('Residual relative to tolerance')
+            _G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
                              '.', color = 'blue', label='ignored')
-            G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
+            _G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
                              'o', color='red', label='sampled')
-            G['ax_res'].legend()
-            input('Fitting\n')
+            _G['ax_res'].legend()
+            wait('Fitting\n')
         return errf(residuals, tol), fit
     #───────────────────────────────────────────────────────────────
     limit = end - start
@@ -241,7 +248,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
     offset = round(limit / n_lines(x[start:(end // 2)], y[start:(end // 2)],
                                    x[0], y[0], tol))
     if is_debug:
-        input('Starting\n')
+        wait('Starting\n')
         print(f'{offset=}')
     for _ in range(end): # Prevents infinite loop in case error
         
@@ -250,14 +257,12 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
         if fit is None: raise RuntimeError('Fit not found')
         if is_debug:
             print(f'err {errf(f_y(fit, x[start + offset]) - y[start + offset], tol)}')
-            print(f'{start=}')
-            print(f'{offset=}')
-            print(f'{end=}')
+            print(f'{start=}\t{offset=}\t{end=}\t')
             print(f'{fit=}')
-            G['ax_root'].clear()
-            G['ax_root'].grid()
-            G['ax_root'].set_ylabel('Maximum residual')
-            G['ax_data'].plot(G['x_plot'], G['y_plot'], color='red')
+            _G['ax_root'].clear()
+            _G['ax_root'].grid()
+            _G['ax_root'].set_ylabel('Maximum residual')
+            _G['ax_data'].plot(_G['x_plot'], _G['y_plot'], color='red')
         
         start += offset + 1 # Start shifted by the number compressed and the
         if start > end:
@@ -268,16 +273,16 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, errorfunction = 'maxmaxabs',
         offset = min(limit, offset) # Setting up to be next estimation
 
         if is_debug:
-            G['ax_data'].plot(x_c[-1], y_c[-1],'.',color='green')
-            input('Next iteration\n')
+            _G['ax_data'].plot(x_c[-1], y_c[-1],'.',color='green')
+            wait('Next iteration\n')
     else:
         raise StopIteration('Maximum number of iterations reached')
     # Last data point is same as in the uncompressed data
     x_c.append(x[-1])
     y_c.append(y[-1])
 
-    if G['timed']:
-        G['runtime'] = time.perf_counter() - G['t_start']
+    if _G['timed']:
+        _G['runtime'] = time.perf_counter() - _G['t_start']
     
     if is_debug:
         plt.ioff()
@@ -319,7 +324,7 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
         end, _ = droot(f2zero,-tol, estimate, end)
         end += 1
         zero += end
-        end -= end
+        end -= end # WAT.
         
         inds.append(zero-1)
 
@@ -359,11 +364,11 @@ def split(x, y, tol=1e-2, mins=100, verbosity=0, is_timed=False):
 class _StreamCompressedContainer(abc.Sized):
     '''Class for doing stream compression for data of 1-dimensional
     system of equations 
-    i.e. single input variable and one or more output variable
+    i.e. single wait variable and one or more output variable
     '''
     def __init__(self, x0 ,y0, mins=20, tol=1e-2):
         self.xb = []
-        self.yb = [] # Variables are columns, e.g. 3xn
+        self.yb = [] # Variables are columns, e._G. 3xn
         self._x = [x0]
         self._y = [np.array(y0)]
         self.start = 0 # Index of starting point for looking for optimum
@@ -450,7 +455,7 @@ class Stream():
     1 dimensional system of equations'''
     def __init__(self, x0 ,y0, mins=20, tol=1e-2):
         self.x0 = x0
-        self.y0 = y0 # Variables are columns, e.g. 3xn
+        self.y0 = y0 # Variables are columns, e._G. 3xn
         self.mins = mins
         self.tol = tol # Y value tokerances
     #───────────────────────────────────────────────────────────────────
