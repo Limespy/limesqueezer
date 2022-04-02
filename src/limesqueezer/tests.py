@@ -3,9 +3,10 @@
 # IMPORT
 import unittest
 import numpy as np
-import limesqueezer as ls
-import reference as ref
+import sys
+import pathlib
 
+import limesqueezer as ls
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
 def f2zero_100(n: int) -> float:
@@ -65,13 +66,14 @@ class Test(unittest.TestCase):
                     self.assertGreater(f2zero_100(x0+1)[0], 0)
                     self.assertEqual(x0, 100)
                 self.assertTrue(fit0)
-    #───────────────────────────────────────────────────────────────────
+    
     def test_1_4_nlines(self):
-        x, y = ref.raw_sine(1e3 + 2)
+        x, y = ls.ref.raw_sine(1e3 + 2)
         for end in np.logspace(1,3, 10).astype(int) + 1:
             print(f'{end=}')
             print(ls.n_lines(x[1:end], y[1:end], x[0], y[0], 1e-2))
-    #───────────────────────────────────────────────────────────────────
+    #═══════════════════════════════════════════════════════════════════
+    # Block Compresion
     # def test_2_1_compress(self):
         # import math
         # tol = 1e-3
@@ -84,6 +86,62 @@ class Test(unittest.TestCase):
         #     xc, yc = ls.compress(x_data, y_data, tol = tol)
         #     self.assertEqual(xc0, xc)
         #     self.assertEqual(yc0, yc)
+    #═══════════════════════════════════════════════════════════════════
+    # Stream Compression
+    def test_3_1_stream_1y(self):
+        '''Stream compression runs and outputs correctly'''
+        tol = 1e-3
+        xdata, ydata = ls.ref.raw_sine_x2(1e4)
+        #───────────────────────────────────────────────────────────────
+        with ls.Stream(xdata[0], ydata[0], tol = tol) as record:
+            self.assertTrue(isinstance(record, ls.API._StreamRecord))
+            self.assertEqual(record.state, 'open')
+            for x, y in zip(xdata[1:], ydata[1:]):
+                record(x, y)
+        #───────────────────────────────────────────────────────────────
+        self.assertEqual(record.state, 'closed')
+
+        self.assertEqual(xdata[0], record.x[0])
+        self.assertEqual(xdata[-1], record.x[-1])
+        self.assertEqual(ydata[0], record.y[0])
+        self.assertEqual(ydata[-1], record.y[-1])
+    #───────────────────────────────────────────────────────────────────
+    # def test_3_2_stream_2d(self):
+    #     '''Stream compression runs and outputs correctly'''
+    #     tol = 1e-3
+    #     xdata, ydata = ls.ref.raw_sine_x2(1e4)
+    #     #───────────────────────────────────────────────────────────────
+    #     with ls.Stream(xdata[0], ydata[0], tol = tol) as record:
+    #         self.assertTrue(isinstance(record, ls._StreamContainer))
+    #         self.assertEqual(record.state, 'open')
+    #         for x, y in zip(xdata[1:], ydata[1:]):
+    #             record(x, y)
+    #     #───────────────────────────────────────────────────────────────
+    #     self.assertTrue(isinstance(record, ls.Compressed))
+    #     self.assertEqual(record.state, 'closed')
+
+    #     self.assertEqual(xdata[0], record.x[0])
+    #     self.assertEqual(xdata[-1], record.x[-1])
+    #     self.assertEqual(ydata[0], record.y[0])
+    #     self.assertEqual(ydata[-1], record.y[-1])
+    #═══════════════════════════════════════════════════════════════════
+    # Stream Compression
+    def test_4_3_block_vs_stream_1y(self):
+        '''Block and stream compressions must give equal compressed output
+        for 1 y variable'''
+
+        tol = 1e-3
+        xdata, ydata = ls.ref.raw_sine_x2(1e4)
+        xc_block, yc_block = ls.compress(xdata, ydata, tol = tol)
+        #───────────────────────────────────────────────────────────────
+        with ls.Stream(xdata[0], ydata[0], tol = tol) as record:
+            for x, y in zip(xdata[1:], ydata[1:]):
+                record(x, y)
+        #───────────────────────────────────────────────────────────────
+        print(xc_block-record.x)
+        self.assertTrue(np.all(xc_block == record.x))
+        self.assertTrue(np.all(yc_block == record.y))
+
         
 #%%═════════════════════════════════════════════════════════════════════
 # RUNNING TESTS
