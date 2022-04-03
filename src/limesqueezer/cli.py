@@ -20,52 +20,51 @@ def main():
     is_plot = '--plot' in args
     is_save = '--save' in args
     is_show = '--show' in args
-    use_numba = '--numba' in args
+    ls._G['timed'] = '--timed' in args
+    ls._G['debug'] = '--debug' in args
+    use_numba = int('--numba' in args)
     if len(args) == 0:
         print(helpstring)
         sys.exit()
     path_cwd = pathlib.Path.cwd()
 
     if is_verbose: print('Selected path is:\n\t%s' % path_cwd)
-    if args[0] == 'debug': debug()
-    if args[0] == 'timed': timed(int(use_numba))
-    if args[0] == 'benchmark': benchmark(int(use_numba))
     if args[0] == 'sandbox': #──────────────────────────────────────────
         args = args[1:]
         import sandbox
+    elif args[0] == 'benchmark': #──────────────────────────────────────
+        import benchmark
+    else:
+        run(args, use_numba)
     sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
-def debug():
-    x_data, y_data = ref.raw_sine_x2(1e4)
-    print(f'{x_data.shape=}\t{y_data.shape=}')
-    ls._G['debug'] = True
-    xc, yc = ls(x_data, y_data, tol = 1e-2)
-    print(f'{len(x_data)=}\t{len(xc)=}')
-    time.sleep(1)
-    input()
+def run(args, use_numba: int):
+    xdata, ydata = ref.raw_sine_x2(1e4)
+    if args[0] == 'block':
+        xc, yc = ls(xdata, ydata, tol = 1e-2,
+                    use_numba = use_numba, errorfunction = 'maxmaxabs')
+    elif args[0] == 'stream':
+        xc, yc = _stream(xdata, ydata, 1e-2, use_numba)
+    elif args[0] == 'both':
+        xcb, ycb = ls(xdata, ydata, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
+        xcs, ycs = _stream(xdata, ydata, 1e-2, use_numba)
+        for i, (xb, xs) in enumerate(zip(xcb,xcs)):
+            if xb - xs != 0:
+                print(f'{i=}, {xb=}, {xs=}')
+                break
+        for i, (xb, xs) in enumerate(zip(reversed(xcb),reversed(xcs))):
+            if xb - xs != 0:
+                print(f'{i=}, {xb=}, {xs=}')
+                break
+        xc = xcb
+    # print(f'{xc[-10:-1]}')
+    print(f'{len(xdata)=}\t{len(xc)=}')
+    if ls._G['timed']: print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
-def timed(use_numba: int):
-    x_data, y_data = ref.raw_sine_x2(1e4)
-    print(f'{x_data.shape=}\t{y_data.shape=}')
-    ls._G['timed'] = True
+def _stream(xdata: np.ndarray, ydata: np.ndarray, tol: float, use_numba: int):
 
-    xc, yc = ls(x_data, y_data, tol = 1e-2, use_numba = use_numba)
-
-    print(f'{len(x_data)=}\t{len(xc)=}')
-    print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
-#───────────────────────────────────────────────────────────────────────
-def benchmark(use_numba: int):
-    x_data = np.linspace(0,6,int(1e5))
-    y_data = np.array([np.sin(x_data*x_data), np.sin(x_data*1.5*x_data)]).T
-    print(f'{x_data.shape=}\t{y_data.shape=}')
-    ls._G['timed'] = True
-    runtime = 0
-
-    for _ in range(100):
-        xc, yc = ls(x_data, y_data, tol = 1e-2,
-                            use_numba = use_numba)
-        runtime += ls._G["runtime"]
-    
-    print(f'{len(x_data)=}\t{len(xc)=}')
-    print(f'runtime {runtime*1e3:.1f} ms')
+    with ls.Stream(xdata[0], ydata[0], tol = tol, use_numba = use_numba) as record:
+        for x, y in zip(xdata[1:], ydata[1:]):
+            record(x, y)
+    return record.x, record.y
