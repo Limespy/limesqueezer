@@ -57,8 +57,8 @@ class Test(unittest.TestCase):
         self.assertTrue(fit0)
     #───────────────────────────────────────────────────────────────────
     def test_1_3_droot(self):
-        for limit in np.logspace(0,3, num = 20).astype(int):
-            for x in np.linspace(0,limit, num = 20).astype(int):
+        for limit in np.logspace(0, 3, num = 20).astype(int):
+            for x in np.linspace(0, limit, num = 20).astype(int):
                 x0, fit0 = ls.droot(f2zero_100, f2zero_100(0)[0], x, limit)
                 self.assertLessEqual(x0, limit)
                 self.assertLess(f2zero_100(x0)[0], 0)

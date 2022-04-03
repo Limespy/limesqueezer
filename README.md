@@ -18,6 +18,9 @@ WIP
     - [Both](#both)
     - [Smaller](#smaller)
   - [Math stuff](#math-stuff)
+      - [Sqrt heuristic 1](#sqrt-heuristic-1)
+      - [Sqrt heuristic 2](#sqrt-heuristic-2)
+      - [Sqrt heuristic 3](#sqrt-heuristic-3)
   - [Visualiser](#visualiser)
     - [Plot](#plot)
       - [Top](#top)
@@ -146,6 +149,110 @@ meaning delta_x ~ Delta_x * sqrt(atol / Delta_y)
 
 When this is normalised so Delta_y = 1 and Delta_x = n,
 delta_x ~ n * sqrt(atol)
+
+#### Sqrt heuristic 1
+
+$$
+interp(x) = a \cdot \sqrt{x} + b
+$$
+$$
+interp(x_1) = y_1 = a \cdot \sqrt{x_1} + b
+$$
+$$
+interp(x_2) = y_2 = a \cdot \sqrt{x_2} + b
+$$
+
+So
+$$
+y_2 - y_1 = a \cdot (\sqrt{x_2} - \sqrt{x_1})
+$$
+$$
+a = \frac{y_2 - y_1}{\sqrt{x_2} - \sqrt{x_1}}
+$$
+And
+$$
+b = y_1 - a \cdot \sqrt{x_1}
+$$
+
+Combined back
+$$ 
+interp(x) = a \cdot \sqrt{x} + y_1 - a \cdot \sqrt{x_1}
+ = \frac{y_2 - y_1}{\sqrt{x_2} - \sqrt{x_1}} \cdot (\sqrt{x} - \sqrt{x_1}) + y_1
+$$
+And when wanting
+$$
+interp(x_0) = 0 = \frac{y_2 - y_1}{\sqrt{x_2} - \sqrt{x_1}} \cdot (\sqrt{x_0} - \sqrt{x_1}) + y_1
+$$
+$$
+\sqrt{x_1} - y_1 \cdot \frac{\sqrt{x_2} - \sqrt{x_1}}{y_2 - y_1} = \sqrt{x_0}
+$$
+
+$$
+x_0 = (\sqrt{x_1} - y_1 \cdot \frac{\sqrt{x_2} - \sqrt{x_1}}{y_2 - y_1})^2
+$$
+
+#### Sqrt heuristic 2
+
+$$
+interp(x) = a \cdot \sqrt{x - x_1} + y_1
+$$
+$$
+interp(x_2) = y_2 = a \cdot \sqrt{x_2 - x_1} + y_1
+$$
+
+$$
+a = \frac{y_2 - y_1}{\sqrt{x_2 - x_1}}
+$$
+
+Combined
+$$
+interp(x) = \frac{y_2 - y_1}{\sqrt{x_2 - x_1}} \cdot \sqrt{x - x_1} + y_1
+$$
+
+$$
+interp(x_0) = 0 = \frac{y_2 - y_1}{\sqrt{x_2 - x_1}} \cdot \sqrt{x_0 - x_1} + y_1
+$$
+
+$$
+x_0 = x_1 + (x_2 - x_1) \cdot (\frac{y_1}{y_2 - y_1})^2
+$$
+
+#### Sqrt heuristic 3
+
+$$ 
+interp(x) = a \cdot \sqrt{x - b} + c
+$$
+Where
+$$ 
+interp(0) = 0 = a \cdot \sqrt{b} + c
+$$
+$$ 
+interp(x_1) = y_1 = a \cdot \sqrt{x_1 - b} + c
+$$
+$$ 
+interp(x_2) = y_2 = a \cdot \sqrt{x_2 - b} + c
+$$
+Combining some
+$$ 
+y_1 = a \cdot (\sqrt{x_1 - b} - \sqrt{b})
+$$
+$$ 
+y_2 = a \cdot (\sqrt{x_2 - b} - \sqrt{b})
+$$
+
+$$ 
+\frac{y_2}{y_1} = \frac{(\sqrt{x_2 - b} - \sqrt{b})}{(\sqrt{x_1 - b} - \sqrt{b})}
+$$
+$$ 
+y_2 \cdot (\sqrt{x_1 - b} - \sqrt{b}) = y_1 \cdot (\sqrt{x_2 - b} - \sqrt{b})
+$$
+
+$$ 
+y_2 \cdot \sqrt{x_1 - b} - y_2 \cdot \sqrt{b} = y_1 \cdot \sqrt{x_2 - b} - y_1 \cdot\sqrt{b}
+$$
+$$ 
+y_2 \cdot \sqrt{x_1 - b} + (y_1 - y_2) \cdot \sqrt{b} - y_1 \cdot \sqrt{x_2 - b} = 0
+$$
 
 ## Visualiser
 

@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+'''
+API
+========================================================================
+
+Connection point for all package utilities to be provided
+'''
+
+
 import numba
 import numpy as np
 import sys
@@ -8,7 +16,6 @@ import types
 import collections
 
 import matplotlib.pyplot as plt
-
 from . import reference as ref # Careful with this circular import
 
 # This global dictionary _G is for passing some telemtery and debug arguments
@@ -16,10 +23,9 @@ global _G
 _G = {}
 _G['timed'] = False
 _G['debug'] = False
-# For Stream compression output
-Record = collections.namedtuple('Record', ['x', 'y', 'tol', 'state'],
-                                    defaults =  ['closed'])
+_G['profiling'] = False
 
+import math
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
 def to_ndarray(item, shape = ()) :
@@ -32,24 +38,41 @@ def to_ndarray(item, shape = ()) :
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
 #───────────────────────────────────────────────────────────────────────
-def sqrtrange(start: int, i: int):
-    '''~ sqrt(n + 2) equally spaced integers including the i'''
-    inds = np.arange(start, i + start + 1, round((i + 1) ** 0.5) )
-    inds[-1] = i + start
+def sqrtrange_python(start: int, n: int):
+    '''~ sqrt(n + 2) equally spaced integers including the n'''
+    inds = np.arange(start, n + start + 1, round((n + 1) ** 0.5) )
+    inds[-1] = n + start
     return inds
+#───────────────────────────────────────────────────────────────────────
+@numba.jit(nopython=True, cache=True)
+def sqrtrange_numba(start: int, n: int):
+    '''~ sqrt(n + 2) equally spaced integers including the n'''
+    inds = np.arange(start, n + start + 1, round(math.sqrt(n + 1)) )
+    inds[-1] = n + start
+    return inds
+#───────────────────────────────────────────────────────────────────────
+_sqrtrange = (sqrtrange_python, sqrtrange_numba)
 #───────────────────────────────────────────────────────────────────────
 def wait(text = ''):
     if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
 def _maxmaxabs_python(r: np.ndarray, t: np.ndarray) -> float:
+    '''Python version'''
     r = np.abs(r)
     # print(f'{r.shape=}')
     # print(f'{t.shape=}')
-    m = -1
-    for i, k in enumerate(t): # Yes, this is silly
-        n = np.max(r[:,i]) - k
-        if n > m: m = n
+    r_max = r[0,0]
+
+    for r0 in r[:,0]:
+        if r0 > r_max: r_max = r0
+
+    m = r_max - t[0]
+
+    for i, k in enumerate(t[1:]):
+        for r0 in r[:,i]:
+            if r0 > r_max: r_max = r0
+        m = max(m, r_max - k)
     return m
 #───────────────────────────────────────────────────────────────────────
 @numba.jit(nopython=True, cache=True)
@@ -57,21 +80,43 @@ def _maxmaxabs_numba(r: np.ndarray, t: np.ndarray) -> float:
     r = np.abs(r)
     # print(f'{r.shape=}')
     # print(f'{t.shape=}')
-    m = -1
-    for i, k in enumerate(t): # Yes, this is silly
-        # n = np.max(r[:,i]) - t[i]
-        n = np.max(r[:,i]) - k
-        if n > m: m = n
+    r_max = r[0,0]
+
+    for r0 in r[:,0]:
+        if r0 > r_max: r_max = r0
+
+    m = r_max - t[0]
+
+    for i, k in enumerate(t[1:]):
+        for r0 in r[:,i]:
+            if r0 > r_max: r_max = r0
+        m = max(m, r_max - k)
     return m
 #───────────────────────────────────────────────────────────────────────
-def _maxRMS(r: np.ndarray,t: np.ndarray)-> float:
-    return np.amax(np.sqrt(np.mean(r * r, axis = 0)) - t)
+def _maxRMS_python(r: np.ndarray,t: np.ndarray)-> float:
+    r *= r
+    # print(f'{r.shape=}')
+    # print(f'{t.shape=}')
+    m = np.sqrt(np.mean(r[:,0])) - t[0]
+    for i, k in enumerate(t[1:]):
+        m = max(m, np.sqrt(np.mean(r[:,i])) - k)
+    return m
+#───────────────────────────────────────────────────────────────────────
+@numba.jit(nopython=True, cache=True)
+def _maxRMS_numba(r: np.ndarray,t: np.ndarray)-> float:
+    r *= r
+    # print(f'{r.shape=}')
+    # print(f'{t.shape=}')
+    m = np.sqrt(np.mean(r[:,0])) - t[0]
+    for i, k in enumerate(t[1:]):
+        m = max(m, np.sqrt(np.mean(r[:,i])) - k)
+    return m
 #───────────────────────────────────────────────────────────────────────
 def _maxsumabs(r: np.ndarray,t: np.ndarray) -> float:
-    return np.amax(np.sum(np.abs(r) - t, axis = 0) / t)
+    return np.amax(np.sum(np.abs(r) - t) / t)
 
 errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
-                  'maxRMS':_maxRMS}
+                  'maxRMS':(_maxRMS_python, _maxRMS_numba)}
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f, x1, y1, x2, y2, fit1):
@@ -82,13 +127,20 @@ def interval(f, x1, y1, x2, y2, fit1):
         print(f'\t{x2=}\t{y2=}')
         _G['mid'], = _G['ax_root'].plot(x1, y1,'.', color = 'blue')
     #──────────────────────────────────────────────────────────────────┘
+    # sqrtx1 = x1**0.5
+    # sqrtx2 = x2**0.5
     while x2 - x1 > 2:
         if is_debug: #─────────────────────────────────────────────────┐
             wait('\tCalculating new attempt in interval\n')
         #──────────────────────────────────────────────────────────────┘
         # Arithmetic mean between linear estimate and half
-        x_mid = int((x1 - y1 / (y2 - y1) * (x2 - x1) + (x2 + x1) / 2) / 2) + 1
+        linest = x1 - y1 / (y2 - y1) * (x2 - x1)
+        halfest = (x2 + x1) / 2
+        # sqrtest1 = sqrtx1 - y1 * (sqrtx2 - sqrtx1) / (y2 - y1)
+        # sqrtest1 = sqrtest1*sqrtest1
+        # sqrtest2 = int(x1 + (x2 - x1) / (y2 / y1 - 1)**2)
         # x_mid = int((x2 + x1) / 2)
+        x_mid = int((linest + halfest) / 2)
         if x_mid == x1:    # To stop repetition in close cases
             x_mid += 1
         elif x_mid == x2:
@@ -106,6 +158,7 @@ def interval(f, x1, y1, x2, y2, fit1):
                 _G['ax_root'].plot(x2, y2,'.', color = 'black')
             #──────────────────────────────────────────────────────────┘
             x2, y2 = x_mid, y_mid
+            sqrtx2 = x_mid **0.5
             if is_debug: #─────────────────────────────────────────────┐
                 _G['xy2'].set_xdata(x2)
                 _G['xy2'].set_ydata(y2)
@@ -116,6 +169,7 @@ def interval(f, x1, y1, x2, y2, fit1):
                 _G['ax_root'].plot(x1, y1,'.', color = 'black')
             #──────────────────────────────────────────────────────────┘
             x1, y1, fit1 = x_mid, y_mid, fit
+            sqrtx1 = x_mid **0.5
             if is_debug: #─────────────────────────────────────────────┐
                 _G['xy1'].set_xdata(x1)
                 _G['xy1'].set_ydata(y1)
@@ -140,8 +194,8 @@ def droot(f, y1, x2, limit):
     x1 = 0
     y2, fit2 = f(x2)
     if is_debug: #─────────────────────────────────────────────────────┐
-        _G['xy1'], = _G['ax_root'].plot(x1, y1,'.', color = 'green')
-        _G['xy2'], = _G['ax_root'].plot(x2, y2,'.', color = 'blue')
+        _G['xy1'], = _G['ax_root'].plot(x1, y1,'g.')
+        _G['xy2'], = _G['ax_root'].plot(x2, y2,'b.')
     #──────────────────────────────────────────────────────────────────┘
     fit1 = None
     while y2 < 0:
@@ -178,7 +232,9 @@ def droot(f, y1, x2, limit):
                 break
         y2, fit2 = f(x2)
         if is_debug: #─────────────────────────────────────────────────┐
-            print(f'{y2=}')
+            print(f'{x1=}\t{y1=}')
+            print(f'{x2=}\t{y2=}')
+            _G['ax_root'].plot(x2, y2,'k.')
             _G['xy2'].set_ydata(y2)
         #──────────────────────────────────────────────────────────────┘
     if is_debug: #─────────────────────────────────────────────────────┐
@@ -193,7 +249,7 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
     '''Estimates number of lines required to fit within error tolerance'''
 
     if (length := len(x)) > 1:
-        inds = sqrtrange(0, length - 2) # indices so that x[-1] is not included
+        inds = sqrtrange_python(0, length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
         # print(f'sqrtmaxmaxabs {(_maxmaxabs(res, tol)/ tol)** 0.5}')
         # print(f'sqrtmaxsumabs {(_maxsumabs(res, tol)/ tol)** 0.5}')
@@ -202,11 +258,10 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         return 0.5 * (_maxsumabs(res, tol) + 1) ** 0.5 + 1
     else:
         return 1.
-
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
 def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
-          errorfunction = 'maxmaxabs', use_numba = 0) -> tuple:
+          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10') -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
     '''
@@ -223,14 +278,16 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
 
     tol = to_ndarray(tol, y[0].shape)
     start_y1 = -np.amax(tol) # Starting value for discrete root calculation
-
-    errf = errorfunctions[errorfunction][use_numba]
-    fitset = Poly1
+    sqrtrange = _sqrtrange[use_numba]
+    if isinstance(errorfunction, str):
+        errorfunction = errorfunctions[errorfunction][use_numba]
+    if isinstance(fitset, str):
+        fitset = fitsets[fitset]
     f_fit = fitset.fit[use_numba]
     fyc = fitset.y_from_fit
 
     x_c, y_c = [x[0]], [np.array(y[0])]
-
+    x0, y0 = x_c[-1], y_c[-1]
     # Estimation for the first offset
     if initial_step is None:
         mid = end // 2
@@ -248,7 +305,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
         _G['ax_data'].fill_between(x.flatten(), (y - tol).flatten(), (y + tol).flatten(), alpha=.3, color = 'blue')
 
         _G['line_fit'], = _G['ax_data'].plot(0,0,'-',color = 'orange')
-
+        _G['ax_res'].axhline(color = 'red', linestyle = '--')
         _G['ax_root'].set_ylabel('Tolerance left')
 
         plt.ion()
@@ -256,16 +313,14 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     #───────────────────────────────────────────────────────────────
     def _f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
-        # inds = np.arange(start, i + start + 1, round(i**0.5))
-        # inds[-1] = i + start
         inds = sqrtrange(start, i)
-        residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
+        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
         if is_debug:
             print(f'\t\t{i=}\t{residuals.shape=}')
             print(f'\t\tx {x[inds][0][0]} - {x[inds][-1][0]}')
             indices_all = np.arange(-1, i + 1) + start
             _G['x_plot'] = _G['x'][indices_all]
-            _G['y_plot'] = Poly1.y_from_fit(fit, _G['x_plot'])
+            _G['y_plot'] = fyc(fit, _G['x_plot'])
             _G['line_fit'].set_xdata(_G['x_plot'])
             _G['line_fit'].set_ydata(_G['y_plot'])
             # print(f'{_G["y_plot"].shape=}')
@@ -274,6 +329,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
             # print(f'{res_all.shape=}')
             _G['ax_res'].clear()
             _G['ax_res'].grid()
+            _G['ax_res'].axhline(color = 'red', linestyle = '--')
             _G['ax_res'].set_ylabel('Residual relative to tolerance')
             _G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
                              '.', color = 'blue', label = 'ignored')
@@ -281,7 +337,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
                              'o', color = 'red', label = 'sampled')
             _G['ax_res'].legend()
             wait('\t\tFitting\n')
-        return errf(residuals, tol), fit
+        return errorfunction(residuals, tol), fit
     #───────────────────────────────────────────────────────────────
     
     if is_debug:
@@ -305,7 +361,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
             break
         x_c.append(x[start - 1])
         y_c.append(fyc(fit, x_c[-1]))
-        
+        x0, y0 = x_c[-1], y_c[-1]
         limit -= step
         offset = min(limit, offset) # Setting up to be next estimation
 
@@ -339,7 +395,8 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
     end = len(x)- 1 - zero
     estimate = int(end/n_lines(x,y,x[0],y[0],tol) )+1
     inds = [0]
-    errf = errorfunctions['maxmaxabs'][use_numba]
+    errorfunction = errorfunctions['maxmaxabs'][use_numba]
+    sqrtrange = _sqrtrange[use_numba]
 
     x = x.reshape([-1, 1])
     y = y.reshape([len(x), -1])
@@ -356,7 +413,7 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
         b = y[zero] - a * xs[zero]
         residuals = a * x[inds] + b - y[inds]
 
-        return errf(residuals, tol), None
+        return errorfunction(residuals, tol), None
     #───────────────────────────────────────────────────────────────────
     while end > 0:
         estimate = int((end + end/(n_lines(x[zero:], y[zero:], 
@@ -407,7 +464,7 @@ class _StreamRecord(collections.abc.Sized):
     system of equations 
     i.e. single wait variable and one or more output variable
     """
-    def __init__(self, x0: np.ndarray, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, x2):
+    def __init__(self, x0: np.ndarray, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, fitset, x2):
         self.is_debug = _G['debug']
         if _G['timed']: _G['t_start'] = time.perf_counter()
         self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
@@ -416,10 +473,11 @@ class _StreamRecord(collections.abc.Sized):
         self.x2 = x2
         self.tol = tol
         self.start_y1 = -np.amax(tol) # Default starting value
-        self.state = 'open' # Open means the object is ready to accept more values
-        self.errf = errorfunctions[errorfunction][use_numba]
-        self.fitset = Poly1
+        self.state = 'open' # The object is ready to accept more values
+        self.errorfunction = errorfunction
+        self.fitset = fitset
         self.f_fit = self.fitset.fit[use_numba]
+        self.sqrtrange = _sqrtrange[use_numba]
         self.fyc = self.fitset.y_from_fit
         self.limit = -1 # Last index of the buffer
 
@@ -446,7 +504,7 @@ class _StreamRecord(collections.abc.Sized):
     def _f2zero(self, i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
 
-        inds = sqrtrange(0, i)
+        inds = self.sqrtrange(0, i)
         residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
                                     self.xc[-1], self.yc[-1])
         if self.is_debug: #────────────────────────────────────────────┐
@@ -457,7 +515,7 @@ class _StreamRecord(collections.abc.Sized):
             indices_all = np.arange(0, i + 1)
             _G['ax_data'].plot(self.xb[i], self.yb[i], 'k.')
             _G['x_plot'] = self.xb[indices_all]
-            _G['y_plot'] = Poly1.y_from_fit(fit, _G['x_plot'])
+            _G['y_plot'] = self.fyc(fit, _G['x_plot'])
             _G['line_fit'].set_xdata(_G['x_plot'])
             _G['line_fit'].set_ydata(_G['y_plot'])
             res_all = _G['y_plot'] - self.yb[indices_all].reshape(-1,1)
@@ -471,7 +529,7 @@ class _StreamRecord(collections.abc.Sized):
             _G['ax_res'].legend()
             wait('\t\tFitting\n')
         #──────────────────────────────────────────────────────────────┘
-        return self.errf(residuals, self.tol), fit
+        return self.errorfunction(residuals, self.tol), fit
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self):
         '''Compresses the buffer by one step'''
@@ -517,7 +575,7 @@ class _StreamRecord(collections.abc.Sized):
             _G['line_buffer'].set_xdata(self.xb)
             _G['line_buffer'].set_ydata(self.yb)
         #──────────────────────────────────────────────────────────────┘
-        if  self.limit >= self.x2:
+        if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb, (self._lenb, 1))
             self.yb = to_ndarray(self.yb, (self._lenb, -1))
@@ -535,7 +593,7 @@ class _StreamRecord(collections.abc.Sized):
                 _G['xy1'], = _G['ax_root'].plot(self.x1, self.y1,'g.')
                 _G['xy2'], = _G['ax_root'].plot(self.x2, self.y2,'b.')
             #──────────────────────────────────────────────────────────┘
-            if self.y2 < 0:
+            if self.y2 < 0: #──────────────────────────────────────────┐
                 if self.is_debug: #────────────────────────────────────┐
                     wait('Calculating new attempt in end\n')
                     _G['ax_root'].plot(self.x1, self.y1,'.', color = 'black')
@@ -559,7 +617,7 @@ class _StreamRecord(collections.abc.Sized):
                     print(f'{self._lenc=}')
                 #──────────────────────────────────────────────────────┘
                 self.squeeze_buffer()
-            #───────────────────────────────────────────────────────────
+            #──────────────────────────────────────────────────────────┘
             
             # Converting back to lists
             self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
@@ -571,6 +629,7 @@ class _StreamRecord(collections.abc.Sized):
                 if self.yc[-1].shape != (1,):
                     raise ValueError(f'{self.yc[-1].shape=}')
             #──────────────────────────────────────────────────────────┘
+        #──────────────────────────────────────────────────────────────┘
         return self._lenc, self._lenb
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
@@ -581,29 +640,31 @@ class _StreamRecord(collections.abc.Sized):
     #───────────────────────────────────────────────────────────────────
     def close(self):
         self.state = 'closing'
+
         # Converting to numpy arrays for computations
         self.xb = to_ndarray(self.xb, (self._lenb, 1))
         self.yb = to_ndarray(self.yb, (self._lenb, -1))
         # print(f'Calling f2zero with {self.limit=}')
-        self.y2, self.fit2 = self._f2zero(self.limit)
         self.x2 = min(self.x2, self.limit)
+        self.y2, self.fit2 = self._f2zero(self.x2)
+        
 
-        while self.y2 > 0:
+        while self.y2 > 0: #───────────────────────────────────────────┐
             self.squeeze_buffer()
             self.x2 = min(self.x2, self.limit)
             self.y2, self.fit2 = self._f2zero(self.x2)
-        
-        self.xc.append(to_ndarray(self.xb[-1], (1,)))
+        #──────────────────────────────────────────────────────────────┘
+        self.xc.append(to_ndarray(self.xb[-1]))
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
         
         if self.is_debug: plt.ioff()
-        
         # Final packing and cleaning
-        self.x, self.y = to_ndarray(self.xc), to_ndarray(self.yc)
+        self.x = to_ndarray(self.xc, (self._lenc+1,))
+        self.y = to_ndarray(self.yc, (self._lenc+1, -1))
         for key in tuple(self.__dict__):
             if key not in {'x', 'y', 'state', 'tol'}:
                 del self.__dict__[key]
-        
+
         self.state = 'closed'
         if _G['timed']: _G['runtime'] = time.perf_counter() - _G['t_start']
     #───────────────────────────────────────────────────────────────────
@@ -612,34 +673,43 @@ class Stream():
     '''Context manager for stream compression of data of 
     1 dimensional system of equations'''
     def __init__(self, x0, y0, tol = 1e-2, initial_step = None,
-                 errorfunction = 'maxmaxabs', use_numba = 0):
+                 errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'):
         self.x0            = to_ndarray(x0, (1,))
         # Variables are columns, e._G. 3xn
         self.y0            = to_ndarray(y0, (-1,))
         self.tol           = to_ndarray(tol, self.y0.shape)
-        self.errorfunction = errorfunction
+        
+        if isinstance(errorfunction, str): #───────────────────────────┐
+            self.errorfunction = errorfunctions[errorfunction][use_numba]
+        else:
+            self.errorfunction = errorfunction
+        #──────────────────────────────────────────────────────────────┘
+        if isinstance(fitset, str): #──────────────────────────────────┐
+            self.fitset = fitsets[fitset]
+        else:
+            self.fitset = fitset
+        #──────────────────────────────────────────────────────────────┘
         self.use_numba     = use_numba
         self.x2            = 100 if initial_step is None else initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         self.record = _StreamRecord(self.x0, self.y0, self.tol,
-                                          self.errorfunction, self.use_numba, self.x2)
+                                          self.errorfunction, self.use_numba, self.fitset, self.x2)
         return self.record
     #───────────────────────────────────────────────────────────────────
     def __exit__(self, exc_type, exc_value, traceback):
         self.record.close()
-        # self.record = Record(self.record.xc, self.record.yc, self.record.tol)
 #%%═════════════════════════════════════════════════════════════════════
 # WRAPPING
 
-methods = {'LSQ10': LSQ10,
-           'pick': pick,
-           'split': split}
+compressors = {'LSQ10': LSQ10,
+            'pick': pick,
+            'split': split}
 
 def compress(*args, method='LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
     try:
-        compressor = methods[method]
+        compressor = compressors[method]
     except KeyError:
         raise NotImplementedError("Method not in the dictionary of methods")
 
@@ -648,7 +718,8 @@ def compress(*args, method='LSQ10', **kwargs):
 #%%═════════════════════════════════════════════════════════════════════
 # CUSTOM FUNCTIONS
 
-class Poly1:
+class Poly10:
+    """Builtin group of functions for doing the compression"""
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def fit_python(x: np.ndarray, y: np.ndarray, x0, y0: np.ndarray) -> tuple:
@@ -656,7 +727,7 @@ class Poly1:
 
         Dx = x - x0
         Dy = y - y0
-        a = (Dx.T @ Dy / Dx.T.dot(Dx)).flatten()
+        a = Dx.T @ Dy / Dx.T.dot(Dx)
         b = y0 - a * x0
         # print(f'{x.shape=}')
         # print(f'{y.shape=}')
@@ -675,19 +746,25 @@ class Poly1:
 
         Dx = x - x0
         Dy = y - y0
-        a = Dx.T @ Dy / Dx.T.dot(Dx).flatten()
+        a = Dx.T @ Dy / Dx.T.dot(Dx)
         b = y0 - a * x0
-        # print(f'{a.shape=}')
-        # print(f'{Dx.shape=}')
+        # print(f'{x.shape=}')
         # print(f'{y.shape=}')
         # print(f'{y0.shape=}')
+        # print(f'{x0=}')
+        # print(f'{Dx.shape=}')
         # print(f'{Dy.shape=}')
+        # print(f'{a.shape=}')
+        # print(f'{b.shape=}')
         return (a * Dx - Dy, (a,  b))
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def y_from_fit(fit: tuple, x: np.ndarray) -> np.ndarray:
         '''Converts the fitting parameters and x to storable y values'''
-        return fit[0]*x + fit[1]
+        # print(f'{fit[0].shape=}')
+        # print(f'{fit[1].shape=}')
+        # print(f'{x.shape=}')
+        return (fit[0]*x + fit[1]).flatten()
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def fit_from_end(ends: np.ndarray) -> tuple:
@@ -706,16 +783,19 @@ class Poly1:
 # HACKS
 # A hack to make the package callable
 class Pseudomodule(types.ModuleType):
-    '''Class that wraps the individual plotting functions
-    an allows making the module callable'''
+    """Class that wraps the individual plotting functions
+    an allows making the module callable"""
     @staticmethod
-    def __call__(*args, method='LSQ10', **kwargs):
+    def __call__(*args, compressor='LSQ10', **kwargs):
         '''Wrapper for easier selection of compression method'''
-        try:
-            compressor = methods[method]
-        except KeyError:
-            raise NotImplementedError("Method not in the dictionary of methods")
+        if isinstance(compressor, str): 
+            try:
+                compressor = compressors[compressor]
+            except KeyError:
+                raise NotImplementedError(f'{compressor} not in the dictionary of builtin compressors')
         return compressor(*args, **kwargs)
 #───────────────────────────────────────────────────────────────────────
+fitsets = {'Poly10': Poly10}
+#%%═════════════════════════════════════════════════════════════════════
 # Here the magic happens for making the API module itself also callable
 sys.modules[__name__].__class__ = Pseudomodule
