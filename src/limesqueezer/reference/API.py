@@ -5,15 +5,11 @@ from collections import namedtuple
 from scipy import interpolate
 import math
 
-path_package = pathlib.Path(__file__).parent.absolute()
-
-
-sys.path.insert(1,str(path_package.parent))
-import API as compression
+from .. import API as ls # Careful with this circular import
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP
 
-path_data = path_package / 'data'
+path_data = pathlib.Path(__file__).parent.absolute() / 'data'
 
 Reference = namedtuple('Reference', 
                        ['raw','atol','cmethod','ostyle','compressed'],
@@ -35,23 +31,27 @@ def f2zero_100(n: int) -> float:
     return np.sqrt(n) - 10.01, True
 #%%═════════════════════════════════════════════════════════════════════
 # Reference raw data
-def raw_poly0(n=1e1):
+def raw_poly0(n = 1e1):
     x = np.linspace(0,1,int(n))
     return x, np.zeros(len(x))
 #───────────────────────────────────────────────────────────────────────
-def raw_poly1(n=1e1):
+def raw_poly1(n = 1e1):
     x = np.linspace(0,1,int(n))
     return x, x
 #───────────────────────────────────────────────────────────────────────
-def raw_poly2(n=1e2):
+def raw_poly2(n = 1e2):
     x = np.linspace(0,1,int(n))
     return x, np.array(x**2)
 #───────────────────────────────────────────────────────────────────────
-def raw_sine(n=1e4):
+def raw_sine(n = 1e4):
     x = np.linspace(0,6,int(n))
     return x, np.array(np.sin(x*2*math.pi))
 #───────────────────────────────────────────────────────────────────────
-def raw_sine_normal(n=1e4, std=0.1):
+def raw_sine_x2(n = 1e4):
+    x = np.linspace(0,6,int(n))
+    return x, np.array(np.sin(x*x))
+#───────────────────────────────────────────────────────────────────────
+def raw_sine_normal(n = 1e4, std=0.1):
     rng = np.random.default_rng(12345)
     x = np.linspace(0,1,int(n))
     return x, np.array(np.sin(x*2*math.pi)) + std*rng.standard_normal(int(n))
@@ -84,7 +84,7 @@ references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
 #───────────────────────────────────────────────────────────────────────
 def generate(function, method, ytol=5e-2):
     data = Data(function, ytol=ytol)
-    data.xc, data.yc, _ = compression.compress(data.x, data.y, method=method, ytol=data.ytol)
+    data.xc, data.yc, _ = ls.compress(data.x, data.y, method=method, ytol=data.ytol)
     data.make_lerp()
     print(np.amax(np.abs(data.residuals_relative)))
     np.savetxt(path_data / (function+'_'+method+'.csv'),

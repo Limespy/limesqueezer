@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 '''
 Limesqueezer
 ========================================================================
@@ -10,23 +12,8 @@ import limesqueezer as ls
 '''
 
 __version__ = '1.0.9'
-
-import sys
-import pathlib
-
-sys.path.insert(1,str(pathlib.Path(__file__).parent.absolute()))
-
+#%%═════════════════════════════════════════════════════════════════════
+# IMPORT
 from .API import *
-
-helpstring = 'No arguments given'
-
-if len(sys.argv)==1:
-    print(__doc__)
-    print(helpstring)
-    exit()
-elif sys.argv[1] == 'debug':
-    import plotters
-    debugplot = plotters.Debug(errorf=sys.argv[2] if len(sys.argv)>2 else 'maxmaxabs',
-                                fitf = sys.argv[3] if len(sys.argv)>3 else 'poly1')
-    debugplot.run()
-    input()
+# A part of the hack to make the package callable
+sys.modules[__name__].__class__ = Pseudomodule

@@ -75,7 +75,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'limesqueezer = limesqueezer.__main__',
+            'limesqueezer = limesqueezer.cli:main',
         ]
     },
 )
