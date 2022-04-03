@@ -44,7 +44,7 @@ def run(args, use_numba: int):
     elif args[0] == 'stream':
         xc, yc = _stream(xdata, ydata, use_numba)
     elif args[0] == 'both':
-        xcb, ycb = ls(xdata, ydata, tol = 1e-3, use_numba = use_numba)
+        xcb, ycb = ls(xdata, ydata, tol = 1e-3, use_numba = use_numba, initial_step = 100)
         xcs, ycs = _stream(xdata, ydata, use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb - xs != 0:
@@ -54,6 +54,7 @@ def run(args, use_numba: int):
             if xb - xs != 0:
                 print(f'{i=}, {xb=}, {xs=}')
                 break
+        xc = xcb
     # print(f'{xc[-10:-1]}')
     print(f'{len(xdata)=}\t{len(xc)=}')
     if ls._G['timed']: print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')

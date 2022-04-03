@@ -38,7 +38,7 @@ def sqrtrange(start: int, i: int):
     inds[-1] = i + start
     return inds
 #───────────────────────────────────────────────────────────────────────
-def wait(text: str):
+def wait(text = ''):
     if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
@@ -48,7 +48,6 @@ def _maxmaxabs_python(r: np.ndarray, t: np.ndarray) -> float:
     # print(f'{t.shape=}')
     m = -1
     for i, k in enumerate(t): # Yes, this is silly
-        # n = np.max(r[:,i]) - t[i]
         n = np.max(r[:,i]) - k
         if n > m: m = n
     return m
@@ -78,11 +77,15 @@ errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
 def interval(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
     is_debug = _G['debug']
-    if is_debug:
+    if is_debug: #─────────────────────────────────────────────────────┐
+        print(f'\t{x1=}\t{y1=}')
+        print(f'\t{x2=}\t{y2=}')
         _G['mid'], = _G['ax_root'].plot(x1, y1,'.', color = 'blue')
+    #──────────────────────────────────────────────────────────────────┘
     while x2 - x1 > 2:
-        if is_debug:
-            wait('Calculating new attempt in interval\n')
+        if is_debug: #─────────────────────────────────────────────────┐
+            wait('\tCalculating new attempt in interval\n')
+        #──────────────────────────────────────────────────────────────┘
         # Arithmetic mean between linear estimate and half
         x_mid = int((x1 - y1 / (y2 - y1) * (x2 - x1) + (x2 + x1) / 2) / 2) + 1
         # x_mid = int((x2 + x1) / 2)
@@ -92,36 +95,42 @@ def interval(f, x1, y1, x2, y2, fit1):
             x_mid -= 1
 
         y_mid, fit = f(x_mid)
-        if is_debug:
-            print(f'{x_mid=}')
-            print(f'{y_mid=}')
+        if is_debug: #─────────────────────────────────────────────────┐
+            print(f'\t{x_mid=}\t{y_mid=}')
             _G['mid'].set_xdata(x_mid)
             _G['mid'].set_ydata(y_mid)
+        #──────────────────────────────────────────────────────────────┘
         if y_mid > 0:
-            if is_debug:
-                wait('Error over tolerance\n')
+            if is_debug: #─────────────────────────────────────────────┐
+                wait('\tError over tolerance\n')
                 _G['ax_root'].plot(x2, y2,'.', color = 'black')
+            #──────────────────────────────────────────────────────────┘
             x2, y2 = x_mid, y_mid
-            if is_debug:
+            if is_debug: #─────────────────────────────────────────────┐
                 _G['xy2'].set_xdata(x2)
                 _G['xy2'].set_ydata(y2)
+            #──────────────────────────────────────────────────────────┘
         else:
-            if is_debug:
-                wait('Error under tolerance\n')
+            if is_debug: #─────────────────────────────────────────────┐
+                wait('\tError under tolerance\n')
                 _G['ax_root'].plot(x1, y1,'.', color = 'black')
+            #──────────────────────────────────────────────────────────┘
             x1, y1, fit1 = x_mid, y_mid, fit
-            if is_debug:
+            if is_debug: #─────────────────────────────────────────────┐
                 _G['xy1'].set_xdata(x1)
                 _G['xy1'].set_ydata(y1)
+            #──────────────────────────────────────────────────────────┘
 
     if x2 - x1 == 2: # Points have only one point in between
-        if is_debug:
-            wait('Points have only one point in between\n')
+        if is_debug: #─────────────────────────────────────────────────┐
+            wait('\tPoints have only one point in between\n')
+        #──────────────────────────────────────────────────────────────┘
         y_mid, fit = f(x1+1) # Testing that point
         return (x1+1, fit) if (y_mid <0) else (x1, fit1) # If under, give that fit
     else:
-        if is_debug:
-            wait('Points have no point in between\n')
+        if is_debug: #─────────────────────────────────────────────────┐
+            wait('\tPoints have no point in between\n')
+        #──────────────────────────────────────────────────────────────┘
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
 def droot(f, y1, x2, limit):
@@ -130,45 +139,52 @@ def droot(f, y1, x2, limit):
     is_debug = _G['debug']
     x1 = 0
     y2, fit2 = f(x2)
-    if is_debug:
+    if is_debug: #─────────────────────────────────────────────────────┐
         _G['xy1'], = _G['ax_root'].plot(x1, y1,'.', color = 'green')
         _G['xy2'], = _G['ax_root'].plot(x2, y2,'.', color = 'blue')
+    #──────────────────────────────────────────────────────────────────┘
     fit1 = None
     while y2 < 0:
-        if is_debug:
+        if is_debug: #─────────────────────────────────────────────────┐
             wait('Calculating new attempt in droot\n')
             _G['ax_root'].plot(x1, y1,'.', color = 'black')
+        #──────────────────────────────────────────────────────────────┘
         x1, y1, fit1 = x2, y2, fit2
         x2 *= 2
         x2 += 1
-        if is_debug:
+        if is_debug: #─────────────────────────────────────────────────┐
             print(f'{limit=}')
-            print(f'{x1=}')
-            print(f'{y1=}')
-            print(f'{x2=}')
+            print(f'{x1=}\t{y1=}')
+            print(f'{x2=}\t{y2=}')
             _G['xy1'].set_xdata(x1)
             _G['xy1'].set_ydata(y1)
             _G['xy2'].set_xdata(x2)
+        #──────────────────────────────────────────────────────────────┘
         if x2 >= limit:
-            if is_debug:
-                _G['ax_root'].plot([limit, limit], [y1,0],'.', color = 'blue')
+            if is_debug: #─────────────────────────────────────────────┐
+                _G['ax_root'].plot([limit, limit], [y1,0],'b.')
+            #──────────────────────────────────────────────────────────┘
             y2, fit2 = f(limit)
             if y2<0:
-                if is_debug:
+                if is_debug: #─────────────────────────────────────────┐
                     wait('End reached within tolerance\n')
+                #──────────────────────────────────────────────────────┘
                 return limit, fit2
             else:
-                if is_debug:
+                if is_debug: #─────────────────────────────────────────┐
                     wait('End reached outside tolerance\n')
+                #──────────────────────────────────────────────────────┘
                 x2 = limit
                 break
         y2, fit2 = f(x2)
-        if is_debug:
+        if is_debug: #─────────────────────────────────────────────────┐
             print(f'{y2=}')
             _G['xy2'].set_ydata(y2)
-    if is_debug:
+        #──────────────────────────────────────────────────────────────┘
+    if is_debug: #─────────────────────────────────────────────────────┐
         _G['xy2'].set_color('red')
         wait('Points for interval found\n')
+    #──────────────────────────────────────────────────────────────────┘
     return interval(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
@@ -189,16 +205,14 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
 
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ10(x: np.ndarray, y: np.ndarray,
-          tol = 1e-2, errorfunction = 'maxmaxabs', use_numba = 0) -> tuple:
+def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
+          errorfunction = 'maxmaxabs', use_numba = 0) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
     '''
     is_debug = _G['debug']
     if _G['timed']:
         _G['t_start'] = time.perf_counter()
-    
-
     start = 1 # Index of starting point for looking for optimum
     end = len(x) - 1 # Number of unRecord datapoints -1, i.e. the last index
     limit = end - start
@@ -207,7 +221,8 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
     x = to_ndarray(x, (-1, 1))
     y = to_ndarray(y, (len(x), -1))
 
-    tol = to_ndarray(tol, (1, y.shape[1]))
+    tol = to_ndarray(tol, y[0].shape)
+    start_y1 = -np.amax(tol) # Starting value for discrete root calculation
 
     errf = errorfunctions[errorfunction][use_numba]
     fitset = Poly1
@@ -217,8 +232,12 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
     x_c, y_c = [x[0]], [np.array(y[0])]
 
     # Estimation for the first offset
-    offset = round(limit / n_lines(x[start:(end // 2)], y[start:(end // 2)],
-                                   x[0], y[0], tol))
+    if initial_step is None:
+        mid = end // 2
+        offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol))
+    else:
+        offset = initial_step
+            
     if is_debug:
         _G['x'], _G['y'] = x, y
         _G['fig'], axs = plt.subplots(3,1)
@@ -226,7 +245,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
             ax.grid()
         _G['ax_data'], _G['ax_res'], _G['ax_root'] = axs
 
-        _G['ax_data'].fill_between((x).flatten(), (y - tol).flatten(), (y + tol).flatten(), alpha=.3, color = 'blue')
+        _G['ax_data'].fill_between(x.flatten(), (y - tol).flatten(), (y + tol).flatten(), alpha=.3, color = 'blue')
 
         _G['line_fit'], = _G['ax_data'].plot(0,0,'-',color = 'orange')
 
@@ -242,17 +261,17 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
         inds = sqrtrange(start, i)
         residuals, fit = f_fit(x[inds], y[inds], x_c[-1], y_c[-1])
         if is_debug:
-            print(f'{residuals.shape=}')
-            print(f'x {x[inds][0][0]} - {x[inds][-1][0]}')
+            print(f'\t\t{i=}\t{residuals.shape=}')
+            print(f'\t\tx {x[inds][0][0]} - {x[inds][-1][0]}')
             indices_all = np.arange(-1, i + 1) + start
             _G['x_plot'] = _G['x'][indices_all]
             _G['y_plot'] = Poly1.y_from_fit(fit, _G['x_plot'])
             _G['line_fit'].set_xdata(_G['x_plot'])
             _G['line_fit'].set_ydata(_G['y_plot'])
-            print(f'{_G["y_plot"].shape=}')
-            print(f'{_G["y"][indices_all].shape=}')
+            # print(f'{_G["y_plot"].shape=}')
+            # print(f'{_G["y"][indices_all].shape=}')
             res_all = _G['y_plot'] - _G['y'][indices_all]
-            print(f'{res_all.shape=}')
+            # print(f'{res_all.shape=}')
             _G['ax_res'].clear()
             _G['ax_res'].grid()
             _G['ax_res'].set_ylabel('Residual relative to tolerance')
@@ -261,7 +280,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
             _G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
                              'o', color = 'red', label = 'sampled')
             _G['ax_res'].legend()
-            wait('Fitting\n')
+            wait('\t\tFitting\n')
         return errf(residuals, tol), fit
     #───────────────────────────────────────────────────────────────
     
@@ -270,7 +289,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
         print(f'{offset=}')
     for _ in range(end): # Prevents infinite loop in case error
         
-        offset, fit = droot(_f2zero, -1, offset, limit)
+        offset, fit = droot(_f2zero, start_y1, offset, limit)
         step = offset + 1
         if fit is None: raise RuntimeError('Fit not found')
         if is_debug:
@@ -286,11 +305,16 @@ def LSQ10(x: np.ndarray, y: np.ndarray,
             break
         x_c.append(x[start - 1])
         y_c.append(fyc(fit, x_c[-1]))
+        
         limit -= step
         offset = min(limit, offset) # Setting up to be next estimation
 
         if is_debug:
-            _G['ax_data'].plot(x_c[-1], y_c[-1],'.',color = 'green')
+            if len(x_c) == 40:
+                print(f'\nTrigger{40 * "═"}\n')
+                time.sleep(1)
+                wait()
+            _G['ax_data'].plot(x_c[-1], y_c[-1],'g.')
             wait('Next iteration\n')
     else:
         raise StopIteration('Maximum number of iterations reached')
@@ -383,14 +407,15 @@ class _StreamRecord(collections.abc.Sized):
     system of equations 
     i.e. single wait variable and one or more output variable
     """
-    def __init__(self, x0, y0, tol, errorfunction: str, use_numba: int):
+    def __init__(self, x0: np.ndarray, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, x2):
         self.is_debug = _G['debug']
         if _G['timed']: _G['t_start'] = time.perf_counter()
         self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
         self.xc, self.yc = [x0], [y0]
-        self.start = 0 # Index of starting point for looking for optimum
-        self.end = 2 # Index of end point for looking for optimum
+        self.x1 = 0 # Index of starting point for looking for optimum
+        self.x2 = x2
         self.tol = tol
+        self.start_y1 = -np.amax(tol) # Default starting value
         self.state = 'open' # Open means the object is ready to accept more values
         self.errf = errorfunctions[errorfunction][use_numba]
         self.fitset = Poly1
@@ -401,7 +426,7 @@ class _StreamRecord(collections.abc.Sized):
         self._lenb = 0 # length of the buffer
         self._lenc = 1 # length of the Record points
 
-        self.tol1 = -self.tol # Initialising
+        self.y1 = -self.tol # Initialising
         if self.is_debug: #────────────────────────────────────────────┐
             _G['fig'], axs = plt.subplots(3,1)
             for ax in axs:
@@ -424,11 +449,11 @@ class _StreamRecord(collections.abc.Sized):
         inds = sqrtrange(0, i)
         residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
                                     self.xc[-1], self.yc[-1])
-        if residuals.shape != (len(inds), len(self.yb[-1])):
-                raise ValueError(f'{residuals.shape=}')
         if self.is_debug: #────────────────────────────────────────────┐
-            print(f'{residuals.shape=}')
-            print(f'x {self.xb[inds][0][0]} - {self.xb[inds][-1][0]}')
+            if residuals.shape != (len(inds), len(self.yb[-1])):
+                raise ValueError(f'{residuals.shape=}')
+            print(f'\t\t{i=}\t{residuals.shape=}')
+            print(f'\t\tx {self.xb[inds][0][0]} - {self.xb[inds][-1][0]}')
             indices_all = np.arange(0, i + 1)
             _G['ax_data'].plot(self.xb[i], self.yb[i], 'k.')
             _G['x_plot'] = self.xb[indices_all]
@@ -440,39 +465,43 @@ class _StreamRecord(collections.abc.Sized):
             _G['ax_res'].grid()
             _G['ax_res'].set_ylabel('Residual relative to tolerance')
             _G['ax_res'].plot(indices_all, np.abs(res_all) / self.tol -1,
-                             '.', color = 'blue', label = 'ignored')
+                             'b.', label = 'ignored')
             _G['ax_res'].plot(inds, np.abs(residuals) / self.tol - 1,
-                             'o', color = 'red', label = 'sampled')
+                             'ro', label = 'sampled')
             _G['ax_res'].legend()
-            wait('Fitting\n')
+            wait('\t\tFitting\n')
         #──────────────────────────────────────────────────────────────┘
         return self.errf(residuals, self.tol), fit
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self):
         '''Compresses the buffer by one step'''
-        offset, fit = interval(self._f2zero, self.start, self.tol1,
-                               self.limit, self.tol2, self.fit1)
-        if fit is None: raise RuntimeError('Fit not found')
+        #──────────────────────────────────────────────────────────────┘
+        offset, fit = interval(self._f2zero, self.x1, self.y1,
+                               self.x2, self.y2, self.fit1)
         if self.is_debug: #────────────────────────────────────────────┐
-            # print(f'err {self.errf(self.fyc(fit, x[self.start + offset]) - y[self.start + offset], self.tol)}')
-            print(f'{self.start=}\t{offset=}\t{self.end=}\t')
+            if fit is None: raise RuntimeError('Fit not found')
+            print(f'{offset=}')
             print(f'{fit=}')
             _G['ax_root'].clear()
             _G['ax_root'].grid()
             _G['ax_root'].set_ylabel('Maximum residual')
             _G['ax_data'].plot(_G['x_plot'], _G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
-        self.start, self.tol1, step = 0, - self.tol, offset + 1
+        self.x1, self.y1, step = 0, self.start_y1, offset + 1
         
         self.xc.append(self.xb[offset])
         self.yc.append(self.fyc(fit, self.xc[-1]))
 
         self.limit -= step
-        
         self._lenb -= step
         self._lenc += 1
-
-        self.end = min(self.limit, offset) # Approximation
+        if self.is_debug: #────────────────────────────────────────────┐
+            if self._lenc == 40:
+                print(f'\nTrigger{40 * "═"}\n')
+                time.sleep(1)
+                wait()
+        #──────────────────────────────────────────────────────────────┘
+        self.x2 = offset # Approximation
 
         self.xb, self.yb = self.xb[step:], self.yb[step:]
         if self.xc[-1] == self.xb[0]: raise IndexError('derp')
@@ -488,54 +517,60 @@ class _StreamRecord(collections.abc.Sized):
             _G['line_buffer'].set_xdata(self.xb)
             _G['line_buffer'].set_ydata(self.yb)
         #──────────────────────────────────────────────────────────────┘
-        if  self.limit >= self.end:
+        if  self.limit >= self.x2:
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb, (self._lenb, 1))
             self.yb = to_ndarray(self.yb, (self._lenb, -1))
-
-            if self.xb.shape != (self._lenb, 1):
-                raise ValueError(f'{self.xb.shape=}')
-
-            if self.yb.shape != (self._lenb, len(self.yc[0])):
-                raise ValueError(f'{self.yb.shape=}')
             
-            self.tol2, self.fit2 = self._f2zero(self.limit)
+            if self.is_debug: #────────────────────────────────────────┐
+                if self.xb.shape != (self._lenb, 1):
+                    raise ValueError(f'{self.xb.shape=}')
+
+                if self.yb.shape != (self._lenb, len(self.yc[0])):
+                    raise ValueError(f'{self.yb.shape=}')
+            #──────────────────────────────────────────────────────────┘
+            self.y2, self.fit2 = self._f2zero(self.x2)
 
             if self.is_debug: #────────────────────────────────────────┐
-                _G['xy1'], = _G['ax_root'].plot(self.start, self.tol1,'.', color = 'green')
-                _G['xy2'], = _G['ax_root'].plot(self.end, self.tol2,'.', color = 'blue')
+                _G['xy1'], = _G['ax_root'].plot(self.x1, self.y1,'g.')
+                _G['xy2'], = _G['ax_root'].plot(self.x2, self.y2,'b.')
             #──────────────────────────────────────────────────────────┘
-            if self.tol2 < 0:
-                if self.is_debug:
+            if self.y2 < 0:
+                if self.is_debug: #────────────────────────────────────┐
                     wait('Calculating new attempt in end\n')
-                    _G['ax_root'].plot(self.start, self.tol1,'.', color = 'black')
-                self.start, self.tol1, self.fit1 = self.end, self.tol2, self.fit2
-                self.end *= 2
-                self.end += 1
+                    _G['ax_root'].plot(self.x1, self.y1,'.', color = 'black')
+                #──────────────────────────────────────────────────────┘
+                self.x1, self.y1, self.fit1 = self.x2, self.y2, self.fit2
+                self.x2 *= 2
+                self.x2 += 1
 
                 if self.is_debug: #────────────────────────────────────┐
                     print(f'{self.limit=}')
-                    print(f'{self.start=}')
-                    print(f'{self.tol1=}')
-                    print(f'{self.end=}')
-                    _G['xy1'].set_xdata(self.start)
-                    _G['xy1'].set_ydata(self.tol1)
-                    _G['xy2'].set_xdata(self.end)
+                    print(f'{self.x1=}\t{self.y1=}')
+                    print(f'{self.x2=}\t{self.y2=}')
+                    _G['xy1'].set_xdata(self.x1)
+                    _G['xy1'].set_ydata(self.y1)
+                    _G['xy2'].set_xdata(self.x2)
                 #──────────────────────────────────────────────────────┘
             else: # Squeezing the buffer
+                if self.is_debug: #────────────────────────────────────┐
+                    _G['xy2'].set_color('red')
+                    wait('Points for interval found\n')
+                    print(f'{self._lenc=}')
+                #──────────────────────────────────────────────────────┘
                 self.squeeze_buffer()
+            #───────────────────────────────────────────────────────────
+            
+            # Converting back to lists
+            self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
             if self.is_debug: #────────────────────────────────────────┐
                 _G['ax_data'].plot(self.xc[-1], self.yc[-1], '.', color = 'green')
                 wait('Next iteration\n')
+                if self.yb[-1].shape != (1,):
+                    raise ValueError(f'{self.yb[-1].shape=}')
+                if self.yc[-1].shape != (1,):
+                    raise ValueError(f'{self.yc[-1].shape=}')
             #──────────────────────────────────────────────────────────┘
-            # Converting back to lists
-            self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
-            if self.yb[-1].shape != (1,):
-                raise ValueError(f'{self.yb[-1].shape=}')
-            if self.yc[-1].shape != (1,):
-                raise ValueError(f'{self.yc[-1].shape=}')
-            # if self.yb[0].shape != (1,):
-            #     raise ValueError(f'{self.yb[0].shape=}')
         return self._lenc, self._lenb
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
@@ -550,15 +585,16 @@ class _StreamRecord(collections.abc.Sized):
         self.xb = to_ndarray(self.xb, (self._lenb, 1))
         self.yb = to_ndarray(self.yb, (self._lenb, -1))
         # print(f'Calling f2zero with {self.limit=}')
-        self.tol2, self.fit2 = self._f2zero(self.limit)
+        self.y2, self.fit2 = self._f2zero(self.limit)
+        self.x2 = min(self.x2, self.limit)
 
-        while self.tol2 > 0:
+        while self.y2 > 0:
             self.squeeze_buffer()
-            self.tol2, self.fit2 = self._f2zero(self.limit)
+            self.x2 = min(self.x2, self.limit)
+            self.y2, self.fit2 = self._f2zero(self.x2)
         
         self.xc.append(to_ndarray(self.xb[-1], (1,)))
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
-        # Deleting unnecessary attributes
         
         if self.is_debug: plt.ioff()
         
@@ -575,7 +611,7 @@ class _StreamRecord(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of 
     1 dimensional system of equations'''
-    def __init__(self, x0, y0, tol = 1e-2,
+    def __init__(self, x0, y0, tol = 1e-2, initial_step = None,
                  errorfunction = 'maxmaxabs', use_numba = 0):
         self.x0            = to_ndarray(x0, (1,))
         # Variables are columns, e._G. 3xn
@@ -583,10 +619,11 @@ class Stream():
         self.tol           = to_ndarray(tol, self.y0.shape)
         self.errorfunction = errorfunction
         self.use_numba     = use_numba
+        self.x2            = 100 if initial_step is None else initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         self.record = _StreamRecord(self.x0, self.y0, self.tol,
-                                          self.errorfunction, self.use_numba)
+                                          self.errorfunction, self.use_numba, self.x2)
         return self.record
     #───────────────────────────────────────────────────────────────────
     def __exit__(self, exc_type, exc_value, traceback):

@@ -138,7 +138,7 @@ class Test(unittest.TestCase):
             for x, y in zip(xdata[1:], ydata[1:]):
                 record(x, y)
         #───────────────────────────────────────────────────────────────
-        print(xc_block-record.x)
+        # print(xc_block-record.x)
         self.assertTrue(np.all(xc_block == record.x))
         self.assertTrue(np.all(yc_block == record.y))
 
