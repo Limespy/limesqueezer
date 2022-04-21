@@ -2,4 +2,4 @@
 Authors
 =======
 
-* Limespy - https://blog.ionelmc.ro
+* Limespy - https://github.com/Limespy

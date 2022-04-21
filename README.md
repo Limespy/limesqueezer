@@ -26,6 +26,7 @@ WIP
       - [Top](#top)
       - [Mid](#mid)
       - [Bottom](#bottom)
+  - [Publishing pipeline](#publishing-pipeline)
 
 ## Use
 
@@ -288,3 +289,11 @@ Loop is:
 1. Previaous attempts
 2. Left and right
 3. 
+
+
+## Publishing pipeline
+
+- Running tests
+- Running examples and generating example plots
+- Profiling with and without numba
+- 
