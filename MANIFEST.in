@@ -15,5 +15,7 @@ include CONTRIBUTING.rst
 include LICENSE
 include README.rst
 include README.md
+include notes.md
+include profiling/*
 
 global-exclude *.py[cod] __pycache__/* *.so *.dylib

@@ -370,7 +370,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
                 print(f'\nTrigger{40 * "═"}\n')
                 time.sleep(1)
                 wait()
-            _G['ax_data'].plot(x_c[-1], y_c[-1],'g.')
+            _G['ax_data'].plot(x_c[-1], y_c[-1],'go')
             wait('Next iteration\n')
     else:
         raise StopIteration('Maximum number of iterations reached')
@@ -490,7 +490,7 @@ class _StreamRecord(collections.abc.Sized):
             for ax in axs:
                 ax.grid()
             _G['ax_data'], _G['ax_res'], _G['ax_root'] = axs
-            _G['line_buffer'], = _G['ax_data'].plot(0, 0, '-', color = 'blue',
+            _G['line_buffer'], = _G['ax_data'].plot(0, 0, 'b-',
                                                     label = 'buffer')
             _G['line_fit'], = _G['ax_data'].plot(0, 0, '-', color = 'orange',
                                                  label = 'fit')
@@ -622,7 +622,7 @@ class _StreamRecord(collections.abc.Sized):
             # Converting back to lists
             self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
             if self.is_debug: #────────────────────────────────────────┐
-                _G['ax_data'].plot(self.xc[-1], self.yc[-1], '.', color = 'green')
+                _G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
                 wait('Next iteration\n')
                 if self.yb[-1].shape != (1,):
                     raise ValueError(f'{self.yb[-1].shape=}')
