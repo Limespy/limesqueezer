@@ -4,25 +4,14 @@ Lossy compression tools for smooth data series.
 WIP
 
 - [interp-compression](#interp-compression)
-- [Examples](#examples)
-  - [Block](#block)
-  - [Stream](#stream)
-  - [Input methods](#input-methods)
-    - [Block](#block-1)
-    - [Stream](#stream-1)
-  - [Math stuff](#math-stuff)
-      - [Sqrt heuristic 1](#sqrt-heuristic-1)
-      - [Sqrt heuristic 2](#sqrt-heuristic-2)
-      - [Sqrt heuristic 3](#sqrt-heuristic-3)
-  - [Visualiser](#visualiser)
-    - [Plot](#plot)
-      - [Top](#top)
-      - [Mid](#mid)
-      - [Bottom](#bottom)
-  - [Publishing pipeline](#publishing-pipeline)
+  - [Use](#use)
+    - [Examples](#examples)
+      - [Block](#block)
+      - [Stream](#stream)
+    - [Combining comression methods](#combining-comression-methods)
 
-Examples
-========
+## Use
+### Examples
 
 limesqueezer uses numpy ndarrays types for input and output.
 The package itself with author-recommended abbreviation.
@@ -38,32 +27,39 @@ For example, let's take 100 000 datapoints along some function
     input_x = np.linspace(0,1,int(1e5))
     input_y = np.sin(6 * input_x * input_x)
 ```
-Now you want to compress it with maximum absolute error being 1e-3.
-``` python
-    tolerance = 1e-3
-```
+
+
 Or maybe you have some generator-like thing that gives out numbers.
 E.g. some simulation step
 Here you use the context manager "Stream"
 Initialise with first values, here I am just going to use the first
 
-Block
------
+#### Block
+
+A function.
+
+The whole of data is given as input.
 
 To simplify the interface, the package has beem made callable.
+Now you want to compress it with maximum absolute error being 1e-3.
+
 ``` python
-    output_x, output_y = ls(input_x, input_y, tol = tolerance)
+    output_x, output_y = ls(input_x, input_y, tol = 1e-3)
 ```
 
 You can also use
 
 ``` python
-    output_x, output_y = ls.compress(input_x, input_y, tol = tolerance)
+    output_x, output_y = ls.compress(input_x, input_y, tol = 1e-3)
 ```
 if that is more comfortable for you.
 
-Stream
-------
+#### Stream
+
+Context manager and a class.
+
+- Data is fed one point at the time.
+- Context manager is used to ensure proper finishing of the compression process.
 
 ``` python
     example_x0, example_y0 = input_x[0], input_y[0]
@@ -72,7 +68,7 @@ Stream
 The context manager for Stream data is 'Stream'.
 
 ``` python
-    with ls.Stream(example_x0, example_y0, tol = tolerance) as record:
+    with ls.Stream(example_x0, example_y0, tol = 1e-3) as record:
         for example_x_value, example_y_value in generator:
             record(example_x_value, example_y_value)
 ```
@@ -101,21 +97,7 @@ in data and being storage of the data, it is a fitting name for the object
     print(record.state)
     print(record.__str__)
 ```
+### Combining comression methods
 
-
-
-## Input methods
-
-### Block
-
-A function.
-
-The whole of data is given as input.
-
-### Stream
-
-Context manager and a class.
-
-- Data is fed one point at the time.
-- Context manager is used to ensure proper finishing of the compression process.
-
+This compression method can be combined with lossless compressiom to achieve even higher compression ratios.
+The lossless compression should come after doing the compression this package provides.
