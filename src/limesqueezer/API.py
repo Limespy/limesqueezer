@@ -264,6 +264,49 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         return 0.5 * (_maxsumabs(res, tol) + 1) ** 0.5 + 1
     else:
         return 1.
+#───────────────────────────────────────────────────────────────────────
+
+def _get_f2zero(x, y, x0, y0, sqrtrange, f_fit, errorfunction, tol):
+    def f2zero(i: int) -> tuple:
+        '''Function such that i is optimal when f2zero(i) = 0'''
+        inds = sqrtrange(0, i)
+        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
+        return errorfunction(residuals, tol), fit
+    return f2zero
+#───────────────────────────────────────────────────────────────────────
+def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction, tol):
+    def f2zero_debug(i: int) -> tuple:
+        '''Function such that i is optimal when f2zero(i) = 0'''
+        inds = sqrtrange(0, i)
+        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
+
+        print(f'\t\t{i=}\t{residuals.shape=}')
+        print(f'\t\tx {x[inds][0]} - {x[inds][-1]}')
+        indices_all = np.arange(-1, i + 1) + _G['start']
+        _G['x_plot'] = _G['x'][indices_all]
+        _G['y_plot'] = _G['fyc'](fit, _G['x_plot'])
+        _G['line_fit'].set_xdata(_G['x_plot'])
+        _G['line_fit'].set_ydata(_G['y_plot'])
+        # print(f'{_G["y_plot"].shape=}')
+        # print(f'{_G["y"][indices_all].shape=}')
+        res_all = _G['y_plot'] - _G['y'][indices_all].flatten()
+        print(f'\t\t{res_all.shape=}')
+        _G['ax_res'].clear()
+        _G['ax_res'].grid()
+        _G['ax_res'].axhline(color = 'red', linestyle = '--')
+        _G['ax_res'].set_ylabel('Residual relative to tolerance')
+        _G['ax_res'].plot(indices_all - _G['start'], np.abs(res_all) / tol -1,
+                            '.', color = 'blue', label = 'ignored')
+        _G['ax_res'].plot(inds, np.abs(residuals) / tol-1,
+                            'o', color = 'red', label = 'sampled')
+        _G['ax_res'].legend()
+        wait('\t\tFitting\n')
+        return errorfunction(residuals, tol), fit
+    return f2zero_debug
+#───────────────────────────────────────────────────────────────────────
+def gen_f2zero(*args):
+    '''Generates function for the root finder'''
+    return _get_f2zero_debug(*args) if _G['debug'] else _get_f2zero(*args)
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
 def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
@@ -283,7 +326,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     y = to_ndarray(y, (len(x), -1))
 
     tol = to_ndarray(tol, y[0].shape)
-    start_y1 = -np.amax(tol) # Starting value for discrete root calculation
+    start_y1 = - np.amax(tol) # Starting value for discrete root calculation
     sqrtrange = _sqrtrange[use_numba]
     if isinstance(errorfunction, str):
         errorfunction = errorfunctions[errorfunction][use_numba]
@@ -293,7 +336,6 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     fyc = fitset.y_from_fit
 
     x_c, y_c = [x[0]], [np.array(y[0])]
-    x0, y0 = x_c[-1], y_c[-1]
     # Estimation for the first offset
     if initial_step is None:
         mid = end // 2
@@ -301,14 +343,19 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     else:
         offset = initial_step
             
-    if is_debug:
-        _G['x'], _G['y'] = x, y
+    if is_debug: #─────────────────────────────────────────────────────┐
+        _G.update({'x': x,
+                   'y': y,
+                   'tol': tol,
+                   'fyc': fyc,
+                   'start': start})
+
         _G['fig'], axs = plt.subplots(3,1)
         for ax in axs:
             ax.grid()
         _G['ax_data'], _G['ax_res'], _G['ax_root'] = axs
 
-        _G['ax_data'].fill_between(x.flatten(), (y - tol).flatten(), (y + tol).flatten(), alpha=.3, color = 'blue')
+        _G['ax_data'].fill_between(_G['x'].flatten(), (_G['y'] - tol).flatten(), (_G['y'] + _G['tol']).flatten(), alpha=.3, color = 'blue')
 
         _G['line_fit'], = _G['ax_data'].plot(0,0,'-',color = 'orange')
         _G['ax_res'].axhline(color = 'red', linestyle = '--')
@@ -316,42 +363,13 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
 
         plt.ion()
         plt.show()
-    #───────────────────────────────────────────────────────────────
-    def _f2zero(i: int) -> tuple:
-        '''Function such that i is optimal when f2zero(i) = 0'''
-        inds = sqrtrange(start, i)
-        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
-        if is_debug:
-            print(f'\t\t{i=}\t{residuals.shape=}')
-            print(f'\t\tx {x[inds][0][0]} - {x[inds][-1][0]}')
-            indices_all = np.arange(-1, i + 1) + start
-            _G['x_plot'] = _G['x'][indices_all]
-            _G['y_plot'] = fyc(fit, _G['x_plot'])
-            _G['line_fit'].set_xdata(_G['x_plot'])
-            _G['line_fit'].set_ydata(_G['y_plot'])
-            # print(f'{_G["y_plot"].shape=}')
-            # print(f'{_G["y"][indices_all].shape=}')
-            res_all = _G['y_plot'] - _G['y'][indices_all].flatten()
-            print(f'\t\t{res_all.shape=}')
-            _G['ax_res'].clear()
-            _G['ax_res'].grid()
-            _G['ax_res'].axhline(color = 'red', linestyle = '--')
-            _G['ax_res'].set_ylabel('Residual relative to tolerance')
-            _G['ax_res'].plot(indices_all - start, np.abs(res_all) / tol -1,
-                             '.', color = 'blue', label = 'ignored')
-            _G['ax_res'].plot(inds - start, np.abs(residuals) / tol-1,
-                             'o', color = 'red', label = 'sampled')
-            _G['ax_res'].legend()
-            wait('\t\tFitting\n')
-        return errorfunction(residuals, tol), fit
-    #───────────────────────────────────────────────────────────────
-    
-    if is_debug:
         wait('Starting\n')
         print(f'{offset=}')
+    #──────────────────────────────────────────────────────────────────┘
     for _ in range(end): # Prevents infinite loop in case error
-        
-        offset, fit = droot(_f2zero, start_y1, offset, limit)
+        offset, fit = droot(gen_f2zero(x[start:], y[start:], x_c[-1], y_c[-1],
+                            sqrtrange, f_fit, errorfunction, tol),
+                            start_y1, offset, limit)
         step = offset + 1
         if fit is None: raise RuntimeError('Fit not found')
         if is_debug:
@@ -367,17 +385,18 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
             break
         x_c.append(x[start - 1])
         y_c.append(fyc(fit, x_c[-1]))
-        x0, y0 = x_c[-1], y_c[-1]
         limit -= step
         offset = min(limit, offset) # Setting up to be next estimation
 
-        if is_debug:
+        if is_debug: #─────────────────────────────────────────────────┐
+            _G['start'] = start
             if len(x_c) == 40:
                 print(f'\nTrigger{40 * "═"}\n')
                 time.sleep(1)
                 wait()
             _G['ax_data'].plot(x_c[-1], y_c[-1],'go')
             wait('Next iteration\n')
+        #──────────────────────────────────────────────────────────────┘
     else:
         raise StopIteration('Maximum number of iterations reached')
     # Last data point is same as in the unRecord data
