@@ -24,8 +24,8 @@ Rest of documentation uses this abbreviation.
 You have some data from system of equations
 For example, let's take 100 000 datapoints along some function
 ``` python
-    input_x = np.linspace(0,1,int(1e5))
-    input_y = np.sin(6 * input_x * input_x)
+    input_x = np.linspace(0,1,int(1e4))
+    input_y = np.sin(24 * input_x ** 2)
 ```
 
 
@@ -97,6 +97,9 @@ in data and being storage of the data, it is a fitting name for the object
     print(record.state)
     print(record.__str__)
 ```
+
+![Plot form the example](src/figures/example.png)
+
 ### Combining comression methods
 
 This compression method can be combined with lossless compressiom to achieve even higher compression ratios.

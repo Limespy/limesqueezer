@@ -50,14 +50,18 @@ def run(args, use_numba: int):
         xcb, ycb = ls(xdata, ydata, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
         xcs, ycs = _stream(xdata, ydata, 1e-2, use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
-            if xb - xs != 0:
+            if xb != xs:
                 print(f'{i=}, {xb=}, {xs=}')
                 break
         for i, (xb, xs) in enumerate(zip(reversed(xcb),reversed(xcs))):
-            if xb - xs != 0:
+            if xb != xs:
                 print(f'{i=}, {xb=}, {xs=}')
                 break
+        print(xcb)
+        print(xcs)
+        
         xc = xcb
+
     # print(f'{xc[-10:-1]}')
     print(f'{len(xdata)=}\t{len(xc)=}')
     if ls._G['timed']: print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
