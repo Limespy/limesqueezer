@@ -3,10 +3,9 @@
 # IMPORT
 import unittest
 import numpy as np
-import sys
-import pathlib
 
 import limesqueezer as ls
+print(ls.API._sqrtrange)
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
 def f2zero_100(n: int) -> float:
@@ -36,15 +35,17 @@ class Test(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Auxiliaries
     def test_1_1_sqrtfill(self):
-        self.assertTrue(isinstance(ls.sqrtrange(0, 1), np.ndarray))
+        self.assertTrue(isinstance(ls.API._sqrtrange[0](0, 1), np.ndarray))
         reltol = 5e-2
         for i in [1, 5 , 100, 1000, 10000]:
-            ins = ls.sqrtrange(0, i)
+            ins_py = ls.API._sqrtrange[0](0, i)
+            ins_numba = ls.API._sqrtrange[0](0, i)
+            self.assertTrue(np.all(ins_py == ins_numba))
             arr = np.arange(i + 1)
-            arr[ins]
-            self.assertLess((len(ins) / (round((i**0.5)) + 1) - 1), reltol)
-            self.assertEqual(ins[0], 0)
-            self.assertEqual(ins[-1], i)
+            arr[ins_numba]
+            self.assertLess((len(ins_py) / (round((i**0.5)) + 1) - 1), reltol)
+            self.assertEqual(ins_py[0], 0)
+            self.assertEqual(ins_py[-1], i)
     #───────────────────────────────────────────────────────────────────
     def test_1_2_interval(self):
         x1, x2= 50, 150
@@ -130,17 +131,25 @@ class Test(unittest.TestCase):
         '''Block and stream compressions must give equal compressed output
         for 1 y variable'''
 
-        tol = 1e-3
+        tol = 1e-2
         xdata, ydata = ls.ref.raw_sine_x2(1e4)
-        xc_block, yc_block = ls.compress(xdata, ydata, tol = tol)
+        xc_block, yc_block = ls.compress(xdata, ydata, tol = tol,
+                                initial_step = 100, errorfunction = 'maxmaxabs')
         #───────────────────────────────────────────────────────────────
         with ls.Stream(xdata[0], ydata[0], tol = tol) as record:
             for x, y in zip(xdata[1:], ydata[1:]):
                 record(x, y)
         #───────────────────────────────────────────────────────────────
-        # print(xc_block-record.x)
         self.assertTrue(np.all(xc_block == record.x))
         self.assertTrue(np.all(yc_block == record.y))
+    #═══════════════════════════════════════════════════════════════════
+    # Decompression
+    def test_5_2_module_call(self):
+        '''Block and stream compressions must give equal compressed output
+        for 1 y variable'''
+        function = ls(*ls.ref.raw_sine_x2(1e4), tol = 1e-2,
+                      errorfunction = 'maxmaxabs')
+
 
         
 #%%═════════════════════════════════════════════════════════════════════
