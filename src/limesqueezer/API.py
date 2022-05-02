@@ -44,17 +44,17 @@ def to_ndarray(item, shape = ()) :
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
 #───────────────────────────────────────────────────────────────────────
-def sqrtrange_python(start: int, n: int):
+def sqrtrange_python(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
-    inds = np.arange(start, n + start + 1, round((n + 1) ** 0.5) )
-    inds[-1] = n + start
+    inds = np.arange(0, n + 1, round(math.sqrt(n + 1)) )
+    inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
 @numba.jit(nopython = True, cache = True)
-def sqrtrange_numba(start: int, n: int):
+def sqrtrange_numba(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
-    inds = np.arange(start, n + start + 1, round(math.sqrt(n + 1)) )
-    inds[-1] = n + start
+    inds = np.arange(0, n + 1, round(math.sqrt(n + 1)) )
+    inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
 _sqrtrange = (sqrtrange_python, sqrtrange_numba)
@@ -120,9 +120,13 @@ def _maxRMS_numba(r: np.ndarray,t: np.ndarray)-> float:
 #───────────────────────────────────────────────────────────────────────
 def _maxsumabs(r: np.ndarray,t: np.ndarray) -> float:
     return np.amax(np.sum(np.abs(r) - t) / t)
-
-errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
+#───────────────────────────────────────────────────────────────────────
+_errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
                   'maxRMS':(_maxRMS_python, _maxRMS_numba)}
+#───────────────────────────────────────────────────────────────────────
+def get_errorfunction(name, use_numba, tol):
+    _errorfunction = _errorfunctions[name][use_numba]
+    return lambda residuals: _errorfunction(residuals, tol)
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f, x1, y1, x2, y2, fit1):
@@ -255,7 +259,7 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
     '''Estimates number of lines required to fit within error tolerance'''
 
     if (length := len(x)) > 1:
-        inds = sqrtrange_python(0, length - 2) # indices so that x[-1] is not included
+        inds = sqrtrange_python(length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
         # print(f'sqrtmaxmaxabs {(_maxmaxabs(res, tol)/ tol)** 0.5}')
         # print(f'sqrtmaxsumabs {(_maxsumabs(res, tol)/ tol)** 0.5}')
@@ -266,18 +270,18 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         return 1.
 #───────────────────────────────────────────────────────────────────────
 
-def _get_f2zero(x, y, x0, y0, sqrtrange, f_fit, errorfunction, tol):
+def _get_f2zero(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
     def f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
-        inds = sqrtrange(0, i)
+        inds = sqrtrange(i)
         residuals, fit = f_fit(x[inds], y[inds], x0, y0)
-        return errorfunction(residuals, tol), fit
+        return errorfunction(residuals), fit
     return f2zero
 #───────────────────────────────────────────────────────────────────────
-def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction, tol):
+def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
     def f2zero_debug(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
-        inds = sqrtrange(0, i)
+        inds = sqrtrange(i)
         residuals, fit = f_fit(x[inds], y[inds], x0, y0)
 
         print(f'\t\t{i=}\t{residuals.shape=}')
@@ -295,13 +299,13 @@ def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction, tol):
         _G['ax_res'].grid()
         _G['ax_res'].axhline(color = 'red', linestyle = '--')
         _G['ax_res'].set_ylabel('Residual relative to tolerance')
-        _G['ax_res'].plot(indices_all - _G['start'], np.abs(res_all) / tol -1,
+        _G['ax_res'].plot(indices_all - _G['start'], np.abs(res_all) / _G['tol'] -1,
                             '.', color = 'blue', label = 'ignored')
-        _G['ax_res'].plot(inds, np.abs(residuals) / tol-1,
+        _G['ax_res'].plot(inds, np.abs(residuals) / _G['tol']-1,
                             'o', color = 'red', label = 'sampled')
         _G['ax_res'].legend()
         wait('\t\tFitting\n')
-        return errorfunction(residuals, tol), fit
+        return errorfunction(residuals), fit
     return f2zero_debug
 #───────────────────────────────────────────────────────────────────────
 def gen_f2zero(*args):
@@ -329,7 +333,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
     sqrtrange = _sqrtrange[use_numba]
     if isinstance(errorfunction, str):
-        errorfunction = errorfunctions[errorfunction][use_numba]
+        errorfunction = get_errorfunction(errorfunction, use_numba, tol)
     if isinstance(fitset, str):
         fitset = fitsets[fitset]
     f_fit = fitset.fit[use_numba]
@@ -368,7 +372,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     #──────────────────────────────────────────────────────────────────┘
     for _ in range(end): # Prevents infinite loop in case error
         offset, fit = droot(gen_f2zero(x[start:], y[start:], x_c[-1], y_c[-1],
-                            sqrtrange, f_fit, errorfunction, tol),
+                                       sqrtrange, f_fit, errorfunction),
                             start_y1, offset, limit)
         step = offset + 1
         if fit is None: raise RuntimeError('Fit not found')
@@ -529,14 +533,14 @@ class _StreamRecord(collections.abc.Sized):
     def _f2zero(self, i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
 
-        inds = self.sqrtrange(0, i)
+        inds = self.sqrtrange(i)
         residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
                                     self.xc[-1], self.yc[-1])
         if self.is_debug: #────────────────────────────────────────────┐
             if residuals.shape != (len(inds), len(self.yb[-1])):
                 raise ValueError(f'{residuals.shape=}')
             print(f'\t\t{i=}\t{residuals.shape=}')
-            print(f'\t\tx {self.xb[inds][0]} - {self.xb[inds][-1]}')
+            print(f'\t\tx {self.xb[inds]} - {self.xb[inds][-1]}')
             indices_all = np.arange(0, i + 1)
             _G['ax_data'].plot(self.xb[i], self.yb[i], 'k.')
             _G['x_plot'] = self.xb[indices_all]
@@ -554,7 +558,7 @@ class _StreamRecord(collections.abc.Sized):
             _G['ax_res'].legend()
             wait('\t\tFitting\n')
         #──────────────────────────────────────────────────────────────┘
-        return self.errorfunction(residuals, self.tol), fit
+        return self.errorfunction(residuals), fit
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self):
         '''Compresses the buffer by one step'''
@@ -705,7 +709,7 @@ class Stream():
         self.tol           = to_ndarray(tol, self.y0.shape)
         
         if isinstance(errorfunction, str): #───────────────────────────┐
-            self.errorfunction = errorfunctions[errorfunction][use_numba]
+            self.errorfunction = get_errorfunction(errorfunction, use_numba, self.tol)
         else:
             self.errorfunction = errorfunction
         #──────────────────────────────────────────────────────────────┘

@@ -42,12 +42,12 @@ def main():
 def run(args, use_numba: int):
     xdata, ydata = ref.raw_sine_x2(1e4)
     if args[0] == 'block':
-        xc, yc = ls(xdata, ydata, tol = 1e-2,
+        xc, yc = ls.compress(xdata, ydata, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxmaxabs')
     elif args[0] == 'stream':
         xc, yc = _stream(xdata, ydata, 1e-2, use_numba)
     elif args[0] == 'both':
-        xcb, ycb = ls(xdata, ydata, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
+        xcb, ycb = ls.compress(xdata, ydata, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
         xcs, ycs = _stream(xdata, ydata, 1e-2, use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:

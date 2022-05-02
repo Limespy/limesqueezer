@@ -35,11 +35,11 @@ class Test(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Auxiliaries
     def test_1_1_sqrtfill(self):
-        self.assertTrue(isinstance(ls.API._sqrtrange[0](0, 1), np.ndarray))
+        self.assertTrue(isinstance(ls.API._sqrtrange[0](1), np.ndarray))
         reltol = 5e-2
         for i in [1, 5 , 100, 1000, 10000]:
-            ins_py = ls.API._sqrtrange[0](0, i)
-            ins_numba = ls.API._sqrtrange[0](0, i)
+            ins_py = ls.API._sqrtrange[0](i)
+            ins_numba = ls.API._sqrtrange[0](i)
             self.assertTrue(np.all(ins_py == ins_numba))
             arr = np.arange(i + 1)
             arr[ins_numba]
@@ -147,8 +147,12 @@ class Test(unittest.TestCase):
     def test_5_2_module_call(self):
         '''Block and stream compressions must give equal compressed output
         for 1 y variable'''
-        function = ls(*ls.ref.raw_sine_x2(1e4), tol = 1e-2,
-                      errorfunction = 'maxmaxabs')
+        xdata, ydata = ls.ref.raw_sine_x2(1e4)
+        tol = 1e-2
+        xc, yc = ls.compress(xdata, ydata, tol = tol, errorfunction = 'maxmaxabs')
+        function = ls.decompress(xc, yc)
+        function_call = ls(xdata, ydata, tol = tol, errorfunction = 'maxmaxabs')
+
 
 
         
