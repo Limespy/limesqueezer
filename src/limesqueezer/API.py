@@ -424,7 +424,7 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
     end = len(x)- 1 - zero
     estimate = int(end/n_lines(x,y,x[0],y[0],tol) )+1
     inds = [0]
-    errorfunction = errorfunctions['maxmaxabs'][use_numba]
+    errorfunction = get_errorfunction('maxmaxabs', use_numba, tol)
     sqrtrange = _sqrtrange[use_numba]
 
     x = x.reshape([-1, 1])
@@ -442,7 +442,7 @@ def pick(x, y, tol=1e-2, mins=30, verbosity=0, is_timed=False, use_numba = 0):
         b = y[zero] - a * xs[zero]
         residuals = a * x[inds] + b - y[inds]
 
-        return errorfunction(residuals, tol), None
+        return errorfunction(residuals), None
     #───────────────────────────────────────────────────────────────────
     while end > 0:
         estimate = int((end + end/(n_lines(x[zero:], y[zero:], 
@@ -515,6 +515,10 @@ class _StreamRecord(collections.abc.Sized):
 
         self.y1 = -self.tol # Initialising
         if self.is_debug: #────────────────────────────────────────────┐
+            _G.update({'tol': tol,
+                       'xb': self.xb,
+                       'yb': self.yb,
+                       })
             _G['fig'], axs = plt.subplots(3,1)
             for ax in axs:
                 ax.grid()
@@ -601,8 +605,10 @@ class _StreamRecord(collections.abc.Sized):
         self._lenb += 1
 
         if self.is_debug: #────────────────────────────────────────────┐
+            _G['xb'].append(x_raw)
             _G['line_buffer'].set_xdata(self.xb)
             _G['line_buffer'].set_ydata(self.yb)
+
         #──────────────────────────────────────────────────────────────┘
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
@@ -720,6 +726,9 @@ class Stream():
         #──────────────────────────────────────────────────────────────┘
         self.use_numba     = use_numba
         self.x2            = 100 if initial_step is None else initial_step
+        if _G['debug']: #──────────────────────────────────────────────┐
+            _G['y0']
+        #──────────────────────────────────────────────────────────────┘
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         self.record = _StreamRecord(self.x0, self.y0, self.tol,
