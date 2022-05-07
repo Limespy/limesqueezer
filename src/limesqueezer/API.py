@@ -39,7 +39,7 @@ def to_ndarray(item, shape = ()) :
         if -1 in shape: # Array of shape length of dimensions with one item
             return np.array(item, ndmin = len(shape))
         else:
-            return np.full(shape, item) # Array of copies in the shape 
+            return np.full(shape, item) # Array of copies in the shape
     elif not isinstance(item, np.ndarray): # Iterable into array
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
@@ -265,7 +265,9 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         # print(f'sqrtmaxsumabs {(_maxsumabs(res, tol)/ tol)** 0.5}')
         # print(f'sqrtmaxRMS {(_maxRMS(res, tol)/ tol)** 0.5}')
         # _maxsumabs(res, tol)
-        return 0.5 * (_maxsumabs(res, tol) + 1) ** 0.5 + 1
+        reference = _maxsumabs(res, tol)
+        if reference < 0: reference = 0
+        return 0.5 * reference ** 0.5 + 1
     else:
         return 1.
 #───────────────────────────────────────────────────────────────────────
@@ -325,7 +327,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     end = len(x) - 1 # Number of unRecord datapoints -1, i.e. the last index
     limit = end - start
     fit = None
-    
+
     x = to_ndarray(x)
     y = to_ndarray(y, (len(x), -1))
 
@@ -346,7 +348,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
         offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol))
     else:
         offset = initial_step
-            
+
     if is_debug: #─────────────────────────────────────────────────────┐
         _G.update({'x': x,
                    'y': y,
@@ -409,7 +411,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
 
     if _G['timed']:
         _G['runtime'] = time.perf_counter() - _G['t_start']
-    
+
     if is_debug:
         plt.ioff()
     return to_ndarray(x_c), to_ndarray(y_c)
@@ -490,7 +492,7 @@ def split(x, y, tol=1e-2, mins=100, verbosity=0, is_timed=False):
 ### STREAM COMPRESSION
 class _StreamRecord(collections.abc.Sized):
     """Class for doing stream compression for data of 1-dimensional
-    system of equations 
+    system of equations
     i.e. single wait variable and one or more output variable
     """
     def __init__(self, x0: float, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, fitset, x2):
@@ -579,24 +581,18 @@ class _StreamRecord(collections.abc.Sized):
             _G['ax_data'].plot(_G['x_plot'], _G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
-        
+
         self.xc.append(self.xb[offset])
         self.yc.append(self.fyc(fit, self.xc[-1]))
 
         self.limit -= step
         self._lenb -= step
         self._lenc += 1
-        if self.is_debug: #────────────────────────────────────────────┐
-            if self._lenc == 40:
-                print(f'\nTrigger{40 * "═"}\n')
-                time.sleep(1)
-                wait()
-        #──────────────────────────────────────────────────────────────┘
+
         self.x2 = offset # Approximation
 
         self.xb, self.yb = self.xb[step:], self.yb[step:]
         if self.xc[-1] == self.xb[0]: raise IndexError('derp')
-        
     #───────────────────────────────────────────────────────────────────
     def __call__(self, x_raw, y_raw):
         self.xb.append(x_raw)
@@ -614,7 +610,7 @@ class _StreamRecord(collections.abc.Sized):
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb)
             self.yb = to_ndarray(self.yb, (self._lenb, -1))
-            
+
             if self.is_debug: #────────────────────────────────────────┐
                 if self.xb.shape != (self._lenb,):
                     raise ValueError(f'{self.xb.shape=}')
@@ -653,7 +649,6 @@ class _StreamRecord(collections.abc.Sized):
                 #──────────────────────────────────────────────────────┘
                 self.squeeze_buffer()
             #──────────────────────────────────────────────────────────┘
-            
             # Converting back to lists
             self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
             if self.is_debug: #────────────────────────────────────────┐
@@ -682,7 +677,6 @@ class _StreamRecord(collections.abc.Sized):
         # print(f'Calling f2zero with {self.limit=}')
         self.x2 = min(self.x2, self.limit)
         self.y2, self.fit2 = self._f2zero(self.x2)
-        
 
         while self.y2 > 0: #───────────────────────────────────────────┐
             self.squeeze_buffer()
@@ -691,7 +685,7 @@ class _StreamRecord(collections.abc.Sized):
         #──────────────────────────────────────────────────────────────┘
         self.xc.append(self.xb[-1])
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
-        
+
         if self.is_debug: plt.ioff()
         # Final packing and cleaning
         self.x = to_ndarray(self.xc, (self._lenc+1,))
@@ -705,7 +699,7 @@ class _StreamRecord(collections.abc.Sized):
     #───────────────────────────────────────────────────────────────────
 ###═════════════════════════════════════════════════════════════════════
 class Stream():
-    '''Context manager for stream compression of data of 
+    '''Context manager for stream compression of data of
     1 dimensional system of equations'''
     def __init__(self, x0, y0, tol = 1e-2, initial_step = None,
                  errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'):
@@ -713,7 +707,7 @@ class Stream():
         # Variables are columns, e._G. 3xn
         self.y0            = to_ndarray(y0, (-1,))
         self.tol           = to_ndarray(tol, self.y0.shape)
-        
+
         if isinstance(errorfunction, str): #───────────────────────────┐
             self.errorfunction = get_errorfunction(errorfunction, use_numba, self.tol)
         else:
@@ -796,58 +790,54 @@ class Poly10:
         return a, b
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    def decompress(x_compressed: np.ndarray, fit_array: np.ndarray):
-        '''Takes array of fitting parameters and constructs whole function'''
-        rows, columns = fit_array.shape
-        def _iteration(x, low = 0):
-            index = bisect_left(x_compressed, x, lo = low, hi = rows)
-            if index == 0:
-                return fit_array[0], index
-            try:
-                x1, x2 = x_compressed[index-1:(index + 1)]
-                y1, y2 = fit_array[index-1:(index + 1)]
-                return ((y2 - y1) / (x2 - x1) * (x - x1) + y1), index
-            except ValueError:
-                return fit_array[index], index
-        #───────────────────────────────────────────────────────────────
-        def interpolator(x_input): #────────────────────────────────────
-            if isinstance(x_input, np.ndarray):
-                out = np.full((len(x_input), columns), np.nan)
-                i_c = 0
-                for i_out, x in enumerate(x_input): 
-                    out[i_out], i_c = _iteration(x, i_c)
-                return out
-            else:
-                return _iteration(x_input)[0]
-        #───────────────────────────────────────────────────────────────
-        return interpolator
+    def _interpolate(x, x1, x2, y1, y2):
+        '''Interpolates between two consecutive points of compressed data'''
+        return (y2 - y1) / (x2 - x1) * (x - x1) + y1
     #───────────────────────────────────────────────────────────────────
     fit = (fit_python, fit_numba)
 #%%═════════════════════════════════════════════════════════════════════
+def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
+    '''Takes array of fitting parameters and constructs whole function'''
+    #───────────────────────────────────────────────────────────────
+    def _iteration(x, low = 1):
+        index = bisect_left(x_compressed, x, lo = low, hi = fit_array.shape[0]-1)
+        return index, interpolator(x, *x_compressed[index-1:(index + 1)],
+                                   *fit_array[index-1:(index + 1)])
+    #───────────────────────────────────────────────────────────────
+    def function(x_input):
+        if hasattr(x_input, '__iter__'):
+            out = np.full((len(x_input),) + fit_array.shape[1:], np.nan)
+            i_c = 1
+            for i_out, x in enumerate(x_input):
+                i_c, out[i_out] = _iteration(x, i_c)
+            return out
+        else:
+            return _iteration(x_input)[1]
+    #───────────────────────────────────────────────────────────────
+    return function
+#%%═════════════════════════════════════════════════════════════════════
 # WRAPPING
 
-compressors = {'LSQ10': LSQ10,
-               'pick': pick,
-               'split': split}
-decompressors = {'Poly10': Poly10.decompress}
+compressors = {'LSQ10': LSQ10}
+interpolators = {'Poly10': Poly10._interpolate}
 #───────────────────────────────────────────────────────────────────────
 def compress(*args, compressor = 'LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
-    if isinstance(compressor, str): 
+    if isinstance(compressor, str):
         try:
             compressor = compressors[compressor]
         except KeyError:
             raise NotImplementedError(f'{compressor} not in the dictionary of builtin compressors')
     return compressor(*args, **kwargs)
 #───────────────────────────────────────────────────────────────────────
-def decompress(x, y, decompressor = 'Poly10', **kwargs):
+def decompress(x, y, interpolator = 'Poly10', **kwargs):
     '''Wrapper for easier selection of compression method'''
-    if isinstance(decompressor, str):
+    if isinstance(interpolator, str):
         try:
-            decompressor = decompressors[decompressor]
+            interpolator = interpolators[interpolator]
         except KeyError:
             raise NotImplementedError("Method not in the dictionary of methods")
-    return decompressor(x, y,**kwargs)
+    return _decompress(x, y, interpolator, **kwargs)
 #%%═════════════════════════════════════════════════════════════════════
 # HACKS
 # A hack to make the package callable
@@ -855,11 +845,11 @@ class Pseudomodule(types.ModuleType):
     """Class that wraps the individual plotting functions
     an allows making the module callable"""
     @staticmethod
-    def __call__(*args, compressor = 'LSQ10', decompressor = 'Poly10', **kwargs):
+    def __call__(*args, compressor = 'LSQ10', interpolator = 'Poly10', **kwargs):
         '''Wrapper for easier for combined compression and decompression'''
 
         return decompress(*compress(*args, compressor = compressor, **kwargs),
-                          decompressor = decompressor)
+                          interpolator = interpolator)
 
 #───────────────────────────────────────────────────────────────────────
 fitsets = {'Poly10': Poly10}
