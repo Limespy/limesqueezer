@@ -63,63 +63,64 @@ def wait(text = ''):
     if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
-def _maxmaxabs_python(r: np.ndarray, t: np.ndarray) -> float:
+def _maxmaxabs_python(residuals: np.ndarray, tolerance: np.ndarray) -> float:
     '''Python version'''
-    r = np.abs(r)
-    # print(f'{r.shape=}')
-    # print(f'{t.shape=}')
-    r_max = r[0,0]
+    residuals = np.abs(residuals)
+    # print(f'{residuals.shape=}')
+    # print(f'{tolerance.shape=}')
+    r_max = residuals[0,0] # Initialising
 
-    for r0 in r[:,0]:
+    # Going through first column to initialise maximum value
+    for r0 in residuals[:,0]:
+        if r0 > r_max: r_max = r0
+    dev_max = r_max - tolerance[0]
+
+    for i, k in enumerate(tolerance[1:]):
+        for r0 in residuals[:,i]:
+            if r0 > r_max: r_max = r0
+        deviation = r_max - k
+        if deviation > dev_max: dev_max = deviation
+    return dev_max
+#───────────────────────────────────────────────────────────────────────
+@numba.jit(nopython=True, cache=True)
+def _maxmaxabs_numba(residuals: np.ndarray, tolerance: np.ndarray) -> float:
+    residuals = np.abs(residuals)
+    # print(f'{residuals.shape=}')
+    # print(f'{tolerance.shape=}')
+    r_max = residuals[0,0]
+
+    for r0 in residuals[:,0]:
         if r0 > r_max: r_max = r0
 
-    m = r_max - t[0]
+    m = r_max - tolerance[0]
 
-    for i, k in enumerate(t[1:]):
-        for r0 in r[:,i]:
+    for i, k in enumerate(tolerance[1:]):
+        for r0 in residuals[:,i]:
             if r0 > r_max: r_max = r0
         m = max(m, r_max - k)
     return m
 #───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython=True, cache=True)
-def _maxmaxabs_numba(r: np.ndarray, t: np.ndarray) -> float:
-    r = np.abs(r)
-    # print(f'{r.shape=}')
-    # print(f'{t.shape=}')
-    r_max = r[0,0]
-
-    for r0 in r[:,0]:
-        if r0 > r_max: r_max = r0
-
-    m = r_max - t[0]
-
-    for i, k in enumerate(t[1:]):
-        for r0 in r[:,i]:
-            if r0 > r_max: r_max = r0
-        m = max(m, r_max - k)
-    return m
-#───────────────────────────────────────────────────────────────────────
-def _maxRMS_python(r: np.ndarray,t: np.ndarray)-> float:
-    r *= r
-    # print(f'{r.shape=}')
-    # print(f'{t.shape=}')
-    m = np.sqrt(np.mean(r[:,0])) - t[0]
-    for i, k in enumerate(t[1:]):
-        m = max(m, np.sqrt(np.mean(r[:,i])) - k)
+def _maxRMS_python(residuals: np.ndarray,tolerance: np.ndarray)-> float:
+    residuals *= residuals
+    # print(f'{residuals.shape=}')
+    # print(f'{tolerance.shape=}')
+    m = np.sqrt(np.mean(residuals[:,0])) - tolerance[0]
+    for i, k in enumerate(tolerance[1:]):
+        m = max(m, np.sqrt(np.mean(residuals[:,i])) - k)
     return m
 #───────────────────────────────────────────────────────────────────────
 @numba.jit(nopython=True, cache=True)
-def _maxRMS_numba(r: np.ndarray,t: np.ndarray)-> float:
-    r *= r
-    # print(f'{r.shape=}')
-    # print(f'{t.shape=}')
-    m = np.sqrt(np.mean(r[:,0])) - t[0]
-    for i, k in enumerate(t[1:]):
-        m = max(m, np.sqrt(np.mean(r[:,i])) - k)
+def _maxRMS_numba(residuals: np.ndarray,tolerance: np.ndarray)-> float:
+    residuals *= residuals
+    # print(f'{residuals.shape=}')
+    # print(f'{tolerance.shape=}')
+    m = np.sqrt(np.mean(residuals[:,0])) - tolerance[0]
+    for i, k in enumerate(tolerance[1:]):
+        m = max(m, np.sqrt(np.mean(residuals[:,i])) - k)
     return m
 #───────────────────────────────────────────────────────────────────────
-def _maxsumabs(r: np.ndarray,t: np.ndarray) -> float:
-    return np.amax(np.sum(np.abs(r) - t) / t)
+def _maxsumabs(residuals: np.ndarray,tolerance: np.ndarray) -> float:
+    return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
 _errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
                   'maxRMS':(_maxRMS_python, _maxRMS_numba)}
@@ -156,7 +157,7 @@ def interval(f, x1, y1, x2, y2, fit1):
         elif x_mid == x2:
             x_mid -= 1
 
-        y_mid, fit = f(x_mid)
+        y_mid, fit2 = f(x_mid)
         if is_debug: #─────────────────────────────────────────────────┐
             print(f'\t{x_mid=}\t{y_mid=}')
             _G['mid'].set_xdata(x_mid)
@@ -178,19 +179,18 @@ def interval(f, x1, y1, x2, y2, fit1):
                 wait('\tError under tolerance\n')
                 _G['ax_root'].plot(x1, y1,'.', color = 'black')
             #──────────────────────────────────────────────────────────┘
-            x1, y1, fit1 = x_mid, y_mid, fit
-            sqrtx1 = x_mid **0.5
+            x1, y1, fit1 = x_mid, y_mid, fit2
+            sqrtx1 = x_mid ** 0.5
             if is_debug: #─────────────────────────────────────────────┐
                 _G['xy1'].set_xdata(x1)
                 _G['xy1'].set_ydata(y1)
             #──────────────────────────────────────────────────────────┘
-
     if x2 - x1 == 2: # Points have only one point in between
         if is_debug: #─────────────────────────────────────────────────┐
             wait('\tPoints have only one point in between\n')
         #──────────────────────────────────────────────────────────────┘
-        y_mid, fit = f(x1+1) # Testing that point
-        return (x1+1, fit) if (y_mid <0) else (x1, fit1) # If under, give that fit
+        y_mid, fit2 = f(x1+1) # Testing that point
+        return (x1+1, fit2) if (y_mid <0) else (x1, fit1) # If under, give that fit
     else:
         if is_debug: #─────────────────────────────────────────────────┐
             wait('\tPoints have no point in between\n')
@@ -203,11 +203,11 @@ def droot(f, y1, x2, limit):
     is_debug = _G['debug']
     x1 = 0
     y2, fit2 = f(x2)
+    fit1 = None
     if is_debug: #─────────────────────────────────────────────────────┐
         _G['xy1'], = _G['ax_root'].plot(x1, y1,'g.')
         _G['xy2'], = _G['ax_root'].plot(x2, y2,'b.')
     #──────────────────────────────────────────────────────────────────┘
-    fit1 = None
     while y2 < 0:
         if is_debug: #─────────────────────────────────────────────────┐
             wait('Calculating new attempt in droot\n')
@@ -247,6 +247,7 @@ def droot(f, y1, x2, limit):
             _G['ax_root'].plot(x2, y2,'k.')
             _G['xy2'].set_ydata(y2)
         #──────────────────────────────────────────────────────────────┘
+    
     if is_debug: #─────────────────────────────────────────────────────┐
         _G['xy2'].set_color('red')
         wait('Points for interval found\n')
@@ -285,9 +286,10 @@ def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
         residuals, fit = f_fit(x[inds], y[inds], x0, y0)
-
-        print(f'\t\t{i=}\t{residuals.shape=}')
-        print(f'\t\tx {x[inds][0]} - {x[inds][-1]}')
+        if len(residuals) == 1:
+            print(f'\t\t{residuals=}')
+        print(f'\t\tstart = {_G["start"]} end = {i + _G["start"]} points = {i + 1}')
+        print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {_G["x"][_G["start"]]}')
         indices_all = np.arange(-1, i + 1) + _G['start']
         _G['x_plot'] = _G['x'][indices_all]
         _G['y_plot'] = _G['fyc'](fit, _G['x_plot'])
@@ -296,7 +298,7 @@ def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
         # print(f'{_G["y_plot"].shape=}')
         # print(f'{_G["y"][indices_all].shape=}')
         res_all = _G['y_plot'] - _G['y'][indices_all].flatten()
-        print(f'\t\t{res_all.shape=}')
+        print(f'\t\t{residuals.shape=}\n\t\t{res_all.shape=}')
         _G['ax_res'].clear()
         _G['ax_res'].grid()
         _G['ax_res'].axhline(color = 'red', linestyle = '--')
@@ -305,7 +307,7 @@ def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
                             '.', color = 'blue', label = 'ignored')
         _G['ax_res'].plot(inds, np.abs(residuals) / _G['tol']-1,
                             'o', color = 'red', label = 'sampled')
-        _G['ax_res'].legend()
+        _G['ax_res'].legend(loc = 'lower right')
         wait('\t\tFitting\n')
         return errorfunction(residuals), fit
     return f2zero_debug
@@ -315,7 +317,7 @@ def gen_f2zero(*args):
     return _get_f2zero_debug(*args) if _G['debug'] else _get_f2zero(*args)
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
-def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
+def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
           errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10') -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
@@ -324,12 +326,11 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     if _G['timed']:
         _G['t_start'] = time.perf_counter()
     start = 1 # Index of starting point for looking for optimum
-    end = len(x) - 1 # Number of unRecord datapoints -1, i.e. the last index
+    end = len(x_in) - 1 # Number of unRecord datapoints -1, i.e. the last index
     limit = end - start
-    fit = None
 
-    x = to_ndarray(x)
-    y = to_ndarray(y, (len(x), -1))
+    x = to_ndarray(x_in)
+    y = to_ndarray(y_in, (len(x), -1))
 
     tol = to_ndarray(tol, y[0].shape)
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
@@ -341,7 +342,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
     f_fit = fitset.fit[use_numba]
     fyc = fitset.y_from_fit
 
-    x_c, y_c = [x[0]], [np.array(y[0])]
+    x_c, y_c = [x[0]], [y[0]]
     # Estimation for the first offset
     if initial_step is None:
         mid = end // 2
@@ -363,7 +364,7 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
 
         _G['ax_data'].fill_between(_G['x'].flatten(), (_G['y'] - tol).flatten(), (_G['y'] + _G['tol']).flatten(), alpha=.3, color = 'blue')
 
-        _G['line_fit'], = _G['ax_data'].plot(0,0,'-',color = 'orange')
+        _G['line_fit'], = _G['ax_data'].plot(0, 0, '-', color = 'orange')
         _G['ax_res'].axhline(color = 'red', linestyle = '--')
         _G['ax_root'].set_ylabel('Tolerance left')
 
@@ -373,33 +374,47 @@ def LSQ10(x: np.ndarray, y: np.ndarray, tol = 1e-2, initial_step = None,
         print(f'{offset=}')
     #──────────────────────────────────────────────────────────────────┘
     for _ in range(end): # Prevents infinite loop in case error
+        if x[start-1] != x_c[-1]:
+            raise IndexError(f'Indices out of sync {start}')
         offset, fit = droot(gen_f2zero(x[start:], y[start:], x_c[-1], y_c[-1],
                                        sqrtrange, f_fit, errorfunction),
                             start_y1, offset, limit)
         step = offset + 1
-        if fit is None: raise RuntimeError('Fit not found')
-        if is_debug:
+        start += step # Start shifted by the number Record and the
+        if start > end:
+            break
+
+        x_c.append(x[start - 1])
+        if is_debug: #─────────────────────────────────────────────────┐
             print(f'{start=}\t{offset=}\t{end=}\t')
             print(f'{fit=}')
             _G['ax_root'].clear()
             _G['ax_root'].grid()
             _G['ax_root'].set_ylabel('Maximum residual')
+        #──────────────────────────────────────────────────────────────┘
+        if fit is None:
+            if offset == 0: # No skipping of points was possible
+                y_c.append(y[start - 1])
+                if is_debug: #─────────────────────────────────────────┐
+                    _G['x_plot'] = x_c[-2:]
+                    _G['y_plot'] = y_c[-2:]
+                #──────────────────────────────────────────────────────┘
+            else: # Something weird
+                raise RuntimeError('Fit not found')
+        else:
+            y_c.append(fyc(fit, x_c[-1]))
+            if is_debug: #─────────────────────────────────────────────┐
+                _G['x_plot'] = _G['x'][np.arange(-1, offset+1) + start]
+                _G['y_plot'] = _G['fyc'](fit, _G['x_plot'])
+            #──────────────────────────────────────────────────────────┘
+        if is_debug: #─────────────────────────────────────────────────┐
             _G['ax_data'].plot(_G['x_plot'], _G['y_plot'], color = 'red')
-
-        start += step # Start shifted by the number Record and the
-        if start > end:
-            break
-        x_c.append(x[start - 1])
-        y_c.append(fyc(fit, x_c[-1]))
+        #──────────────────────────────────────────────────────────────┘
         limit -= step
         offset = min(limit, offset) # Setting up to be next estimation
 
         if is_debug: #─────────────────────────────────────────────────┐
             _G['start'] = start
-            if len(x_c) == 40:
-                print(f'\nTrigger{40 * "═"}\n')
-                time.sleep(1)
-                wait()
             _G['ax_data'].plot(x_c[-1], y_c[-1],'go')
             wait('Next iteration\n')
         #──────────────────────────────────────────────────────────────┘
@@ -514,7 +529,7 @@ class _StreamRecord(collections.abc.Sized):
 
         self._lenb = 0 # length of the buffer
         self._lenc = 1 # length of the Record points
-
+        self.fit1 = 1
         self.y1 = -self.tol # Initialising
         if self.is_debug: #────────────────────────────────────────────┐
             _G.update({'tol': tol,
@@ -561,7 +576,7 @@ class _StreamRecord(collections.abc.Sized):
                              'b.', label = 'ignored')
             _G['ax_res'].plot(inds, np.abs(residuals) / self.tol - 1,
                              'ro', label = 'sampled')
-            _G['ax_res'].legend()
+            _G['ax_res'].legend(loc = 'lower right')
             wait('\t\tFitting\n')
         #──────────────────────────────────────────────────────────────┘
         return self.errorfunction(residuals), fit
@@ -571,19 +586,32 @@ class _StreamRecord(collections.abc.Sized):
         #──────────────────────────────────────────────────────────────┘
         offset, fit = interval(self._f2zero, self.x1, self.y1,
                                self.x2, self.y2, self.fit1)
+        self.xc.append(self.xb[offset])
         if self.is_debug: #────────────────────────────────────────────┐
-            if fit is None: raise RuntimeError('Fit not found')
-            print(f'{offset=}')
-            print(f'{fit=}')
             _G['ax_root'].clear()
             _G['ax_root'].grid()
             _G['ax_root'].set_ylabel('Maximum residual')
+
+        if fit is None:
+            if offset == 0: # No skipping of points was possible
+                self.yc.append(self.yb[offset])
+                if self.is_debug: #────────────────────────────────────┐
+                    _G['x_plot'] = self.xc[-2:]
+                    _G['y_plot'] = self.yc[-2:]
+                #──────────────────────────────────────────────────────┘
+            else: # Something weird
+                raise RuntimeError('Fit not found')
+        else:
+
+            self.yc.append(self.fyc(fit, self.xc[-1]))
+            if self.is_debug: #────────────────────────────────────────┐
+                _G['x_plot'] = self.xb[np.arange(0, offset + 1)]
+                _G['y_plot'] = _G['fyc'](fit, _G['x_plot'])
+            #──────────────────────────────────────────────────────────┘
+        if self.is_debug: #────────────────────────────────────────────┐
             _G['ax_data'].plot(_G['x_plot'], _G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
-
-        self.xc.append(self.xb[offset])
-        self.yc.append(self.fyc(fit, self.xc[-1]))
 
         self.limit -= step
         self._lenb -= step
@@ -780,14 +808,7 @@ class Poly10:
         # print(f'{fit[0].shape=}')
         # print(f'{fit[1].shape=}')
         # print(f'{x.shape=}')
-        return (fit[0] * x + fit[1]).flatten()
-    #───────────────────────────────────────────────────────────────────
-    @staticmethod
-    def fit_from_end(ends: np.ndarray) -> tuple:
-        '''Takes storable y values and return fitting parameters'''
-        a = (ends[1,1:] - ends[0,1:]) / (ends[1,0] - ends[0,0])
-        b = ends[0,1:] - a * ends[0,0]
-        return a, b
+        return fit[0] * x + fit[1]
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def _interpolate(x, x1, x2, y1, y2):
@@ -817,7 +838,7 @@ def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
     return function
 #%%═════════════════════════════════════════════════════════════════════
 # WRAPPING
-
+# Here are the main external inteface functions
 compressors = {'LSQ10': LSQ10}
 interpolators = {'Poly10': Poly10._interpolate}
 #───────────────────────────────────────────────────────────────────────

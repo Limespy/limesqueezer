@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import limesqueezer as ls
 import numpy as np
 
-def plot_1_data_compressed(input_x, input_y, tolerance):
+def data_compressed_1d(input_x, input_y, tolerance):
     
     output_x, output_y = ls.compress(input_x, input_y, tol = tolerance)
 
@@ -25,3 +25,31 @@ def plot_1_data_compressed(input_x, input_y, tolerance):
     
     fig.tight_layout()
     plt.show()
+
+def comparison(x: np.ndarray, y1: np.ndarray, y2: np.ndarray):
+    shape = (-1, len(x))
+    # y1 = ls.to_ndarray(y1, shape)
+    y1 = y1.T
+    y2 = ls.to_ndarray(y2, shape)
+    fig, axs = plt.subplots(2, y1.shape[0], sharex = True, squeeze = False)
+    for y1n, y2n, ax in zip(y1, y2, axs[0]):
+        # Data and compressed
+        print(y1n[-2:])
+        print(y2n[-2:])
+        ax.plot(x, y1n, '-', label = '1')
+        ax.plot(x, y2n, '-', label ='2')
+        ax.legend()
+    for y1n, y2n, ax in zip(y1, y2, axs[1]):
+        # Residuals to tolerance
+        ax.plot(x, y2n - y1n, label = 'Residuals')
+        ax.legend()
+
+    fig.tight_layout()
+    plt.show()
+
+def simple(x, y):
+    shape = (len(x), -1)
+    y = ls.to_ndarray(y, shape)
+    plt.plot(x, y)
+    plt.show()
+
