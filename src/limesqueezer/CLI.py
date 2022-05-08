@@ -51,11 +51,11 @@ def run(args, use_numba: int):
         xcs, ycs = _stream(x_data, y_data, 1e-2, use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:
-                print(f'{i=}, {xb=}, {xs=}')
+                print(f'Deviation at {i=}, {xb=}, {xs=}')
                 break
         for i, (xb, xs) in enumerate(zip(reversed(xcb),reversed(xcs))):
             if xb != xs:
-                print(f'{i=}, {xb=}, {xs=}')
+                print(f'Deviation at {i=}, {xb=}, {xs=}')
                 break
         print(xcb)
         print(xcs)

@@ -367,6 +367,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
         _G['line_fit'], = _G['ax_data'].plot(0, 0, '-', color = 'orange')
         _G['ax_res'].axhline(color = 'red', linestyle = '--')
         _G['ax_root'].set_ylabel('Tolerance left')
+        _G['ax_root'].axhline(color = 'red', linestyle = '--')
 
         plt.ion()
         plt.show()
@@ -390,6 +391,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
             print(f'{fit=}')
             _G['ax_root'].clear()
             _G['ax_root'].grid()
+            _G['ax_root'].axhline(color = 'red', linestyle = '--')
             _G['ax_root'].set_ylabel('Maximum residual')
         #──────────────────────────────────────────────────────────────┘
         if fit is None:
@@ -459,10 +461,13 @@ class _StreamRecord(collections.abc.Sized):
         self.fit1 = 1
         self.y1 = -self.tol # Initialising
         if self.is_debug: #────────────────────────────────────────────┐
-            _G.update({'tol': tol,
+            _G.update({'tol': self.tol,
                        'xb': self.xb,
                        'yb': self.yb,
-                       })
+                       'xc': self.xb,
+                       'yc': self.yb,
+                       'fyc': self.fyc,
+                       'limit': self.limit})
             _G['fig'], axs = plt.subplots(3,1)
             for ax in axs:
                 ax.grid()
@@ -476,6 +481,7 @@ class _StreamRecord(collections.abc.Sized):
 
             plt.ion()
             plt.show()
+            wait('Record initialised')
         #──────────────────────────────────────────────────────────────┘
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self, i: int) -> tuple:
@@ -547,7 +553,8 @@ class _StreamRecord(collections.abc.Sized):
         self.x2 = offset # Approximation
 
         self.xb, self.yb = self.xb[step:], self.yb[step:]
-        if self.xc[-1] == self.xb[0]: raise IndexError('derp')
+        if self.xc[-1] == self.xb[0]:
+            raise IndexError('End of compressed and beginning of buffer are same')
     #───────────────────────────────────────────────────────────────────
     def __call__(self, x_raw, y_raw):
         self.xb.append(x_raw)
@@ -556,10 +563,8 @@ class _StreamRecord(collections.abc.Sized):
         self._lenb += 1
 
         if self.is_debug: #────────────────────────────────────────────┐
-            _G['xb'].append(x_raw)
             _G['line_buffer'].set_xdata(self.xb)
             _G['line_buffer'].set_ydata(self.yb)
-
         #──────────────────────────────────────────────────────────────┘
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
@@ -568,7 +573,7 @@ class _StreamRecord(collections.abc.Sized):
 
             if self.is_debug: #────────────────────────────────────────┐
                 if self.xb.shape != (self._lenb,):
-                    raise ValueError(f'{self.xb.shape=}')
+                    raise ValueError(f'xb {self.xb.shape} len {self._lenb}')
 
                 if self.yb.shape != (self._lenb, len(self.yc[0])):
                     raise ValueError(f'{self.yb.shape=}')
@@ -605,7 +610,7 @@ class _StreamRecord(collections.abc.Sized):
                 self.squeeze_buffer()
             #──────────────────────────────────────────────────────────┘
             # Converting back to lists
-            self.xb, self.yb = list(self.xb.flatten()), list(self.yb)
+            self.xb, self.yb = list(self.xb), list(self.yb)
             if self.is_debug: #────────────────────────────────────────┐
                 _G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
                 wait('Next iteration\n')
@@ -656,7 +661,7 @@ class _StreamRecord(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of
     1 dimensional system of equations'''
-    def __init__(self, x0, y0, tol = 1e-2, initial_step = None,
+    def __init__(self, x0, y0, tol = 1e-2, initial_step = 100,
                  errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'):
         self.x0            = x0
         # Variables are columns, e._G. 3xn
@@ -674,10 +679,7 @@ class Stream():
             self.fitset = fitset
         #──────────────────────────────────────────────────────────────┘
         self.use_numba     = use_numba
-        self.x2            = 100 if initial_step is None else initial_step
-        if _G['debug']: #──────────────────────────────────────────────┐
-            _G['y0']
-        #──────────────────────────────────────────────────────────────┘
+        self.x2            = initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         self.record = _StreamRecord(self.x0, self.y0, self.tol,
