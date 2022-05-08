@@ -44,7 +44,6 @@ def run(args, use_numba: int):
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxmaxabs')
-        if xc[0] == xc[1]: print(xc)
         print(ls.aux.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
