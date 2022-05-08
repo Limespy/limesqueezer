@@ -6,7 +6,7 @@ Entrypoint module, in case you use `python -m limesqueezer`.
 
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
-from . import cli
+from . import CLI
 ###═════════════════════════════════════════════════════════════════════
 doc = '''
 Limesqueezer
@@ -19,4 +19,4 @@ Recommended abbreviation is 'ls'
 import limesqueezer as ls
 '''
 if __name__ == "__main__":
-    cli.main()
+    CLI.main()

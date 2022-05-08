@@ -40,22 +40,22 @@ def main():
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
 def run(args, use_numba: int):
-    xdata, ydata = ref.raw_sine_x2(1e4)
+    x_data, y_data = ref.raw_sine_x2(1e4)
     if args[0] == 'block':
-        xc, yc = ls(xdata, ydata, tol = 1e-2,
+        xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxmaxabs')
     elif args[0] == 'stream':
-        xc, yc = _stream(xdata, ydata, 1e-2, use_numba)
+        xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
     elif args[0] == 'both':
-        xcb, ycb = ls(xdata, ydata, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
-        xcs, ycs = _stream(xdata, ydata, 1e-2, use_numba)
+        xcb, ycb = ls.compress(x_data, y_data, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
+        xcs, ycs = _stream(x_data, y_data, 1e-2, use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:
-                print(f'{i=}, {xb=}, {xs=}')
+                print(f'Deviation at {i=}, {xb=}, {xs=}')
                 break
         for i, (xb, xs) in enumerate(zip(reversed(xcb),reversed(xcs))):
             if xb != xs:
-                print(f'{i=}, {xb=}, {xs=}')
+                print(f'Deviation at {i=}, {xb=}, {xs=}')
                 break
         print(xcb)
         print(xcs)
@@ -63,12 +63,12 @@ def run(args, use_numba: int):
         xc = xcb
 
     # print(f'{xc[-10:-1]}')
-    print(f'{len(xdata)=}\t{len(xc)=}')
+    print(f'{len(x_data)=}\t{len(xc)=}')
     if ls._G['timed']: print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
-def _stream(xdata: np.ndarray, ydata: np.ndarray, tol: float, use_numba: int):
+def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
 
-    with ls.Stream(xdata[0], ydata[0], tol = tol, use_numba = use_numba) as record:
-        for x, y in zip(xdata[1:], ydata[1:]):
+    with ls.Stream(x_data[0], y_data[0], tol = tol, use_numba = use_numba) as record:
+        for x, y in zip(x_data[1:], y_data[1:]):
             record(x, y)
     return record.x, record.y
