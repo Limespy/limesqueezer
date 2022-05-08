@@ -17,84 +17,18 @@ from bisect import bisect_left
 import matplotlib.pyplot as plt
 
 from . import GLOBALS
-from . import reference as ref # Careful with this circular import
 from . import auxiliaries as aux
 from .auxiliaries import to_ndarray, wait
+from .errorfunctions import get_errorfunction, maxsumabs
 from . import models
-from . import GLOBALS 
+from . import reference as ref # Careful with this circular import
 # This global dictionary G is for passing some telemtery and debug arguments
 global G
 G = GLOBALS.dictionary
 
 _sqrtrange = (aux.sqrtrange_python, aux.sqrtrange_numba)
-#%%═════════════════════════════════════════════════════════════════════
-## ERROR TERM
-def _maxmaxabs_python(residuals: np.ndarray, tolerance: np.ndarray) -> float:
-    '''Python version'''
-    residuals = np.abs(residuals)
-    # print(f'{residuals.shape=}')
-    # print(f'{tolerance.shape=}')
-    r_max = residuals[0,0] # Initialising
+fitsets = {'Poly10': models.Poly10}
 
-    # Going through first column to initialise maximum value
-    for r0 in residuals[:,0]:
-        if r0 > r_max: r_max = r0
-    dev_max = r_max - tolerance[0]
-
-    for i, k in enumerate(tolerance[1:]):
-        for r0 in residuals[:,i]:
-            if r0 > r_max: r_max = r0
-        deviation = r_max - k
-        if deviation > dev_max: dev_max = deviation
-    return dev_max
-#───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython=True, cache=True, fastmath = True)
-def _maxmaxabs_numba(residuals: np.ndarray, tolerance: np.ndarray) -> float:
-    residuals = np.abs(residuals)
-    # print(f'{residuals.shape=}')
-    # print(f'{tolerance.shape=}')
-    r_max = residuals[0,0] # Initialising
-
-    # Going through first column to initialise maximum value
-    for r0 in residuals[:,0]:
-        if r0 > r_max: r_max = r0
-    dev_max = r_max - tolerance[0]
-
-    for i, k in enumerate(tolerance[1:]):
-        for r0 in residuals[:,i]:
-            if r0 > r_max: r_max = r0
-        deviation = r_max - k
-        if deviation > dev_max: dev_max = deviation
-    return dev_max
-#───────────────────────────────────────────────────────────────────────
-def _maxRMS_python(residuals: np.ndarray, tolerance: np.ndarray)-> float:
-    residuals *= residuals
-    # print(f'{residuals.shape=}')
-    # print(f'{tolerance.shape=}')
-    m = np.sqrt(np.mean(residuals[:,0])) - tolerance[0]
-    for i, k in enumerate(tolerance[1:]):
-        m = max(m, np.sqrt(np.mean(residuals[:,i])) - k)
-    return m
-#───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython=True, cache=True)
-def _maxRMS_numba(residuals: np.ndarray, tolerance: np.ndarray)-> float:
-    residuals *= residuals
-    # print(f'{residuals.shape=}')
-    # print(f'{tolerance.shape=}')
-    m = np.sqrt(np.mean(residuals[:,0])) - tolerance[0]
-    for i, k in enumerate(tolerance[1:]):
-        m = max(m, np.sqrt(np.mean(residuals[:,i])) - k)
-    return m
-#───────────────────────────────────────────────────────────────────────
-def _maxsumabs(residuals: np.ndarray,tolerance: np.ndarray) -> float:
-    return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
-#───────────────────────────────────────────────────────────────────────
-_errorfunctions = {'maxmaxabs': (_maxmaxabs_python, _maxmaxabs_numba),
-                  'maxRMS':(_maxRMS_python, _maxRMS_numba)}
-#───────────────────────────────────────────────────────────────────────
-def get_errorfunction(name, use_numba, tol):
-    _errorfunction = _errorfunctions[name][use_numba]
-    return lambda residuals: _errorfunction(residuals, tol)
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f, x1, y1, x2, y2, fit1):
@@ -133,7 +67,7 @@ def interval(f, x1, y1, x2, y2, fit1):
                 G['ax_root'].plot(x2, y2,'.', color = 'black')
             #──────────────────────────────────────────────────────────┘
             x2, y2 = x_mid, y_mid
-            sqrtx2 = x_mid **0.5
+            # sqrtx2 = x_mid **0.5
             if is_debug: #─────────────────────────────────────────────┐
                 G['xy2'].set_xdata(x2)
                 G['xy2'].set_ydata(y2)
@@ -144,7 +78,7 @@ def interval(f, x1, y1, x2, y2, fit1):
                 G['ax_root'].plot(x1, y1,'.', color = 'black')
             #──────────────────────────────────────────────────────────┘
             x1, y1, fit1 = x_mid, y_mid, fit2
-            sqrtx1 = x_mid ** 0.5
+            # sqrtx1 = x_mid ** 0.5
             if is_debug: #─────────────────────────────────────────────┐
                 G['xy1'].set_xdata(x1)
                 G['xy1'].set_ydata(y1)
@@ -221,7 +155,7 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         inds = _sqrtrange[0](length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
 
-        reference = _maxsumabs(res, tol)
+        reference = maxsumabs(res, tol)
         if reference < 0: reference = 0
         return 0.5 * reference ** 0.5 + 1
     else:
@@ -703,9 +637,6 @@ class Pseudomodule(types.ModuleType):
 
         return decompress(*compress(*args, compressor = compressor, **kwargs),
                           interpolator = interpolator)
-
-#───────────────────────────────────────────────────────────────────────
-fitsets = {'Poly10': models.Poly10}
 #%%═════════════════════════════════════════════════════════════════════
 # Here the magic happens for making the API module itself also callable
 sys.modules[__name__].__class__ = Pseudomodule
