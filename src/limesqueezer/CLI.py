@@ -7,6 +7,7 @@ import numpy as np
 import pathlib
 import sys
 import time
+from .GLOBALS import dictionary as G
 from . import API as ls
 from . import reference as ref
 helpstring = 'No arguments given'
@@ -20,8 +21,8 @@ def main():
     is_plot = '--plot' in args
     is_save = '--save' in args
     is_show = '--show' in args
-    ls.G['timed'] = '--timed' in args
-    ls.G['debug'] = '--debug' in args
+    G['timed'] = '--timed' in args
+    G['debug'] = '--debug' in args
     use_numba = int('--numba' in args)
     if len(args) == 0:
         print(helpstring)
@@ -65,7 +66,7 @@ def run(args, use_numba: int):
 
     # print(f'{xc[-10:-1]}')
     print(f'{len(x_data)=}\t{len(xc)=}')
-    if ls.G['timed']: print(f'runtime {ls.G["runtime"]*1e3:.1f} ms')
+    if G['timed']: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
 def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
 
