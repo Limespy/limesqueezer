@@ -20,8 +20,8 @@ def main():
     is_plot = '--plot' in args
     is_save = '--save' in args
     is_show = '--show' in args
-    ls._G['timed'] = '--timed' in args
-    ls._G['debug'] = '--debug' in args
+    ls.G['timed'] = '--timed' in args
+    ls.G['debug'] = '--debug' in args
     use_numba = int('--numba' in args)
     if len(args) == 0:
         print(helpstring)
@@ -44,6 +44,8 @@ def run(args, use_numba: int):
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxmaxabs')
+        if xc[0] == xc[1]: print(xc)
+        print(ls.aux.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
     elif args[0] == 'both':
@@ -64,7 +66,7 @@ def run(args, use_numba: int):
 
     # print(f'{xc[-10:-1]}')
     print(f'{len(x_data)=}\t{len(xc)=}')
-    if ls._G['timed']: print(f'runtime {ls._G["runtime"]*1e3:.1f} ms')
+    if ls.G['timed']: print(f'runtime {ls.G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
 def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
 
