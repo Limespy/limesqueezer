@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name='limesqueezer',
-    version='1.0.9',
+    version='1.0.10',
     license='MIT',
     description='Lossy compression tools for smooth data series',
     long_description='%s\n%s' % (
@@ -49,8 +49,6 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Chemistry',
@@ -65,7 +63,7 @@ setup(
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.10',
     install_requires=[
         'matplotlib ~=3.5.1',
         'numba ~= 0.55.1',
@@ -75,7 +73,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'limesqueezer = limesqueezer.cli:main',
+            'limesqueezer = limesqueezer.CLI:main',
         ]
     },
 )
