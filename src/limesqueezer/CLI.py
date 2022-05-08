@@ -40,12 +40,12 @@ def main():
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
 def run(args, use_numba: int):
-    x_data, y_data = ref.raw_sine_x2(1e3)
+    x_data, y_data = ref.raw_sine_x2(1e4)
     if args[0] == 'block':
-        xc, yc = ls.compress(x_data, y_data, tol = 1e-3,
+        xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxmaxabs')
     elif args[0] == 'stream':
-        xc, yc = _stream(x_data, y_data, 1e-3, use_numba)
+        xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
     elif args[0] == 'both':
         xcb, ycb = ls.compress(x_data, y_data, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
         xcs, ycs = _stream(x_data, y_data, 1e-2, use_numba)

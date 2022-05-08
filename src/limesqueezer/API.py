@@ -50,7 +50,7 @@ def sqrtrange_python(n: int):
     inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython = True, cache = True)
+@numba.jit(nopython = True, cache = True, fastmath = True)
 def sqrtrange_numba(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
     inds = np.arange(0, n + 1, round(math.sqrt(n + 1)) )
@@ -82,25 +82,26 @@ def _maxmaxabs_python(residuals: np.ndarray, tolerance: np.ndarray) -> float:
         if deviation > dev_max: dev_max = deviation
     return dev_max
 #───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython=True, cache=True)
+@numba.jit(nopython=True, cache=True, fastmath = True)
 def _maxmaxabs_numba(residuals: np.ndarray, tolerance: np.ndarray) -> float:
     residuals = np.abs(residuals)
     # print(f'{residuals.shape=}')
     # print(f'{tolerance.shape=}')
-    r_max = residuals[0,0]
+    r_max = residuals[0,0] # Initialising
 
+    # Going through first column to initialise maximum value
     for r0 in residuals[:,0]:
         if r0 > r_max: r_max = r0
-
-    m = r_max - tolerance[0]
+    dev_max = r_max - tolerance[0]
 
     for i, k in enumerate(tolerance[1:]):
         for r0 in residuals[:,i]:
             if r0 > r_max: r_max = r0
-        m = max(m, r_max - k)
-    return m
+        deviation = r_max - k
+        if deviation > dev_max: dev_max = deviation
+    return dev_max
 #───────────────────────────────────────────────────────────────────────
-def _maxRMS_python(residuals: np.ndarray,tolerance: np.ndarray)-> float:
+def _maxRMS_python(residuals: np.ndarray, tolerance: np.ndarray)-> float:
     residuals *= residuals
     # print(f'{residuals.shape=}')
     # print(f'{tolerance.shape=}')
@@ -110,7 +111,7 @@ def _maxRMS_python(residuals: np.ndarray,tolerance: np.ndarray)-> float:
     return m
 #───────────────────────────────────────────────────────────────────────
 @numba.jit(nopython=True, cache=True)
-def _maxRMS_numba(residuals: np.ndarray,tolerance: np.ndarray)-> float:
+def _maxRMS_numba(residuals: np.ndarray, tolerance: np.ndarray)-> float:
     residuals *= residuals
     # print(f'{residuals.shape=}')
     # print(f'{tolerance.shape=}')
