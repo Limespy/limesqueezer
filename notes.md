@@ -197,7 +197,9 @@ Loop is:
 
 ## Publishing pipeline
 
-- Running tests
-- Running examples and generating example plots
-- Profiling with and without numba
-- 
+1. Running unit tests
+2. Running integration and output consistency tests
+3. Running examples and generating example plots
+4. Running benchmarks
+5. Profiling with and without numba
+6. Converting README
