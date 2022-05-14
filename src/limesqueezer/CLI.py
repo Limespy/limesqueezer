@@ -44,7 +44,7 @@ def run(args, use_numba: int):
     x_data, y_data = ref.raw_sine_x2(1e4)
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
-                    use_numba = use_numba, errorfunction = 'maxmaxabs')
+                    use_numba = use_numba, errorfunction = 'maxRMS_absend')
         print(ls.aux.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, 1e-2, use_numba)

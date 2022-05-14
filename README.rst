@@ -56,6 +56,11 @@ Documentation
 Examples
 ========
 
+.. figure:: ./figures/example.png
+    :align: centerk
+    
+    Example with error function being maximum of maximum absolute error
+
 limesqueezer uses numpy ndarrays types for input and output.
 The package itself with author-recommended abbreviation.
 Rest of documentation uses this abbreviation.

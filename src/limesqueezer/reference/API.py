@@ -2,7 +2,6 @@ import sys
 import pathlib
 import numpy as np
 from collections import namedtuple
-from scipy import interpolate
 import math
 
 from .. import API as ls # Careful with this circular import
@@ -70,15 +69,6 @@ class Data():
         self.ytol = ytol
         self.xc = None
         self.yc = None
-    #───────────────────────────────────────────────────────────────────
-    def make_lerp(self):
-        self.lerp = interpolate.interp1d(self.xc.flatten(), self.yc.flatten(),
-                                            assume_sorted=True)
-        self.residuals = self.lerp(self.x) - self.y
-        self.residuals_relative = self.residuals / self.ytol
-        self.residuals_relative_cumulative = np.cumsum(self.residuals_relative)
-        self.NRMSE = np.std(self.residuals)/self.y_range
-        self.covariance = np.cov((self.lerp(self.x), self.y))
 #───────────────────────────────────────────────────────────────────────
 references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
 #───────────────────────────────────────────────────────────────────────

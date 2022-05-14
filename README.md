@@ -98,7 +98,7 @@ in data and being storage of the data, it is a fitting name for the object
     print(record.__str__)
 ```
 
-![Plot form the example](src/figures/example.png)
+![Plot form the example](figures/example.png)
 
 ### Combining comression methods
 

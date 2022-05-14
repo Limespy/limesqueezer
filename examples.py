@@ -32,7 +32,7 @@ tolerance = 1e-2
 # BLOCK
 
 # To compress a block simply
-output_x, output_y = ls.compress(input_x, input_y, tol = tolerance)
+output_x, output_y = ls.compress(input_x, input_y, tol = tolerance, errorfunction = 'maxRMS_absend')
 # that is more more comfortable to use.
 
 #%%═════════════════════════════════════════════════════════════════════
@@ -43,7 +43,7 @@ generator = zip(input_x[1:], input_y[1:])
 
 # The context manager for Stream data is 'Stream'.
 
-with ls.Stream(example_x0, example_y0, tol = tolerance) as record:
+with ls.Stream(example_x0, example_y0, tol = tolerance, errorfunction = 'maxRMS_absend') as record:
     # A side mote: In Enlish language the word 'record' can be either
     # verb or noun and since it performs this double role of both taking
     # in data and being storage of the data, it is a fitting name for the object
@@ -83,4 +83,4 @@ axs[1].hlines(y = -tolerance, xmin = input_x[0], xmax = input_x[-1], color = 're
 axs[1].legend()
 
 fig.tight_layout()
-plt.savefig(pathlib.Path(__file__).parent.parent / 'figures' / 'example.png', bbox_inches = 'tight')
+plt.savefig(pathlib.Path(__file__).parent / 'figures' / 'example.png', bbox_inches = 'tight')

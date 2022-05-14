@@ -3,18 +3,19 @@
 # IMPORT
 import unittest
 import numpy as np
+import cProfile
+import time
+import pathlib
+import os
 
 import limesqueezer as ls
 from limesqueezer.API import to_ndarray
 
-import plotters
+path_testing = pathlib.Path(__file__).parent
 
 tol = 1e-3
 x_data, y_data1 = ls.ref.raw_sine_x2(1e4)
 y_data2 = np.array((y_data1, y_data1[::-1])).T
-print(y_data2.shape)
-print(y_data2[:2])
-# plotters.simple(x_data, y_data2)
 
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
@@ -25,7 +26,7 @@ def f2zero_100(n: int) -> float:
     return np.sqrt(n) - 10.01, True
 #%%═════════════════════════════════════════════════════════════════════
 # TEST CASES
-class Test(unittest.TestCase):
+class Unittests(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Metatests on tests themselves
     def test_0_1_f2zero_100(self):
@@ -77,7 +78,7 @@ class Test(unittest.TestCase):
     #───────────────────────────────────────────────────────────────────
     def test_1_3_interval(self):
         x1, x2= 50, 150
-        x0, fit0 = ls.interval(f2zero_100,
+        x0, fit0 = ls._interval(f2zero_100,
                                x1, f2zero_100(x1)[0],
                                x2, f2zero_100(x2)[0], False)
         self.assertLess(f2zero_100(x0)[0], 0)
@@ -87,7 +88,7 @@ class Test(unittest.TestCase):
     #───────────────────────────────────────────────────────────────────
     def test_1_4_interval(self):
         x1, x2= 50, 150
-        x0, fit0 = ls.interval(f2zero_100,
+        x0, fit0 = ls._interval(f2zero_100,
                                x1, f2zero_100(x1)[0],
                                x2, f2zero_100(x2)[0], False)
         self.assertLess(f2zero_100(x0)[0], 0)
@@ -98,7 +99,7 @@ class Test(unittest.TestCase):
     def test_1_5_droot(self):
         for limit in np.logspace(0, 3, num = 20).astype(int):
             for x in np.linspace(0, limit, num = 20).astype(int):
-                x0, fit0 = ls.droot(f2zero_100, f2zero_100(0)[0], x, limit)
+                x0, fit0 = ls.hdroot(f2zero_100, f2zero_100(0)[0], x, limit)
                 self.assertLessEqual(x0, limit)
                 self.assertLess(f2zero_100(x0)[0], 0)
                 if x0 < limit:
@@ -221,12 +222,27 @@ class Test(unittest.TestCase):
         xc, yc = ls.compress(x_data, y_data1, tol = tol, errorfunction = 'maxmaxabs')
         function = ls.decompress(xc, yc)
         function_call = ls(x_data, y_data1, tol = tol, errorfunction = 'maxmaxabs')
-
-#%%═════════════════════════════════════════════════════════════════════
-# RUNNING TESTS
-def main():
-    # Run the tests with increased output verbosity.
-    # You can change the verbosity to for example 1 and see what happens.
-    unittest.main(verbosity = 2)
-if __name__ == "__main__":
-    main()
+#═══════════════════════════════════════════════════════════════════════
+def benchmark(use_numba: bool, timerange: float):
+    endtime = time.time() + timerange
+    n = 0
+    n2 = 50
+    ls.G['timed'] = True
+    runtime = []
+    while time.time() < endtime:
+        print(f'Benchmarking, loopset {n}')
+        for _ in range(n2):
+            ls.compress(x_data, y_data2, tol = 1e-3, use_numba = use_numba)
+            runtime.append(ls.G['runtime'])
+        n += 1
+    runtime = np.array(runtime)
+    print(f'mean runtime {"with" if use_numba else "without"} numba was {sum(runtime) / (n * n2)*1e3:.1f} ms') # mean runtime
+    return runtime, np.cumsum(runtime)
+#═══════════════════════════════════════════════════════════════════════
+def profile(use_numba, n_runs, is_save):
+    ls.G['timed'] = False
+    profilecode = f'for _ in range({n_runs}): API.ls.compress(API.x_data, API.y_data2, tol = 1e-3, use_numba = {use_numba})'
+    path_out = path_testing / 'profiling' / f'{"with" if use_numba else "no"}_numba.pstats'
+    cProfile.run(profilecode, path_out)
+    if is_save:
+        os.system(f'gprof2dot -f pstats {path_out} | dot -Tpdf -o {path_out.with_suffix(".pdf")}')

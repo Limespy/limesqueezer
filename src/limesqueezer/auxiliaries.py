@@ -23,7 +23,7 @@ def sqrtrange_python(n: int):
 @numba.jit(nopython = True, cache = True, fastmath = True)
 def sqrtrange_numba(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
-    inds = np.arange(0, n + 1, round(math.sqrt(n + 1)) )
+    inds = np.arange(0, n + 1, round((n + 1) ** 0.5) )
     inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ def wait(text = ''):
 #───────────────────────────────────────────────────────────────────────
 def stats(x_data, xc):
     # What if the data was compressed by sampling at the minimum interval of the compressed
-    datarange = (x_data[-1] - x_data[0])
+    datarange = x_data[-1] - x_data[0]
     minslice = np.min(np.diff(xc))
     maxslice = np.max(np.diff(xc))
     # ameanslice = (minslice + maxslice) / 2

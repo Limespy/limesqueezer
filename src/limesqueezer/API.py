@@ -8,7 +8,6 @@ Connection point for all package utilities to be provided
 '''
 
 import collections
-import numba
 import numpy as np
 import sys
 import time
@@ -19,7 +18,7 @@ import matplotlib.pyplot as plt
 from . import GLOBALS
 from . import auxiliaries as aux
 from .auxiliaries import to_ndarray, wait
-from .errorfunctions import get_errorfunction, maxsumabs
+from . import errorfunctions
 from . import models
 from . import reference as ref # Careful with this circular import
 # This global dictionary G is for passing some telemtery and debug arguments
@@ -31,16 +30,35 @@ fitsets = {'Poly10': models.Poly10}
 
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
-def interval(f, x1, y1, x2, y2, fit1):
+def _interval(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
-    is_debug = G['debug']
-    if is_debug: #─────────────────────────────────────────────────────┐
-        print(f'\t{x1=}\t{y1=}')
-        print(f'\t{x2=}\t{y2=}')
-        G['mid'], = G['ax_root'].plot(x1, y1,'.', color = 'blue')
-    #──────────────────────────────────────────────────────────────────┘
-    # sqrtx1 = x1**0.5
-    # sqrtx2 = x2**0.5
+    while x2 - x1 > 2:
+        # Arithmetic mean between linear estimate and half
+        x_mid = int((x1 - y1 / (y2 - y1) * (x2 - x1) + (x2 + x1) / 2) / 2)
+        if x_mid == x1:    # To stop repetition in close cases
+            x_mid += 1
+        elif x_mid == x2:
+            x_mid -= 1
+
+        y_mid, fit2 = f(x_mid)
+
+        if y_mid > 0:
+            x2, y2 = x_mid, y_mid
+        else:
+            x1, y1, fit1 = x_mid, y_mid, fit2
+    if x2 - x1 == 2: # Points have only one point in between
+        y_mid, fit2 = f(x1+1) # Testing that point
+        return (x1+1, fit2) if (y_mid <0) else (x1, fit1) # If under, give that fit
+    else:
+        return x1, fit1
+#───────────────────────────────────────────────────────────────────────
+def _interval_debug(f, x1, y1, x2, y2, fit1):
+    '''Returns the last x where f(x)<0'''
+
+    print(f'\t{x1=}\t{y1=}')
+    print(f'\t{x2=}\t{y2=}')
+    G['mid'], = G['ax_root'].plot(x1, y1,'.', color = 'blue')
+
     while x2 - x1 > 2:
         # Arithmetic mean between linear estimate and half
         linest = x1 - y1 / (y2 - y1) * (x2 - x1)
@@ -56,95 +74,102 @@ def interval(f, x1, y1, x2, y2, fit1):
             x_mid -= 1
 
         y_mid, fit2 = f(x_mid)
-        if is_debug: #─────────────────────────────────────────────────┐
-            print(f'\t{x_mid=}\t{y_mid=}')
-            G['mid'].set_xdata(x_mid)
-            G['mid'].set_ydata(y_mid)
-        #──────────────────────────────────────────────────────────────┘
+
+        print(f'\t{x_mid=}\t{y_mid=}')
+        G['mid'].set_xdata(x_mid)
+        G['mid'].set_ydata(y_mid)
+
         if y_mid > 0:
-            if is_debug: #─────────────────────────────────────────────┐
-                wait('\tError over tolerance\n')
-                G['ax_root'].plot(x2, y2,'.', color = 'black')
-            #──────────────────────────────────────────────────────────┘
+            wait('\tError over tolerance\n')
+            G['ax_root'].plot(x2, y2,'.', color = 'black')
+
             x2, y2 = x_mid, y_mid
-            # sqrtx2 = x_mid **0.5
-            if is_debug: #─────────────────────────────────────────────┐
-                G['xy2'].set_xdata(x2)
-                G['xy2'].set_ydata(y2)
-            #──────────────────────────────────────────────────────────┘
+
+            G['xy2'].set_xdata(x2)
+            G['xy2'].set_ydata(y2)
         else:
-            if is_debug: #─────────────────────────────────────────────┐
-                wait('\tError under tolerance\n')
-                G['ax_root'].plot(x1, y1,'.', color = 'black')
-            #──────────────────────────────────────────────────────────┘
+            wait('\tError under tolerance\n')
+            G['ax_root'].plot(x1, y1,'.', color = 'black')
             x1, y1, fit1 = x_mid, y_mid, fit2
-            # sqrtx1 = x_mid ** 0.5
-            if is_debug: #─────────────────────────────────────────────┐
-                G['xy1'].set_xdata(x1)
-                G['xy1'].set_ydata(y1)
-            #──────────────────────────────────────────────────────────┘
+            G['xy1'].set_xdata(x1)
+            G['xy1'].set_ydata(y1)
     if x2 - x1 == 2: # Points have only one point in between
         y_mid, fit2 = f(x1+1) # Testing that point
         return (x1+1, fit2) if (y_mid <0) else (x1, fit1) # If under, give that fit
     else:
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
-def droot(f, y1, x2, limit):
+def hdroot(f, y1, x2, limit):
     '''Finds the upper limit to interval
     '''
-    is_debug = G['debug']
+
     x1 = 0
     y2, fit2 = f(x2)
     fit1 = None
-    if is_debug: #─────────────────────────────────────────────────────┐
-        G['xy1'], = G['ax_root'].plot(x1, y1,'g.')
-        G['xy2'], = G['ax_root'].plot(x2, y2,'b.')
-    #──────────────────────────────────────────────────────────────────┘
+
     while y2 < 0:
-        if is_debug: #─────────────────────────────────────────────────┐
-            wait('Calculating new attempt in droot\n')
-            G['ax_root'].plot(x1, y1,'k.')
-        #──────────────────────────────────────────────────────────────┘
+
         x1, y1, fit1 = x2, y2, fit2
         x2 *= 2
         x2 += 1
-        if is_debug: #─────────────────────────────────────────────────┐
-            print(f'{limit=}')
-            print(f'{x1=}\t{y1=}')
-            print(f'{x2=}\t{y2=}')
-            G['xy1'].set_xdata(x1)
-            G['xy1'].set_ydata(y1)
-            G['xy2'].set_xdata(x2)
-        #──────────────────────────────────────────────────────────────┘
+
         if x2 >= limit:
-            if is_debug: #─────────────────────────────────────────────┐
-                G['ax_root'].plot([limit, limit], [y1,0],'b.')
-            #──────────────────────────────────────────────────────────┘
             y2, fit2 = f(limit)
-            if y2<0:
-                if is_debug: #─────────────────────────────────────────┐
-                    wait('End reached within tolerance\n')
-                #──────────────────────────────────────────────────────┘
+            if y2 < 0:
                 return limit, fit2
             else:
-                if is_debug: #─────────────────────────────────────────┐
-                    wait('End reached outside tolerance\n')
-                #──────────────────────────────────────────────────────┘
                 x2 = limit
                 break
         y2, fit2 = f(x2)
-        if is_debug: #─────────────────────────────────────────────────┐
-            G['ax_root'].plot(x1, y1,'k.')
-            print(f'{x1=}\t{y1=}')
-            print(f'{x2=}\t{y2=}')
-            G['ax_root'].plot(x2, y2,'k.')
-            G['xy2'].set_ydata(y2)
-        #──────────────────────────────────────────────────────────────┘
-    if is_debug: #─────────────────────────────────────────────────────┐
-        G['xy2'].set_color('red')
-        wait('Points for interval found\n')
-    #──────────────────────────────────────────────────────────────────┘
-    return interval(f, x1, y1, x2, y2, fit1)
+    return _interval(f, x1, y1, x2, y2, fit1)
+#───────────────────────────────────────────────────────────────────────
+def _droot_debug(f, y1, x2, limit):
+    '''Finds the upper limit to interval
+    '''
+    x1 = 0
+    y2, fit2 = f(x2)
+    fit1 = None
+
+    G['xy1'], = G['ax_root'].plot(x1, y1,'g.')
+    G['xy2'], = G['ax_root'].plot(x2, y2,'b.')
+
+    while y2 < 0:
+
+        wait('Calculating new attempt in droot\n')
+        G['ax_root'].plot(x1, y1,'k.')
+
+        x1, y1, fit1 = x2, y2, fit2
+        x2 *= 2
+        x2 += 1
+
+        print(f'{limit=}')
+        print(f'{x1=}\t{y1=}')
+        print(f'{x2=}\t{y2=}')
+        G['xy1'].set_xdata(x1)
+        G['xy1'].set_ydata(y1)
+        G['xy2'].set_xdata(x2)
+
+        if x2 >= limit:
+            G['ax_root'].plot([limit, limit], [y1,0],'b.')
+            y2, fit2 = f(limit)
+            if y2<0:
+                wait('End reached within tolerance\n')
+                return limit, fit2
+            else:
+                wait('End reached outside tolerance\n')
+                x2 = limit
+                break
+        y2, fit2 = f(x2)
+
+        G['ax_root'].plot(x1, y1,'k.')
+        print(f'{x1=}\t{y1=}')
+        print(f'{x2=}\t{y2=}')
+        G['ax_root'].plot(x2, y2,'k.')
+        G['xy2'].set_ydata(y2)
+
+    G['xy2'].set_color('red')
+    wait('Points for interval found\n')
+    return _interval_debug(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
 def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
@@ -155,21 +180,21 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         inds = _sqrtrange[0](length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1,1]) - (y[inds] - y0)
 
-        reference = maxsumabs(res, tol)
+        reference = errorfunctions.maxsumabs(res, tol)
         if reference < 0: reference = 0
         return 0.5 * reference ** 0.5 + 1
     else:
         return 1.
 #───────────────────────────────────────────────────────────────────────
-def _get_f2zero(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
+def _get_f2zero(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
         residuals, fit = f_fit(x[inds], y[inds], x0, y0)
-        return errorfunction(residuals), fit
+        return errorfunction(residuals, tol), fit
     return f2zero
 #───────────────────────────────────────────────────────────────────────
-def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
+def _get_f2zero_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero_debug(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
@@ -197,7 +222,7 @@ def _get_f2zero_debug(x, y, x0, y0, sqrtrange, f_fit, errorfunction):
                             'o', color = 'red', label = 'sampled')
         G['ax_res'].legend(loc = 'lower right')
         wait('\t\tFitting\n')
-        return errorfunction(residuals), fit
+        return errorfunction(residuals, tol), fit
     return f2zero_debug
 #───────────────────────────────────────────────────────────────────────
 def gen_f2zero(*args):
@@ -219,16 +244,16 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
     x = to_ndarray(x_in)
     y = to_ndarray(y_in, (len(x), -1))
-
+    droot = _droot_debug if is_debug else hdroot
     tol = to_ndarray(tol, y[0].shape)
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
     sqrtrange = _sqrtrange[use_numba]
     if isinstance(errorfunction, str):
-        errorfunction = get_errorfunction(errorfunction, use_numba, tol)
+        errorfunction = errorfunctions.get(errorfunction, use_numba)
     if isinstance(fitset, str):
         fitset = fitsets[fitset]
     f_fit = fitset.fit[use_numba]
-    fyc = fitset.y_from_fit
+    fyc = fitset.y_from_fit[use_numba]
 
     xc, yc = [x[0]], [y[0]]
 
@@ -266,8 +291,9 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     for _ in range(end): # Prevents infinite loop in case error
         if x[start-1] != xc[-1]:
             raise IndexError(f'Indices out of sync {start}')
+
         offset, fit = droot(gen_f2zero(x[start:], y[start:], xc[-1], yc[-1],
-                                       sqrtrange, f_fit, errorfunction),
+                                       tol, sqrtrange, f_fit, errorfunction),
                             start_y1, offset, limit)
         step = offset + 1
         start += step # Start shifted by the number Record and the
@@ -343,10 +369,11 @@ class _StreamRecord(collections.abc.Sized):
         self.start_y1 = -np.amax(tol) # Default starting value
         self.state = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
+        self.interval = _interval_debug if self.is_debug else _interval
         self.fitset = fitset
         self.f_fit = self.fitset.fit[use_numba]
         self.sqrtrange = _sqrtrange[use_numba]
-        self.fyc = self.fitset.y_from_fit
+        self.fyc = self.fitset.y_from_fit[use_numba]
         self.limit = -1 # Last index of the buffer
 
         self._lenb = 0 # length of the buffer
@@ -405,12 +432,12 @@ class _StreamRecord(collections.abc.Sized):
             G['ax_res'].legend(loc = 'lower right')
             wait('\t\tFitting\n')
         #──────────────────────────────────────────────────────────────┘
-        return self.errorfunction(residuals), fit
+        return self.errorfunction(residuals, self.tol), fit
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self):
         '''Compresses the buffer by one step'''
         #──────────────────────────────────────────────────────────────┘
-        offset, fit = interval(self._f2zero, self.x1, self.y1,
+        offset, fit = self.interval(self._f2zero, self.x1, self.y1,
                                self.x2, self.y2, self.fit1)
         self.xc.append(self.xb[offset])
         if self.is_debug: #────────────────────────────────────────────┐
@@ -562,7 +589,7 @@ class Stream():
         self.tol           = to_ndarray(tol, self.y0.shape)
 
         if isinstance(errorfunction, str): #───────────────────────────┐
-            self.errorfunction = get_errorfunction(errorfunction, use_numba, self.tol)
+            self.errorfunction = errorfunctions.get(errorfunction, use_numba)
         else:
             self.errorfunction = errorfunction
         #──────────────────────────────────────────────────────────────┘
