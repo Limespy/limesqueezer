@@ -30,7 +30,7 @@ fitsets = {'Poly10': models.Poly10}
 
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
-def _interval(f, x1, y1, x2, y2, fit1):
+def interval(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
     while x2 - x1 > 2:
         # Arithmetic mean between linear estimate and half
@@ -52,7 +52,7 @@ def _interval(f, x1, y1, x2, y2, fit1):
     else:
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
-def _interval_debug(f, x1, y1, x2, y2, fit1):
+def interval_debug(f, x1, y1, x2, y2, fit1):
     '''Returns the last x where f(x)<0'''
 
     print(f'\t{x1=}\t{y1=}')
@@ -99,7 +99,7 @@ def _interval_debug(f, x1, y1, x2, y2, fit1):
     else:
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
-def hdroot(f, y1, x2, limit):
+def droot(f, y1, x2, limit):
     '''Finds the upper limit to interval
     '''
 
@@ -121,9 +121,9 @@ def hdroot(f, y1, x2, limit):
                 x2 = limit
                 break
         y2, fit2 = f(x2)
-    return _interval(f, x1, y1, x2, y2, fit1)
+    return interval(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
-def _droot_debug(f, y1, x2, limit):
+def droot_debug(f, y1, x2, limit):
     '''Finds the upper limit to interval
     '''
     x1 = 0
@@ -169,7 +169,7 @@ def _droot_debug(f, y1, x2, limit):
 
     G['xy2'].set_color('red')
     wait('Points for interval found\n')
-    return _interval_debug(f, x1, y1, x2, y2, fit1)
+    return interval_debug(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 # @numba.jit(nopython=True,cache=True)
 def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
@@ -244,7 +244,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
     x = to_ndarray(x_in)
     y = to_ndarray(y_in, (len(x), -1))
-    droot = _droot_debug if is_debug else hdroot
+    droot = droot_debug if is_debug else hdroot
     tol = to_ndarray(tol, y[0].shape)
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
     sqrtrange = _sqrtrange[use_numba]
@@ -369,7 +369,7 @@ class _StreamRecord(collections.abc.Sized):
         self.start_y1 = -np.amax(tol) # Default starting value
         self.state = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
-        self.interval = _interval_debug if self.is_debug else _interval
+        self.interval = interval_debug if self.is_debug else interval
         self.fitset = fitset
         self.f_fit = self.fitset.fit[use_numba]
         self.sqrtrange = _sqrtrange[use_numba]

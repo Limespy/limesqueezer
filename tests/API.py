@@ -78,7 +78,7 @@ class Unittests(unittest.TestCase):
     #───────────────────────────────────────────────────────────────────
     def test_1_3_interval(self):
         x1, x2= 50, 150
-        x0, fit0 = ls._interval(f2zero_100,
+        x0, fit0 = ls.interval(f2zero_100,
                                x1, f2zero_100(x1)[0],
                                x2, f2zero_100(x2)[0], False)
         self.assertLess(f2zero_100(x0)[0], 0)
@@ -88,7 +88,7 @@ class Unittests(unittest.TestCase):
     #───────────────────────────────────────────────────────────────────
     def test_1_4_interval(self):
         x1, x2= 50, 150
-        x0, fit0 = ls._interval(f2zero_100,
+        x0, fit0 = ls.interval(f2zero_100,
                                x1, f2zero_100(x1)[0],
                                x2, f2zero_100(x2)[0], False)
         self.assertLess(f2zero_100(x0)[0], 0)
@@ -99,7 +99,7 @@ class Unittests(unittest.TestCase):
     def test_1_5_droot(self):
         for limit in np.logspace(0, 3, num = 20).astype(int):
             for x in np.linspace(0, limit, num = 20).astype(int):
-                x0, fit0 = ls.hdroot(f2zero_100, f2zero_100(0)[0], x, limit)
+                x0, fit0 = ls.droot(f2zero_100, f2zero_100(0)[0], x, limit)
                 self.assertLessEqual(x0, limit)
                 self.assertLess(f2zero_100(x0)[0], 0)
                 if x0 < limit:

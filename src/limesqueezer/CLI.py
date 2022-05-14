@@ -36,12 +36,13 @@ def main():
     elif args[0] == 'benchmark': #──────────────────────────────────────
         import benchmark
     else:
-        run(args, use_numba)
+        run(args, use_numba, is_plot, is_timed)
     sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
-def run(args, use_numba: int):
-    x_data, y_data = ref.raw_sine_x2(1e4)
+def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
+    x_data, y_data = ref.raw_sine_x2_normal(1e4, std = 0.01)
+    y_data[1000] += 1 
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
                     use_numba = use_numba, errorfunction = 'maxRMS_absend')
@@ -62,11 +63,13 @@ def run(args, use_numba: int):
         print(xcb)
         print(xcs)
         
-        xc = xcb
-
+        xc, yc = xcb, ycb
+    if is_plot:
+        from . import plotters
+        plotters.comparison(x_data, y_data, ls.decompress(xc, yc)(x_data))
     # print(f'{xc[-10:-1]}')
     print(f'{len(x_data)=}\t{len(xc)=}')
-    if G['timed']: print(f'runtime {G["runtime"]*1e3:.1f} ms')
+    if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
 def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
 

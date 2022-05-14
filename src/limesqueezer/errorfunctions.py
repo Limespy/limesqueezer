@@ -88,16 +88,24 @@ def _maxRMS_absend_python(residuals: np.ndarray, tolerances: np.ndarray)-> float
 #───────────────────────────────────────────────────────────────────────
 @numba.jit(nopython=True, cache=True)
 def _maxRMS_absend_numba(residuals: np.ndarray, tolerances: np.ndarray)-> float:
-    '''Root mean square error using Numba.
-    1. Calculate residuals squared
-    2. Square root of mean along a column
-    3. Find largest of those difference to tolerance'''
+    '''With Numba. Intended to clamp the end point within absolute value of tolerance for more stability. Returns bigger of:
+    - root mean square error
+    - end point maximum absolute error
+    1. Calculate endpoint maximum absolute error
+    2. Calculate residuals squared
+    3. Square root of mean along a column
+    4. Find largest of those difference to tolerance
+    5. Calculate absolute error of the end point
+    6. Return the sum of end point error and RMS error'''
+    # End point absolute error
+    absend_max = np.max(np.abs(residuals[-1:]) - tolerances)
     residuals = np.sqrt(np.mean(residuals * residuals, axis = 0))
     dev_max_RMS = residuals[0] - tolerances[0] # Initialise maximum value
     for RMS, tol in zip(residuals[1:], tolerances[1:]):
         deviation = RMS - tol
         if deviation > dev_max_RMS: dev_max_RMS = deviation
-    return dev_max_RMS
+    
+    return absend_max + dev_max_RMS
 #%%═════════════════════════════════════════════════════════════════════
 def maxsumabs(residuals: np.ndarray,tolerance: np.ndarray) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
