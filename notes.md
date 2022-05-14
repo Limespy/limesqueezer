@@ -159,6 +159,106 @@ $$
 y_2 \cdot \sqrt{x_1 - b} + (y_1 - y_2) \cdot \sqrt{b} - y_1 \cdot \sqrt{x_2 - b} = 0
 $$
 
+## Fit models
+
+### Polynomials
+
+$$
+P(x)_n = \sum_{e = 0}^{n} p_n \cdot x^e
+$$
+
+Where p_n is nth polynomial coefficient
+
+For $3^{rd}$ degree polynomial
+
+$$
+P(x)
+ = p_3 \cdot x_0^3
+  + p_2 \cdot x^2
+  + p_1 \cdot x + p_0
+$$
+
+$$
+D_x^1(P)(x) = P'(x)
+ = 3 \cdot p_3 \cdot x^2
+  + 2 \cdot p_2 \cdot x
+  + p_1
+$$
+
+$$
+y_0 = P(0) = p_0
+$$
+$$
+y_0' = P'(0) = p_1
+$$
+
+$$
+y = P(\Delta x)
+ = p_3 \cdot \Delta x^3
+  + p_2 \cdot \Delta x^2
+  + y_0' \cdot \Delta x + y_0
+$$
+
+$$
+y' = P'(\Delta x)
+ = 3 \cdot p_3 \cdot \Delta x^2
+  + 2 \cdot p_2 \cdot \Delta x
+  + y_0'
+$$
+So
+$$
+p_3 \cdot \Delta x^3 + p_2 \cdot \Delta x^2
+ = y - y_0' \cdot \Delta x - y_0
+$$
+paramaters from two points
+$$
+y_1 = p_3 \cdot 0^3 + p_2 \cdot 0 ^2 + p_1 \cdot 0 + p_0
+$$
+$$
+y_2 = p_3 \cdot \Delta x^3 + p_2 \cdot \Delta x ^2 + p_1 \cdot \Delta x + p_0
+$$
+$$
+y_1' = 3 \cdot p_3 \cdot 0^2 + 2 \cdot p_2 \cdot 0+ p_1
+$$
+$$
+y_2' = 3 \cdot p_3 \cdot \Delta x^2 + 2 \cdot p_2 \cdot \Delta x + p_1
+$$
+
+$$
+y_1 = p_0
+$$
+$$
+\Delta y = y_2 - y_1 = p_3 \cdot \Delta x^3 + p_2 \cdot \Delta x ^2 + p_1 \cdot \Delta x
+$$
+$$
+y_1' = p_1
+$$
+$$
+\Delta y' = y_2' - y_1' = 3 \cdot p_3 \cdot \Delta x^2 + 2 \cdot p_2 \cdot \Delta x
+$$
+
+$$
+    \begin{array}{c}
+    \Delta y \\
+    \Delta y'
+    \end{array}
+  -
+    \begin{array}{c}
+    y_1 \cdot \Delta x \\
+    0
+    \end{array}
+  =
+    \begin{array}{cc}
+    \Delta x^3 & \Delta x ^2\\
+    3 \cdot \Delta x^2 & 2 \cdot \Delta x
+    \end{array}
+  \cdot
+    \begin{array}{c}
+    p_3 \\
+    p_2
+    \end{array}
+$$
+
 ## Visualiser
 
 Three domains --> three subplots
@@ -190,7 +290,7 @@ Loop is:
 
 #### Bottom
 
-1. Previaous attempts
+1. Previous attempts
 2. Left and right
 3. 
 

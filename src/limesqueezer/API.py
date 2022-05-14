@@ -26,7 +26,8 @@ global G
 G = GLOBALS.dictionary
 
 _sqrtrange = (aux.sqrtrange_python, aux.sqrtrange_numba)
-fitsets = {'Poly10': models.Poly10}
+fitsets = {'Poly10': models.Poly10,
+           'Poly1100': models.Poly1100}
 
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
@@ -205,18 +206,18 @@ def _get_f2zero_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {G["x"][G["start"]]}')
         indices_all = np.arange(-1, i + 1) + G['start']
         G['x_plot'] = G['x'][indices_all]
-        G['y_plot'] = G['fyc'](fit, G['x_plot'])
+        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, fit)[0]
+        print(f'{G["y_plot"]=}')
         G['line_fit'].set_xdata(G['x_plot'])
         G['line_fit'].set_ydata(G['y_plot'])
-        # print(f'{G["y_plot"].shape=}')
         # print(f'{G["y"][indices_all].shape=}')
-        res_all = G['y_plot'] - G['y'][indices_all].flatten()
+        res_all = G['y_plot'][1:] - G['y'][indices_all].flatten()[1:]
         print(f'\t\t{residuals.shape=}\n\t\t{res_all.shape=}')
         G['ax_res'].clear()
         G['ax_res'].grid()
         G['ax_res'].axhline(color = 'red', linestyle = '--')
         G['ax_res'].set_ylabel('Residual relative to tolerance')
-        G['ax_res'].plot(indices_all - G['start'], np.abs(res_all) / G['tol'] -1,
+        G['ax_res'].plot(indices_all[1:] - G['start'], np.abs(res_all) / G['tol']-1,
                             '.', color = 'blue', label = 'ignored')
         G['ax_res'].plot(inds, np.abs(residuals) / G['tol']-1,
                             'o', color = 'red', label = 'sampled')
@@ -231,31 +232,33 @@ def gen_f2zero(*args):
 ###═════════════════════════════════════════════════════════════════════
 ### BLOCK COMPRESSION
 def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
-          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10') -> tuple:
+          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly1100') -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
     '''
     is_debug = G['debug']
     if G['timed']:
         G['t_start'] = time.perf_counter()
-    start = 1 # Index of starting point for looking for optimum
-    end = len(x_in) - 1 # Number of unRecord datapoints -1, i.e. the last index
-    limit = end - start
+    start   = 1 # Index of starting point for looking for optimum
+    end     = len(x_in) - 1 # Number of unRecord datapoints -1, i.e. the last index
+    limit   = end - start
 
-    x = to_ndarray(x_in)
-    y = to_ndarray(y_in, (len(x), -1))
-    droot = droot_debug if is_debug else hdroot
-    tol = to_ndarray(tol, y[0].shape)
+    x       = to_ndarray(x_in)
+    y       = to_ndarray(y_in, (len(x), -1))
+    
+    tol     = to_ndarray(tol, y[0].shape)
+
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
+
+    _droot = droot_debug if is_debug else droot
     sqrtrange = _sqrtrange[use_numba]
     if isinstance(errorfunction, str):
         errorfunction = errorfunctions.get(errorfunction, use_numba)
     if isinstance(fitset, str):
         fitset = fitsets[fitset]
     f_fit = fitset.fit[use_numba]
-    fyc = fitset.y_from_fit[use_numba]
 
-    xc, yc = [x[0]], [y[0]]
+    xc, yc = [x[0]], [(y[0][0], 0)]
 
     # Estimation for the first offset
     if initial_step is None:
@@ -268,7 +271,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
         G.update({'x': x,
                    'y': y,
                    'tol': tol,
-                   'fyc': fyc,
+                   'interp': fitset._interpolate,
                    'start': start})
 
         G['fig'], axs = plt.subplots(3,1)
@@ -278,7 +281,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
         G['ax_data'].fill_between(G['x'].flatten(), (G['y'] - tol).flatten(), (G['y'] + G['tol']).flatten(), alpha=.3, color = 'blue')
 
-        G['line_fit'], = G['ax_data'].plot(0, 0, '-', color = 'orange')
+        G['line_fit'], = G['ax_data'].plot(0, 0, '.', color = 'orange')
         G['ax_res'].axhline(color = 'red', linestyle = '--')
         G['ax_root'].set_ylabel('Tolerance left')
         G['ax_root'].axhline(color = 'red', linestyle = '--')
@@ -292,7 +295,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
         if x[start-1] != xc[-1]:
             raise IndexError(f'Indices out of sync {start}')
 
-        offset, fit = droot(gen_f2zero(x[start:], y[start:], xc[-1], yc[-1],
+        offset, fit = _droot(gen_f2zero(x[start:], y[start:], xc[-1], yc[-1],
                                        tol, sqrtrange, f_fit, errorfunction),
                             start_y1, offset, limit)
         step = offset + 1
@@ -318,10 +321,10 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
             else: # Something weird
                 raise RuntimeError('Fit not found')
         else:
-            yc.append(fyc(fit, xc[-1]))
+            yc.append(fit)
             if is_debug: #─────────────────────────────────────────────┐
                 G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
-                G['y_plot'] = G['fyc'](fit, G['x_plot'])
+                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])[0]
             #──────────────────────────────────────────────────────────┘
         if is_debug: #─────────────────────────────────────────────────┐
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
@@ -333,7 +336,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
         if is_debug: #─────────────────────────────────────────────────┐
             G['start'] = start
-            G['ax_data'].plot(xc[-1], yc[-1],'go')
+            G['ax_data'].plot(xc[-1], yc[-1][0],'go')
             wait('Next iteration\n')
         #──────────────────────────────────────────────────────────────┘
     else:
@@ -341,7 +344,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     # Last data point is same as in the unRecord data
     if xc[-2] == xc[-1]: print(xc)
     xc.append(x[-1])
-    yc.append(y[-1])
+    yc.append(fit)
     
 
     if G['timed']:
@@ -359,50 +362,26 @@ class _StreamRecord(collections.abc.Sized):
     i.e. single wait variable and one or more output variable
     """
     def __init__(self, x0: float, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, fitset, x2):
-        self.is_debug = G['debug']
         if G['timed']: G['t_start'] = time.perf_counter()
         self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
         self.xc, self.yc = [x0], [y0]
-        self.x1 = 0 # Index of starting point for looking for optimum
-        self.x2 = x2
-        self.tol = tol
-        self.start_y1 = -np.amax(tol) # Default starting value
-        self.state = 'open' # The object is ready to accept more values
+        self.x1         = 0 # Index of starting point for looking for optimum
+        self.x2         = x2
+        self.tol        = tol
+        self.start_y1   = -np.amax(tol) # Default starting value
+        self.state      = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
-        self.interval = interval_debug if self.is_debug else interval
-        self.fitset = fitset
-        self.f_fit = self.fitset.fit[use_numba]
-        self.sqrtrange = _sqrtrange[use_numba]
-        self.fyc = self.fitset.y_from_fit[use_numba]
-        self.limit = -1 # Last index of the buffer
+        self.interval   = interval_debug if self.is_debug else interval
+        self.fitset     = fitset
+        self.f_fit      = self.fitset.fit[use_numba]
+        self.sqrtrange  = _sqrtrange[use_numba]
+        self.limit      = -1 # Last index of the buffer
 
-        self._lenb = 0 # length of the buffer
-        self._lenc = 1 # length of the Record points
-        self.fit1 = 1
-        self.y1 = -self.tol # Initialising
-        if self.is_debug: #────────────────────────────────────────────┐
-            G.update({'tol': self.tol,
-                       'xb': self.xb,
-                       'yb': self.yb,
-                       'xc': self.xb,
-                       'yc': self.yb,
-                       'fyc': self.fyc,
-                       'limit': self.limit})
-            G['fig'], axs = plt.subplots(3,1)
-            for ax in axs:
-                ax.grid()
-            G['ax_data'], G['ax_res'], G['ax_root'] = axs
-            G['line_buffer'], = G['ax_data'].plot(0, 0, 'b-',
-                                                    label = 'buffer')
-            G['line_fit'], = G['ax_data'].plot(0, 0, '-', color = 'orange',
-                                                 label = 'fit')
+        self._lenb      = 0 # length of the buffer
+        self._lenc      = 1 # length of the Record points
+        self.fit1       = 1
+        self.y1         = -self.tol # Initialising
 
-            G['ax_root'].set_ylabel('Tolerance left')
-
-            plt.ion()
-            plt.show()
-            wait('Record initialised')
-        #──────────────────────────────────────────────────────────────┘
     #───────────────────────────────────────────────────────────────────
     def _f2zero(self, i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
@@ -410,28 +389,6 @@ class _StreamRecord(collections.abc.Sized):
         inds = self.sqrtrange(i)
         residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
                                     self.xc[-1], self.yc[-1])
-        if self.is_debug: #────────────────────────────────────────────┐
-            if residuals.shape != (len(inds), len(self.yb[-1])):
-                raise ValueError(f'{residuals.shape=}')
-            print(f'\t\t{i=}\t{residuals.shape=}')
-            print(f'\t\tx {self.xb[inds]} - {self.xb[inds][-1]}')
-            indices_all = np.arange(0, i + 1)
-            G['ax_data'].plot(self.xb[i], self.yb[i], 'k.')
-            G['x_plot'] = self.xb[indices_all]
-            G['y_plot'] = self.fyc(fit, G['x_plot'])
-            G['line_fit'].set_xdata(G['x_plot'])
-            G['line_fit'].set_ydata(G['y_plot'])
-            res_all = G['y_plot'] - self.yb[indices_all].flatten()
-            G['ax_res'].clear()
-            G['ax_res'].grid()
-            G['ax_res'].set_ylabel('Residual relative to tolerance')
-            G['ax_res'].plot(indices_all, np.abs(res_all) / self.tol -1,
-                             'b.', label = 'ignored')
-            G['ax_res'].plot(inds, np.abs(residuals) / self.tol - 1,
-                             'ro', label = 'sampled')
-            G['ax_res'].legend(loc = 'lower right')
-            wait('\t\tFitting\n')
-        #──────────────────────────────────────────────────────────────┘
         return self.errorfunction(residuals, self.tol), fit
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self):
@@ -440,30 +397,16 @@ class _StreamRecord(collections.abc.Sized):
         offset, fit = self.interval(self._f2zero, self.x1, self.y1,
                                self.x2, self.y2, self.fit1)
         self.xc.append(self.xb[offset])
-        if self.is_debug: #────────────────────────────────────────────┐
-            G['ax_root'].clear()
-            G['ax_root'].grid()
-            G['ax_root'].set_ylabel('Maximum residual')
-
         if fit is None:
             if offset == 0: # No skipping of points was possible
                 self.yc.append(self.yb[offset])
-                if self.is_debug: #────────────────────────────────────┐
-                    G['x_plot'] = self.xc[-2:]
-                    G['y_plot'] = self.yc[-2:]
-                #──────────────────────────────────────────────────────┘
+
             else: # Something weird
                 raise RuntimeError('Fit not found')
         else:
 
-            self.yc.append(self.fyc(fit, self.xc[-1]))
-            if self.is_debug: #────────────────────────────────────────┐
-                G['x_plot'] = self.xb[np.arange(0, offset + 1)]
-                G['y_plot'] = G['fyc'](fit, G['x_plot'])
-            #──────────────────────────────────────────────────────────┘
-        if self.is_debug: #────────────────────────────────────────────┐
-            G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
-        #──────────────────────────────────────────────────────────────┘
+            self.yc.append(fit)
+
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
 
         self.limit -= step
@@ -482,10 +425,6 @@ class _StreamRecord(collections.abc.Sized):
         self.limit += 1
         self._lenb += 1
 
-        if self.is_debug: #────────────────────────────────────────────┐
-            G['line_buffer'].set_xdata(self.xb)
-            G['line_buffer'].set_ydata(self.yb)
-        #──────────────────────────────────────────────────────────────┘
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb)
@@ -500,45 +439,18 @@ class _StreamRecord(collections.abc.Sized):
             #──────────────────────────────────────────────────────────┘
             self.y2, self.fit2 = self._f2zero(self.x2)
 
-            if self.is_debug: #────────────────────────────────────────┐
-                G['xy1'], = G['ax_root'].plot(self.x1, self.y1,'g.')
-                G['xy2'], = G['ax_root'].plot(self.x2, self.y2,'b.')
-            #──────────────────────────────────────────────────────────┘
             if self.y2 < 0: #──────────────────────────────────────────┐
-                if self.is_debug: #────────────────────────────────────┐
-                    wait('Calculating new attempt in end\n')
-                    G['ax_root'].plot(self.x1, self.y1,'.', color = 'black')
-                #──────────────────────────────────────────────────────┘
+
                 self.x1, self.y1, self.fit1 = self.x2, self.y2, self.fit2
                 self.x2 *= 2
                 self.x2 += 1
 
-                if self.is_debug: #────────────────────────────────────┐
-                    print(f'{self.limit=}')
-                    print(f'{self.x1=}\t{self.y1=}')
-                    print(f'{self.x2=}\t{self.y2=}')
-                    G['xy1'].set_xdata(self.x1)
-                    G['xy1'].set_ydata(self.y1)
-                    G['xy2'].set_xdata(self.x2)
-                #──────────────────────────────────────────────────────┘
             else: # Squeezing the buffer
-                if self.is_debug: #────────────────────────────────────┐
-                    G['xy2'].set_color('red')
-                    wait('Points for interval found\n')
-                    print(f'{self._lenc=}')
-                #──────────────────────────────────────────────────────┘
                 self.squeeze_buffer()
             #──────────────────────────────────────────────────────────┘
             # Converting back to lists
             self.xb, self.yb = list(self.xb), list(self.yb)
-            if self.is_debug: #────────────────────────────────────────┐
-                G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
-                wait('Next iteration\n')
-                if self.yb[-1].shape != (1,):
-                    raise ValueError(f'{self.yb[-1].shape=}')
-                if self.yc[-1].shape != (1,):
-                    raise ValueError(f'{self.yc[-1].shape=}')
-            #──────────────────────────────────────────────────────────┘
+
         #──────────────────────────────────────────────────────────────┘
         return self._lenc, self._lenb
     #───────────────────────────────────────────────────────────────────
@@ -566,7 +478,222 @@ class _StreamRecord(collections.abc.Sized):
         self.xc.append(self.xb[-1])
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
 
-        if self.is_debug: plt.ioff()
+
+        # Final packing and cleaning
+        self.x = to_ndarray(self.xc, (self._lenc+1,))
+        self.y = to_ndarray(self.yc, (self._lenc+1, -1))
+        for key in tuple(self.__dict__):
+            if key not in {'x', 'y', 'state', 'tol'}:
+                del self.__dict__[key]
+
+        self.state = 'closed'
+        if G['timed']: G['runtime'] = time.perf_counter() - G['t_start']
+    #───────────────────────────────────────────────────────────────────
+class _StreamRecord_debug(collections.abc.Sized):
+    """Class for doing stream compression for data of 1-dimensional
+    system of equations
+    i.e. single wait variable and one or more output variable
+    """
+    def __init__(self, x0: float, y0: np.ndarray, tol: np.ndarray, errorfunction: str, use_numba: int, fitset, x2):
+        if G['timed']: G['t_start'] = time.perf_counter()
+        self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
+        self.xc, self.yc = [x0], [y0]
+        self.x1         = 0 # Index of starting point for looking for optimum
+        self.x2         = x2
+        self.tol        = tol
+        self.start_y1   = -np.amax(tol) # Default starting value
+        self.state      = 'open' # The object is ready to accept more values
+        self.errorfunction = errorfunction
+        self.interval   = interval_debug if self.is_debug else interval
+        self.fitset     = fitset
+        self.f_fit      = self.fitset.fit[use_numba]
+        self.sqrtrange  = _sqrtrange[use_numba]
+        self.limit      = -1 # Last index of the buffer
+
+        self._lenb      = 0 # length of the buffer
+        self._lenc      = 1 # length of the Record points
+        self.fit1       = 1
+        self.y1         = -self.tol # Initialising
+
+        G.update({'tol': self.tol,
+                    'xb': self.xb,
+                    'yb': self.yb,
+                    'xc': self.xb,
+                    'yc': self.yb,
+                    'interp': self.fitset._interpolate,
+                    'limit': self.limit})
+        G['fig'], axs = plt.subplots(3,1)
+        for ax in axs:
+            ax.grid()
+        G['ax_data'], G['ax_res'], G['ax_root'] = axs
+        G['line_buffer'], = G['ax_data'].plot(0, 0, 'b-',
+                                                label = 'buffer')
+        G['line_fit'], = G['ax_data'].plot(0, 0, '-', color = 'orange',
+                                                label = 'fit')
+
+        G['ax_root'].set_ylabel('Tolerance left')
+
+        plt.ion()
+        plt.show()
+        wait('Record initialised')
+    #───────────────────────────────────────────────────────────────────
+    def _f2zero(self, i: int) -> tuple:
+        '''Function such that i is optimal when f2zero(i) = 0'''
+
+        inds = self.sqrtrange(i)
+        residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
+                                    self.xc[-1], self.yc[-1])
+
+        if residuals.shape != (len(inds), len(self.yb[-1])):
+            raise ValueError(f'{residuals.shape=}')
+        print(f'\t\t{i=}\t{residuals.shape=}')
+        print(f'\t\tx {self.xb[inds]} - {self.xb[inds][-1]}')
+        indices_all = np.arange(0, i + 1)
+        G['ax_data'].plot(self.xb[i], self.yb[i], 'k.')
+        G['x_plot'] = self.xb[indices_all]
+        G['y_plot'] = G['interp'](G['x_plot'], self.xc[-1], x[inds[-1]], self.yc[-1], fit)[0]
+        G['line_fit'].set_xdata(G['x_plot'])
+        G['line_fit'].set_ydata(G['y_plot'])
+        res_all = G['y_plot'] - self.yb[indices_all].flatten()
+        G['ax_res'].clear()
+        G['ax_res'].grid()
+        G['ax_res'].set_ylabel('Residual relative to tolerance')
+        G['ax_res'].plot(indices_all, np.abs(res_all) / self.tol -1,
+                            'b.', label = 'ignored')
+        G['ax_res'].plot(inds, np.abs(residuals) / self.tol - 1,
+                            'ro', label = 'sampled')
+        G['ax_res'].legend(loc = 'lower right')
+        wait('\t\tFitting\n')
+
+        return self.errorfunction(residuals, self.tol), fit
+    #───────────────────────────────────────────────────────────────────
+    def squeeze_buffer(self):
+        '''Compresses the buffer by one step'''
+        #──────────────────────────────────────────────────────────────┘
+        offset, fit = self.interval(self._f2zero, self.x1, self.y1,
+                               self.x2, self.y2, self.fit1)
+        self.xc.append(self.xb[offset])
+
+        G['ax_root'].clear()
+        G['ax_root'].grid()
+        G['ax_root'].set_ylabel('Maximum residual')
+
+        if fit is None:
+            if offset == 0: # No skipping of points was possible
+                self.yc.append(self.yb[offset])
+
+                G['x_plot'] = self.xc[-2:]
+                G['y_plot'] = self.yc[-2:]
+
+            else: # Something weird
+                raise RuntimeError('Fit not found')
+        else:
+
+            self.yc.append(fit)
+
+            G['x_plot'] = self.xb[np.arange(0, offset + 1)]
+            G['y_plot'] = G['interp'](G['x_plot'], *self.xc[-2:], self.yc[-2:])
+
+        G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
+
+        self.x1, self.y1, step = 0, self.start_y1, offset + 1
+
+        self.limit -= step
+        self._lenb -= step
+        self._lenc += 1
+
+        self.x2 = offset # Approximation
+
+        self.xb, self.yb = self.xb[step:], self.yb[step:]
+        if self.xc[-1] == self.xb[0]:
+            raise IndexError('End of compressed and beginning of buffer are same')
+    #───────────────────────────────────────────────────────────────────
+    def __call__(self, x_raw, y_raw):
+        self.xb.append(x_raw)
+        self.yb.append(to_ndarray(y_raw, (-1,)))
+        self.limit += 1
+        self._lenb += 1
+
+        G['line_buffer'].set_xdata(self.xb)
+        G['line_buffer'].set_ydata(self.yb)
+
+        if  self.limit >= self.x2: #───────────────────────────────────┐
+            # Converting to numpy arrays for computations
+            self.xb = to_ndarray(self.xb)
+            self.yb = to_ndarray(self.yb, (self._lenb, -1))
+
+            if self.is_debug: #────────────────────────────────────────┐
+                if self.xb.shape != (self._lenb,):
+                    raise ValueError(f'xb {self.xb.shape} len {self._lenb}')
+
+                if self.yb.shape != (self._lenb, len(self.yc[0])):
+                    raise ValueError(f'{self.yb.shape=}')
+            #──────────────────────────────────────────────────────────┘
+            self.y2, self.fit2 = self._f2zero(self.x2)
+
+            G['xy1'], = G['ax_root'].plot(self.x1, self.y1,'g.')
+            G['xy2'], = G['ax_root'].plot(self.x2, self.y2,'b.')
+
+            if self.y2 < 0: #──────────────────────────────────────────┐
+
+                wait('Calculating new attempt in end\n')
+                G['ax_root'].plot(self.x1, self.y1,'.', color = 'black')
+
+                self.x1, self.y1, self.fit1 = self.x2, self.y2, self.fit2
+                self.x2 *= 2
+                self.x2 += 1
+
+                print(f'{self.limit=}')
+                print(f'{self.x1=}\t{self.y1=}')
+                print(f'{self.x2=}\t{self.y2=}')
+                G['xy1'].set_xdata(self.x1)
+                G['xy1'].set_ydata(self.y1)
+                G['xy2'].set_xdata(self.x2)
+
+            else: # Squeezing the buffer
+                G['xy2'].set_color('red')
+                wait('Points for interval found\n')
+                print(f'{self._lenc=}')
+
+                self.squeeze_buffer()
+            #──────────────────────────────────────────────────────────┘
+            # Converting back to lists
+            self.xb, self.yb = list(self.xb), list(self.yb)
+
+            G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
+            wait('Next iteration\n')
+            if self.yb[-1].shape != (1,):
+                raise ValueError(f'{self.yb[-1].shape=}')
+            if self.yc[-1].shape != (1,):
+                raise ValueError(f'{self.yc[-1].shape=}')
+        #──────────────────────────────────────────────────────────────┘
+        return self._lenc, self._lenb
+    #───────────────────────────────────────────────────────────────────
+    def __len__(self):
+        return self._lenc + self._lenb
+    #───────────────────────────────────────────────────────────────────
+    def __str__(self):
+        return f'{self.x=} {self.y=} {self.tol=}'
+    #───────────────────────────────────────────────────────────────────
+    def close(self):
+        self.state = 'closing'
+
+        # Converting to numpy arrays for computations
+        self.xb = to_ndarray(self.xb)
+        self.yb = to_ndarray(self.yb, (self._lenb, -1))
+        # print(f'Calling f2zero with {self.limit=}')
+        self.x2 = min(self.x2, self.limit)
+        self.y2, self.fit2 = self._f2zero(self.x2)
+
+        while self.y2 > 0: #───────────────────────────────────────────┐
+            self.squeeze_buffer()
+            self.x2 = min(self.x2, self.limit)
+            self.y2, self.fit2 = self._f2zero(self.x2)
+        #──────────────────────────────────────────────────────────────┘
+        self.xc.append(self.xb[-1])
+        self.yc.append(to_ndarray(self.yb[-1], (1,)))
+
+        plt.ioff()
         # Final packing and cleaning
         self.x = to_ndarray(self.xc, (self._lenc+1,))
         self.y = to_ndarray(self.yc, (self._lenc+1, -1))
@@ -602,7 +729,11 @@ class Stream():
         self.x2            = initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
-        self.record = _StreamRecord(self.x0, self.y0, self.tol,
+        if G['debug']:
+            self.record = _StreamRecord_debug(self.x0, self.y0, self.tol,
+                                          self.errorfunction, self.use_numba, self.fitset, self.x2)
+        else:
+            self.record = _StreamRecord(self.x0, self.y0, self.tol,
                                           self.errorfunction, self.use_numba, self.fitset, self.x2)
         return self.record
     #───────────────────────────────────────────────────────────────────
