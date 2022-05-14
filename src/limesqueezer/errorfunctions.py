@@ -107,7 +107,7 @@ def _maxRMS_absend_numba(residuals: np.ndarray, tolerances: np.ndarray)-> float:
     
     return max(absend_max, dev_max_RMS)
 #%%═════════════════════════════════════════════════════════════════════
-def maxsumabs(residuals: np.ndarray,tolerance: np.ndarray) -> float:
+def maxsumabs(residuals: np.ndarray, tolerance: np.ndarray) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
 #%%═════════════════════════════════════════════════════════════════════

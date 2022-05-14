@@ -206,8 +206,8 @@ def _get_f2zero_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {G["x"][G["start"]]}')
         indices_all = np.arange(-1, i + 1) + G['start']
         G['x_plot'] = G['x'][indices_all]
-        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, fit)[0]
-        print(f'{G["y_plot"]=}')
+        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, fit)
+        # print(f'{G["y_plot"].shape=}')
         G['line_fit'].set_xdata(G['x_plot'])
         G['line_fit'].set_ydata(G['y_plot'])
         # print(f'{G["y"][indices_all].shape=}')
@@ -324,7 +324,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
             yc.append(fit)
             if is_debug: #─────────────────────────────────────────────┐
                 G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
-                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])[0]
+                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])
             #──────────────────────────────────────────────────────────┘
         if is_debug: #─────────────────────────────────────────────────┐
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
@@ -336,7 +336,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
         if is_debug: #─────────────────────────────────────────────────┐
             G['start'] = start
-            G['ax_data'].plot(xc[-1], yc[-1][0],'go')
+            G['ax_data'].plot(xc[-1], yc[-1],'go')
             wait('Next iteration\n')
         #──────────────────────────────────────────────────────────────┘
     else:

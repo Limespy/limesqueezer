@@ -16,7 +16,7 @@ class Poly10:
         Dy = y - y0[0]
         a = Dx @ Dy / Dx.dot(Dx)
         # Returning next y0
-        return (np.outer(Dx, a) - Dy, (a * Dx[-1] + y0[0], ))
+        return np.outer(Dx, a) - Dy, a * Dx[-1] + y0[0]
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     @numba.jit(nopython=True, cache=True, fastmath = True)
@@ -27,7 +27,7 @@ class Poly10:
         Dy = y - y0[0]
         a = Dx @ Dy / Dx.dot(Dx)
         # Returning next y0
-        return (np.outer(Dx, a) - Dy, (a * Dx[-1] + y0[0], ))
+        return np.outer(Dx, a) - Dy, a * Dx[-1] + y0[0]
     #───────────────────────────────────────────────────────────────────
     fit = (_fit_python, _fit_numba)
     #═══════════════════════════════════════════════════════════════════
@@ -55,17 +55,31 @@ class Poly1100:
     @staticmethod
     def _fit_python(x: np.ndarray, y: np.ndarray, x0: float, y0: tuple) -> tuple:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
+        y = y.T
         Dx = x - x0
         Dx2 = Dx * Dx
         Dx3 = Dx2 * Dx
-        Y = y.T - y0[0] - Dx * y0[1]
+        Y = (y - y0[0] - Dx * y0[1]).T
+
+        xdiff = np.diff(x)
+        print(f'{y.shape=}')
+        print(f'{xdiff.shape=}')
+        print(f'{np.diff(y, axis = 0).shape=}')
+        dydx = np.diff(y, axis = 1) / np.diff(x)
+        print(f'{dydx.shape=}')
+        xmid = x[:-1] + xdiff/2
+        Dxmid = (xmid - x0) 
+        dY = dydx.T - y0[1]
+        Dxmid2 = Dxmid * Dxmid
         # print(f'{y.shape=}')
         # print(f'{Y.shape=}')
         # print(f'{Dx.shape=}')
-        X = np.vstack((Dx3, Dx2)).T
-        Y = Y.flatten()
-        # print(f'{X.shape=}')
-        # print(f'{Y.shape=}')
+        X = np.vstack((np.concatenate((Dx3, 3 * Dxmid2)), np.concatenate((Dx2, 2 * Dxmid)))).T
+        print(f'{Y.shape=}')
+        print(f'{dY.shape=}')
+        Y = np.concatenate((Y, dY), axis = 0)
+        print(f'{X.shape=}')
+        print(f'{Y.shape=}')
         p = np.linalg.lstsq(X, Y, rcond = None)[0]
 
         reconstruct = p[0] * Dx3 + p[1] * Dx2 + y0[1] * Dx + y0[0]
@@ -73,7 +87,7 @@ class Poly1100:
         # print(f'{y0=}')
         # print(f'{reconstruct=}')
         # print(f'{y=}')
-        res = reconstruct - y.T
+        res = reconstruct - y
         # print(f'{res=}')
         # print(f'{reconstruct.shape=}')
         # print(f'{y.shape=}')

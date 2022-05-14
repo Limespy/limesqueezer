@@ -33,19 +33,17 @@ def main():
     if args[0] == 'sandbox': #──────────────────────────────────────────
         args = args[1:]
         import sandbox
-    elif args[0] == 'benchmark': #──────────────────────────────────────
-        import benchmark
     else:
         run(args, use_numba, is_plot, is_timed)
     sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
 def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
-    x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.01)
+    x_data, y_data = ref.raw_sine_x2_normal(1e3, std=0.0001)
     # y_data[1000] += 1 
     if args[0] == 'block':
-        xc, yc = ls.compress(x_data, y_data, tol = 1e-1,
-                    use_numba = use_numba, errorfunction = 'maxRMS_absend', fitset = 'Poly1100')
+        xc, yc = ls.compress(x_data, y_data, tol = 4e-2,
+                    use_numba = use_numba, errorfunction = 'maxRMS_absend', fitset = 'Poly10')
         print(ls.aux.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
