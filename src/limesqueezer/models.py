@@ -3,31 +3,69 @@ import numba
 #%%═════════════════════════════════════════════════════════════════════
 # BUILTIN COMPRESSION MODELS
 class Poly10:
-    """Builtin group of functions for doing the compression"""
+    """Builtin group of functions for doing the compression.
+    Simple 1st degree polynomial fitting.
+    1st differential discontinous
+    0th differential continous """
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    def _fit_python(x: np.ndarray, y: np.ndarray, x0:float, y0: np.ndarray) -> tuple:
+    def _fit_python(x: np.ndarray,
+                           y: np.ndarray,
+                           x0:float,
+                           y0: np.ndarray
+                           ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters
-        Returns:
-        - residuals
-        - next y0 according to the fit'''
+
+        Parameters
+        ----------
+        x : np.ndarray
+            x values of the points to be fitted
+        y : np.ndarray
+            y values of the points to be fitted
+        x0 : float
+            Last compressed point x value
+        y0 : np.ndarray
+            Last compressed point y value(s)
+
+        Returns
+        -------
+        residuals: np.ndarray
+            _description_
+        '''
 
         Dx = x - x0
         Dy = y - y0
-        X = np.outer(Dx, Dx @ Dy / Dx.dot(Dx))
-        return X - Dy, X[-1] + y0
+        return np.outer(Dx, Dx @ Dy / Dx.dot(Dx)) + y0
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     @numba.jit(nopython=True, cache=True, fastmath = True)
-    def _fit_numba(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray) -> tuple:
+    def _fit_numba(x: np.ndarray,
+                           y: np.ndarray,
+                           x0:float,
+                           y0: np.ndarray
+                           ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters
-        - residuals
-        - next y0 according to the fit'''
+
+        Parameters
+        ----------
+        x : np.ndarray
+            x values of the points to be fitted
+        y : np.ndarray
+            y values of the points to be fitted
+        x0 : float
+            Last compressed point x value
+        y0 : np.ndarray
+            Last compressed point y value(s)
+
+        Returns
+        -------
+        residuals: np.ndarray
+            _description_
+        '''
 
         Dx = x - x0
         Dy = y - y0
-        X = np.outer(Dx, Dx @ Dy / Dx.dot(Dx))
-        return X - Dy, X[-1] + y0
+        return np.outer(Dx, Dx @ Dy / Dx.dot(Dx)) + y0
     #───────────────────────────────────────────────────────────────────
     fit = (_fit_python, _fit_numba)
     #═══════════════════════════════════════════════════════════════════
@@ -40,7 +78,11 @@ class Poly1100:
     """Builtin group of functions for doing the compression"""
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    def _fit_python(x: np.ndarray, y: np.ndarray, x0: float, y0: tuple) -> tuple:
+    def _fit_python(x: np.ndarray,
+                           y: np.ndarray,
+                           x0:float,
+                           y0: np.ndarray
+                           ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
         y = y.T
         Dx = x - x0
@@ -88,7 +130,11 @@ class Poly1100:
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     @numba.jit(nopython=True, cache=True, fastmath = True)
-    def _fit_numba(x: np.ndarray, y: np.ndarray, x0: float, y0: tuple) -> tuple:
+    def _fit_numba(x: np.ndarray,
+                           y: np.ndarray,
+                           x0:float,
+                           y0: np.ndarray
+                           ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
         Dx = x - x0
         Dx2 = Dx * Dx
@@ -144,5 +190,31 @@ class Poly1100:
         return (p3 * _Dx3 + p2 * _Dx2 + y1[1] * _Dx + y1[0], 
                 3 * p3 * _Dx2 + 2 * p2 * _Dx + y1[1])
 #═══════════════════════════════════════════════════════════════════════
-fitsets = {'Poly10': Poly10,
+dictionary = {'Poly10': Poly10,
            'Poly1100': Poly1100}
+#───────────────────────────────────────────────────────────────────────
+def get(name: str):
+    '''Access fitting model while doing errorhandling
+
+    Parameters
+    ----------
+    name : str
+        name of the model to be accesses
+
+    Returns
+    -------
+        Fit class
+
+    Raises
+    ------
+    NotImplementedError
+        If name in the dictionary of implemented builtin models
+    '''
+    try:
+        return dictionary[name]
+    except KeyError:
+        raise NotImplementedError(f'Builtin fit function {name} not recognised. Valid are {tuple(dictionary.keys())}')
+    # try:
+    #     return versions[use_numba]
+    # except IndexError:
+    #     raise ValueError(f'Numba selector should be 0 or 1, not {use_numba}')

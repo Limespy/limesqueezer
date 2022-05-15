@@ -1,31 +1,41 @@
-import numba
 import numpy as np
 from .auxiliaries import wait
-from . import GLOBALS
-global G
-G = GLOBALS.dictionary
-
+from .GLOBALS import G
 #───────────────────────────────────────────────────────────────────────
 def get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero(i: int) -> tuple:
-        '''Function such that i is optimal when f2zero(i) = 0'''
+        '''Function such that i is optimal when f2zero(i) = 0
+
+        Parameters
+        ----------
+        i : int
+            highest index of the fit 
+
+        Returns
+        -------
+        tuple
+            output of the error function and fit
+        '''
         inds = sqrtrange(i)
-        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
-        return errorfunction(residuals, tol), fit
+        x_sample, y_sample = x[inds], y[inds]
+        y_fit = f_fit(x_sample, y_sample, x0, y0)
+        return errorfunction(y_sample, y_fit, tol), y_fit[-1]
     return f2zero
 #───────────────────────────────────────────────────────────────────────
 def get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero_debug(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
-        residuals, fit = f_fit(x[inds], y[inds], x0, y0)
+        x_sample, y_sample = x[inds], y[inds]
+        y_fit = f_fit(x_sample, y_sample, x0, y0)
+        residuals = y_fit - y_sample
         if len(residuals) == 1:
             print(f'\t\t{residuals=}')
         print(f'\t\tstart = {G["start"]} end = {i + G["start"]} points = {i + 1}')
         print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {G["x"][G["start"]]}')
         indices_all = np.arange(-1, i) + G['start']
         G['x_plot'] = G['x'][indices_all]
-        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, fit)
+        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, y_fit[-1])
         # print(f'{G["y_plot"].shape=}')
         G['line_fit'].set_xdata(G['x_plot'])
         G['line_fit'].set_ydata(G['y_plot'])
@@ -42,5 +52,5 @@ def get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
                             'o', color = 'red', label = 'sampled')
         G['ax_res'].legend(loc = 'lower right')
         wait('\t\tFitting\n')
-        return errorfunction(residuals, tol), fit
+        return errorfunction(y_sample, y_fit, tol), y_fit[-1]
     return f2zero_debug

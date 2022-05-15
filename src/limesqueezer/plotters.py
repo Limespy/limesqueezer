@@ -6,7 +6,7 @@ import numpy as np
 
 def data_compressed_1d(input_x, input_y, tolerance):
     
-    output_x, output_y = ls.compress(input_x, input_y, tol = tolerance)
+    output_x, output_y = ls.compress(input_x, input_y, tolerances = tolerance)
 
     function = ls.decompress(output_x, output_y)
 

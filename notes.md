@@ -1,3 +1,17 @@
+- [Math stuff](#math-stuff)
+    - [Sqrt heuristic 1](#sqrt-heuristic-1)
+    - [Sqrt heuristic 2](#sqrt-heuristic-2)
+    - [Sqrt heuristic 3](#sqrt-heuristic-3)
+- [Fit models](#fit-models)
+  - [Polynomials](#polynomials)
+- [Visualiser](#visualiser)
+  - [Plot](#plot)
+    - [Top](#top)
+    - [Mid](#mid)
+    - [Bottom](#bottom)
+- [Publishing pipeline](#publishing-pipeline)
+- [Tolerance](#tolerance)
+
 ## Math stuff
 
 $$
@@ -42,6 +56,7 @@ $$
 $$
 P_2(x_1) = a \cdot x_1^2 + b \cdot x_1 + c = y_1
 $$
+
 
 
 Given atol and Delta_y, 
@@ -303,3 +318,11 @@ Loop is:
 4. Running benchmarks
 5. Profiling with and without numba
 6. Converting README
+
+## Tolerance
+
+Later tolerance will be implemented as smooth function of $absolute$ and $relative$ tolerances with $falloff$ parameter determining how fast the absolute tolerance effect decays as the value $y$ grows.
+
+$$
+tolerance = \frac{absolute}{falloff \cdot |y| + 1} + relative \cdot |y|
+$$

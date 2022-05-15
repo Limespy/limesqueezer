@@ -38,17 +38,17 @@ def main():
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
 def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
-    x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.0001)
+    x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.00001)
     # y_data[1000] += 1 
     if args[0] == 'block':
-        xc, yc = ls.compress(x_data, y_data, tol = 1e-2,
+        xc, yc = ls.compress(x_data, y_data, tolerances = (1e-3, 1e-4, 1),
                     use_numba = use_numba, errorfunction = 'maxmaxabs', fitset = 'Poly10')
-        print(ls.aux.stats(x_data, xc))
+        print(ls.stats(x_data, xc))
     elif args[0] == 'stream':
-        xc, yc = _stream(x_data, y_data, 1e-2, use_numba)
+        xc, yc = _stream(x_data, y_data, (1e-3, 1e-4, 1), use_numba)
     elif args[0] == 'both':
-        xcb, ycb = ls.compress(x_data, y_data, tol = 1e-2, use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
-        xcs, ycs = _stream(x_data, y_data, 1e-2, use_numba)
+        xcb, ycb = ls.compress(x_data, y_data, tolerances = (1e-3, 1e-4, 1), use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
+        xcs, ycs = _stream(x_data, y_data, (1e-3, 1e-4, 1), use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:
                 print(f'Deviation at {i=}, {xb=}, {xs=}')
@@ -70,7 +70,7 @@ def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
 #───────────────────────────────────────────────────────────────────────
 def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
 
-    with ls.Stream(x_data[0], y_data[0], tol = tol, use_numba = use_numba) as record:
+    with ls.Stream(x_data[0], y_data[0], tolerances = tol, use_numba = use_numba) as record:
         for x, y in zip(x_data[1:], y_data[1:]):
             record(x, y)
     return record.x, record.y

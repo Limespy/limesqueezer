@@ -14,11 +14,11 @@ import sys
 import time
 import types
 
-from .auxiliaries import to_ndarray, wait, sqrtranges, debugsetup
+from .auxiliaries import to_ndarray, wait, sqrtranges, debugsetup, stats
 from . import errorfunctions
 from . import f2zero
 from .GLOBALS import G
-from .models import fitsets
+from . import models
 from . import reference as ref # Careful with this circular import
 from .root import droot, droot_debug, interval, interval_debug
 
@@ -38,8 +38,10 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         return 1.
 #%%═════════════════════════════════════════════════════════════════════
 # BLOCK COMPRESSION
-def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
-          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10') -> tuple:
+def LSQ10(x_in: np.ndarray, y_in: np.ndarray, /,
+          tolerances = (1e-2, 1e-2, 0), initial_step = None,
+          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'
+          ) -> tuple:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
     '''
@@ -51,25 +53,27 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
 
     x       = to_ndarray(x_in)
     y       = to_ndarray(y_in, (len(x), -1))
-    tol     = to_ndarray(tol, y[0].shape)
+    # Relative, absolute, falloff
+    tol     = tuple([to_ndarray(tol, y[0].shape) for tol in tolerances])
     xc, yc = [x[0]], [y[0]]
-    start_y1 = - np.amax(tol) # Starting value for discrete root calculation
+
+    start_y1 = - np.amax(tol[1]) # Starting value for discrete root calculation
 
     sqrtrange = sqrtranges[use_numba]
     if isinstance(errorfunction, str):
         errorfunction = errorfunctions.get(errorfunction, use_numba)
     if isinstance(fitset, str):
-        fitset = fitsets[fitset]
+        fitset = models.get(fitset)
     f_fit = fitset.fit[use_numba]
 
     # Estimation for the first offset
-    if initial_step is None:
-        mid = end // 2
-        offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol))
-    else:
+    if initial_step:
         offset = initial_step
-    
-    if is_debug: G.update(debugsetup(x, y, tol, fitset, start))
+    else:
+        mid = end // 2
+        offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol[1]))
+
+    if is_debug: G.update(debugsetup(x, y, tol[1], fitset, start))
     #───────────────────────────────────────────────────────────────────
     for _ in range(end): # Prevents infinite loop in case error
         if x[start-1] != xc[-1]:
@@ -99,13 +103,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
             G['ax_root'].axhline(color = 'red', linestyle = '--')
             G['ax_root'].set_ylabel('Maximum residual')
         #──────────────────────────────────────────────────────────────┘
-        if fit:
-            yc.append(fit)
-            if is_debug: #─────────────────────────────────────────────┐
-                G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
-                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])
-            #──────────────────────────────────────────────────────────┘
-        else:
+        if fit is None:
             if offset == 0: # No skipping of points was possible
                 yc.append(y[start - 1])
                 if is_debug: #─────────────────────────────────────────┐
@@ -114,6 +112,12 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
                 #──────────────────────────────────────────────────────┘
             else: # Something weird
                 raise RuntimeError('Fit not found')
+        else:
+            yc.append(fit)
+            if is_debug: #─────────────────────────────────────────────┐
+                G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
+                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])
+            #──────────────────────────────────────────────────────────┘
         if is_debug: #─────────────────────────────────────────────────┐
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
@@ -130,7 +134,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     else:
         raise StopIteration('Maximum number of iterations reached')
     xc.append(x[-1])
-    yc.append(fit)
+    yc.append(y[-1])
 
     if G['timed']:
         G['runtime'] = time.perf_counter() - G['t_start']
@@ -153,7 +157,7 @@ class _StreamRecord(collections.abc.Sized):
         self.x1         = 0 # Index of starting point for looking for optimum
         self.x2         = x2
         self.tol        = tol
-        self.start_y1   = -np.amax(tol) # Default starting value
+        self.start_y1   = -np.amax(tol[1]) # Default starting value
         self.state      = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
         self.f_fit      = f_fit 
@@ -168,13 +172,13 @@ class _StreamRecord(collections.abc.Sized):
         #──────────────────────────────────────────────────────────────┘
         offset, fit = interval(self.f2zero, x1, y1, x2, y2, self.fit1)
         self.xc.append(self.xb[offset])
-        if fit:
-            self.yc.append(fit)
-        else:
+        if fit is None:
             if offset == 0: # No skipping of points was possible
                 self.yc.append(self.yb[offset])
             else: # Something weird
                 raise RuntimeError('Fit not found')
+        else:
+            self.yc.append(fit)
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
 
         self.limit -= step
@@ -265,7 +269,7 @@ class _StreamRecord_debug(collections.abc.Sized):
         self.x1         = 0 # Index of starting point for looking for optimum
         self.x2         = x2
         self.tol        = tol
-        self.start_y1   = -np.amax(tol) # Default starting value
+        self.start_y1   = -np.amax(tol[1]) # Default starting value
         self.state      = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
         self.f_fit      = f_fit 
@@ -309,15 +313,15 @@ class _StreamRecord_debug(collections.abc.Sized):
         G['ax_root'].grid()
         G['ax_root'].set_ylabel('Maximum residual')
 
-        if fit:
-            self.yc.append(fit)
-        else:
+        if fit is None:
             if offset == 0: # No skipping of points was possible
                 self.yc.append(self.yb[offset])
                 G['x_plot'] = self.xc[-2:]
                 G['y_plot'] = self.yc[-2:]
             else: # Something weird
                 raise RuntimeError('Fit not found')
+        else:
+            self.yc.append(fit)
 
             G['x_plot'] = self.xb[np.arange(0, offset + 1)]
             G['y_plot'] = G['interp'](G['x_plot'], *self.xc[-2:], *self.yc[-2:])
@@ -445,27 +449,27 @@ class _StreamRecord_debug(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of
     1 dimensional system of equations'''
-    def __init__(self, x0, y0, tol = 1e-2, initial_step = 100,
+    def __init__(self, x0, y0, tolerances = (1e-2, 1e-3, 0), initial_step = 100,
                  errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'):
         self.x0            = x0
         # Variables are columns, e.G. 3xn
         self.y0            = to_ndarray(y0, (-1,))
-        self.tol           = to_ndarray(tol, self.y0.shape)
+        self.tol           = tuple([to_ndarray(tol, self.y0.shape)
+                                    for tol in tolerances])
 
         if isinstance(errorfunction, str): #───────────────────────────┐
             self.errorfunction = errorfunctions.get(errorfunction, use_numba)
         else:
             self.errorfunction = errorfunction
         #──────────────────────────────────────────────────────────────┘
-        if isinstance(fitset, str): #──────────────────────────────────┐
-            self.fitset = fitsets[fitset]
+        if isinstance(fitset, str):
+            self.fitset = models.get(fitset)
         else:
             self.fitset = fitset
         #──────────────────────────────────────────────────────────────┘
         self.f_fit      = self.fitset.fit[use_numba]
         self.sqrtrange  = sqrtranges[use_numba]
-        self.use_numba     = use_numba
-        self.x2            = initial_step
+        self.x2         = initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         if G['debug']:
@@ -503,7 +507,7 @@ def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
 # WRAPPING
 # Here are the main external inteface functions
 compressors = {'LSQ10': LSQ10}
-interpolators = {'Poly10': fitsets['Poly10']._interpolate}
+interpolators = {'Poly10': models.get('Poly10')._interpolate}
 #───────────────────────────────────────────────────────────────────────
 def compress(*args, compressor = 'LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
@@ -517,10 +521,7 @@ def compress(*args, compressor = 'LSQ10', **kwargs):
 def decompress(x, y, interpolator = 'Poly10', **kwargs):
     '''Wrapper for easier selection of compression method'''
     if isinstance(interpolator, str):
-        try:
-            interpolator = interpolators[interpolator]
-        except KeyError:
-            raise NotImplementedError("Method not in the dictionary of methods")
+        interpolator = models.get(interpolator)._interpolate
     return _decompress(x, y, interpolator, **kwargs)
 #%%═════════════════════════════════════════════════════════════════════
 # HACKS

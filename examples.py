@@ -21,7 +21,7 @@ import limesqueezer as  ls
 input_x = np.linspace(0,1,int(1e4))
 input_y = np.sin(24 * input_x ** 2)
 # Now you want to compress it with maximum absolute error being 1e-3.
-tolerance = 1e-2
+tolerance = (1e-2, 1e-3, 1)
 
 # Or maybe you have some generator-like thing that gives out numbers.
 # E.g. some simulation step
@@ -32,7 +32,7 @@ tolerance = 1e-2
 # BLOCK
 
 # To compress a block simply
-output_x, output_y = ls.compress(input_x, input_y, tol = tolerance, errorfunction = 'maxRMS_absend')
+output_x, output_y = ls.compress(input_x, input_y, tolerances = tolerance, errorfunction = 'maxRMS_absend')
 # that is more more comfortable to use.
 
 #%%═════════════════════════════════════════════════════════════════════
@@ -43,7 +43,7 @@ generator = zip(input_x[1:], input_y[1:])
 
 # The context manager for Stream data is 'Stream'.
 
-with ls.Stream(example_x0, example_y0, tol = tolerance, errorfunction = 'maxRMS_absend') as record:
+with ls.Stream(example_x0, example_y0, tolerances = tolerance, errorfunction = 'maxRMS_absend') as record:
     # A side mote: In Enlish language the word 'record' can be either
     # verb or noun and since it performs this double role of both taking
     # in data and being storage of the data, it is a fitting name for the object
