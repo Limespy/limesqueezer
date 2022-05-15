@@ -1,6 +1,7 @@
+import math
+import numba
 import numpy as np
 import sys
-import numba
 from . import GLOBALS
 global G
 _G = GLOBALS.dictionary
@@ -23,10 +24,10 @@ def sqrtrange_python(n: int):
     inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
-@numba.jit(numba.int64[:](numba.int64),nopython = True, cache = True, fastmath = True)
+@numba.jit(nopython = True, cache = True, fastmath = True)
 def sqrtrange_numba(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
-    inds = np.arange(0, n + 1, round((n + 1) ** 0.5), np.int64)
+    inds = np.arange(0, n + 1, round(math.sqrt(n + 1)), np.int64)
     inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────

@@ -74,9 +74,7 @@ def interval_debug(f, x1, y1, x2, y2, fit1):
         return x1, fit1
 #───────────────────────────────────────────────────────────────────────
 def droot(f, y1, x2, limit):
-    '''Finds the upper limit to interval
-    '''
-
+    '''Finds the upper limit to an interval'''
     x1 = 0
     y2, fit2 = f(x2)
     fit1 = None
@@ -98,7 +96,7 @@ def droot(f, y1, x2, limit):
     return interval(f, x1, y1, x2, y2, fit1)
 #───────────────────────────────────────────────────────────────────────
 def droot_debug(f, y1, x2, limit):
-    '''Finds the upper limit to interval
+    '''Finds the upper limit to an interval
     '''
     x1 = 0
     y2, fit2 = f(x2)
@@ -106,11 +104,9 @@ def droot_debug(f, y1, x2, limit):
 
     G['xy1'], = G['ax_root'].plot(x1, y1,'g.')
     G['xy2'], = G['ax_root'].plot(x2, y2,'b.')
-
+    G['ax_root'].plot(x1, y1,'k.')
     while y2 < 0:
-
         wait('Calculating new attempt in droot\n')
-        G['ax_root'].plot(x1, y1,'k.')
 
         x1, y1, fit1 = x2, y2, fit2
         x2 *= 2

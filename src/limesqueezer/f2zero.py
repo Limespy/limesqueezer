@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 from .auxiliaries import wait
 from . import GLOBALS
@@ -5,7 +6,7 @@ global G
 G = GLOBALS.dictionary
 
 #───────────────────────────────────────────────────────────────────────
-def _get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
+def get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
@@ -13,7 +14,7 @@ def _get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         return errorfunction(residuals, tol), fit
     return f2zero
 #───────────────────────────────────────────────────────────────────────
-def _get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
+def get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
     def f2zero_debug(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
@@ -43,7 +44,3 @@ def _get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         wait('\t\tFitting\n')
         return errorfunction(residuals, tol), fit
     return f2zero_debug
-#───────────────────────────────────────────────────────────────────────
-def get(*args):
-    '''Generates function for the root finder'''
-    return _get_debug(*args) if G['debug'] else _get(*args)

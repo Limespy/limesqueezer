@@ -36,7 +36,7 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
 
     if (length := len(x)) > 1:
         inds = sqrtranges[0](length - 2) # indices so that x[-1] is not included
-        res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([length,1]) - (y[inds] - y0)
+        res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1, 1]) - (y[inds] - y0)
 
         reference = errorfunctions.maxsumabs(res, tol)
         if reference < 0: reference = 0
@@ -62,7 +62,6 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     xc, yc = [x[0]], [y[0]]
     start_y1 = - np.amax(tol) # Starting value for discrete root calculation
 
-    _droot = droot_debug if is_debug else droot
     sqrtrange = sqrtranges[use_numba]
     if isinstance(errorfunction, str):
         errorfunction = errorfunctions.get(errorfunction, use_numba)
@@ -82,10 +81,18 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     for _ in range(end): # Prevents infinite loop in case error
         if x[start-1] != xc[-1]:
             raise IndexError(f'Indices out of sync {start}')
-
-        offset, fit = _droot(f2zero.get(x[start:], y[start:], xc[-1], yc[-1],
-                                        tol, sqrtrange, f_fit, errorfunction),
-                            start_y1, offset, limit)
+        if is_debug:
+            offset, fit = droot_debug(f2zero.get_debug(x[start:], y[start:],
+                                                       xc[-1], yc[-1],
+                                                       tol, sqrtrange,
+                                                       f_fit, errorfunction),
+                                      start_y1, offset, limit)
+        else:
+            offset, fit = droot(f2zero.get(x[start:], y[start:],
+                                           xc[-1], yc[-1],
+                                           tol, sqrtrange,
+                                           f_fit, errorfunction),
+                                start_y1, offset, limit)
         step = offset + 1
         start += step # Start shifted by the number Record and the
         if start > end:
@@ -363,9 +370,10 @@ class _StreamRecord_debug(collections.abc.Sized):
             self.yb = to_ndarray(self.yb, (self._lenb, -1))
             G['x'] = self.xb
             G['y'] = self.yb
-            self.f2zero = f2zero.get(self.xb, self.yb, self.xc[-1], self.yc[-1],
-                                     self.tol, self.sqrtrange,
-                                     self.f_fit, self.errorfunction)
+            self.f2zero = f2zero.get_debug(self.xb, self.yb,
+                                           self.xc[-1], self.yc[-1],
+                                           self.tol, self.sqrtrange,
+                                           self.f_fit, self.errorfunction)
             if self.xb.shape != (self._lenb,):
                 raise ValueError(f'xb {self.xb.shape} len {self._lenb}')
 
@@ -424,12 +432,19 @@ class _StreamRecord_debug(collections.abc.Sized):
         # Converting to numpy arrays for computations
         self.xb = to_ndarray(self.xb)
         self.yb = to_ndarray(self.yb, (self._lenb, -1))
-        # print(f'Calling f2zero with {self.limit=}')
+        self.f2zero = f2zero.get_debug(self.xb, self.yb,
+                                           self.xc[-1], self.yc[-1],
+                                           self.tol, self.sqrtrange,
+                                           self.f_fit, self.errorfunction)
         self.x2 = min(self.x2, self.limit)
         self.y2, self.fit2 = self.f2zero(self.x2)
 
         while self.y2 > 0: #───────────────────────────────────────────┐
             self.squeeze_buffer(self.x1, self.y1, self.x2, self.y2)
+            self.f2zero = f2zero.get_debug(self.xb, self.yb,
+                                           self.xc[-1], self.yc[-1],
+                                           self.tol, self.sqrtrange,
+                                           self.f_fit, self.errorfunction)
             self.x2 = min(self.x2, self.limit)
             self.y2, self.fit2 = self.f2zero(self.x2)
         #──────────────────────────────────────────────────────────────┘
