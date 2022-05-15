@@ -11,7 +11,7 @@ Recommended abbreviation is 'ls'
 import limesqueezer as ls
 '''
 
-__version__ = '1.0.10'
+__version__ = '1.0.11'
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
 __all__ = ['API']

@@ -4,17 +4,15 @@ graft ci
 graft tests
 
 include .bumpversion.cfg
-include .cookiecutterrc
 include .coveragerc
 include .editorconfig
-include tox.ini
 include .appveyor.yml
 include AUTHORS.rst
 include CHANGELOG.rst
-include CONTRIBUTING.rst
 include LICENSE
 include README.rst
 include README.md
 include notes.md
+include examples.py
 
 global-exclude *.py[cod] __pycache__/* *.so *.dylib
