@@ -21,7 +21,7 @@ def _maxmaxabs_python(residuals: np.ndarray, tolerances: np.ndarray) -> float:
         if deviation > dev_max: dev_max = deviation
     return dev_max
 #───────────────────────────────────────────────────────────────────────
-@numba.jit(nopython=True, cache=True, fastmath = True)
+@numba.jit(nopython = True, cache = True, fastmath = True)
 def _maxmaxabs_numba(residuals: np.ndarray, tolerances: np.ndarray) -> float:
     '''Numba version'''
     residuals = np.abs(residuals)

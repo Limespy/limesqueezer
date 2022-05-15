@@ -230,13 +230,13 @@ def benchmark(use_numba: bool, timerange: float):
     ls.G['timed'] = True
     runtime = []
     while time.time() < endtime:
-        print(f'Benchmarking, loopset {n}')
+        print(f'\rBenchmarking, loopset {n}', end = '')
         for _ in range(n2):
             ls.compress(x_data, y_data2, tol = 1e-3, use_numba = use_numba)
             runtime.append(ls.G['runtime'])
         n += 1
     runtime = np.array(runtime)
-    print(f'mean runtime {"with" if use_numba else "without"} numba was {sum(runtime) / (n * n2)*1e3:.1f} ms') # mean runtime
+    print(f'\nMean runtime {"with" if use_numba else "without"} numba was {sum(runtime) / (n * n2)*1e3:.1f} ms') # mean runtime
     return runtime, np.cumsum(runtime)
 #═══════════════════════════════════════════════════════════════════════
 def profile(use_numba, n_runs, is_save):

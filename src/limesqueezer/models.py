@@ -6,48 +6,35 @@ class Poly10:
     """Builtin group of functions for doing the compression"""
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    def _fit_python(x: np.ndarray, y: np.ndarray, x0:float, y0: tuple) -> tuple:
+    def _fit_python(x: np.ndarray, y: np.ndarray, x0:float, y0: np.ndarray) -> tuple:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters
         Returns:
         - residuals
         - next y0 according to the fit'''
 
         Dx = x - x0
-        Dy = y - y0[0]
-        a = Dx @ Dy / Dx.dot(Dx)
-        # Returning next y0
-        return np.outer(Dx, a) - Dy, a * Dx[-1] + y0[0]
+        Dy = y - y0
+        X = np.outer(Dx, Dx @ Dy / Dx.dot(Dx))
+        return X - Dy, X[-1] + y0
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     @numba.jit(nopython=True, cache=True, fastmath = True)
-    def _fit_numba(x: np.ndarray, y: np.ndarray, x0: float, y0: tuple) -> tuple:
-        '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
+    def _fit_numba(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray) -> tuple:
+        '''Takes block of data, previous fitting parameters and calculates next fitting parameters
+        - residuals
+        - next y0 according to the fit'''
 
         Dx = x - x0
-        Dy = y - y0[0]
-        a = Dx @ Dy / Dx.dot(Dx)
-        # Returning next y0
-        return np.outer(Dx, a) - Dy, a * Dx[-1] + y0[0]
+        Dy = y - y0
+        X = np.outer(Dx, Dx @ Dy / Dx.dot(Dx))
+        return X - Dy, X[-1] + y0
     #───────────────────────────────────────────────────────────────────
     fit = (_fit_python, _fit_numba)
     #═══════════════════════════════════════════════════════════════════
     @staticmethod
-    def _y_from_fit_python(fit: tuple, x: np.ndarray) -> np.ndarray:
-        '''Converts the fitting parameters and x to storable y values'''
-        return fit[0] * x + fit[1]
-    #───────────────────────────────────────────────────────────────────
-    @staticmethod
-    @numba.jit(nopython=True, cache=True, fastmath = True)
-    def _y_from_fit_numba(fit: tuple, x: np.ndarray) -> np.ndarray:
-        '''Converts the fitting parameters and x to storable y values'''
-        return fit[0] * x + fit[1]
-    #───────────────────────────────────────────────────────────────────
-    y_from_fit = (_y_from_fit_python, _y_from_fit_numba)
-    #═══════════════════════════════════════════════════════════════════
-    @staticmethod
-    def _interpolate(x, x1:float, x2: float, y1: tuple, y2: tuple):
+    def _interpolate(x, x1: float, x2: float, y1: np.ndarray, y2: np.ndarray) -> np.ndarray:
         '''Interpolates between two consecutive points of compressed data'''
-        return (y2[0] - y1[0]) / (x2 - x1) * (x - x1) + y1[0]
+        return (y2 - y1) / (x2 - x1) * (x - x1) + y1
 #%%═════════════════════════════════════════════════════════════════════
 class Poly1100:
     """Builtin group of functions for doing the compression"""
