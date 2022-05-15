@@ -6,8 +6,7 @@ Command line interface for processing command line input
 import numpy as np
 import pathlib
 import sys
-import time
-from .GLOBALS import dictionary as G
+from .GLOBALS import G
 from . import API as ls
 from . import reference as ref
 helpstring = 'No arguments given'

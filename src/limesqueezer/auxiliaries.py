@@ -2,9 +2,6 @@ import math
 import numba
 import numpy as np
 import sys
-from . import GLOBALS
-global G
-_G = GLOBALS.dictionary
 import matplotlib.pyplot as plt
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES

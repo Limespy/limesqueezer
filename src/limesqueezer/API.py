@@ -6,28 +6,21 @@ API
 
 Connection point for all package utilities provided
 '''
+from bisect import bisect_left
 import collections
+from matplotlib import pyplot as plt
 import numpy as np
 import sys
 import time
 import types
-from bisect import bisect_left
-import matplotlib.pyplot as plt
 
-from . import f2zero
-from . import GLOBALS
-from . import auxiliaries as aux
-from .auxiliaries import to_ndarray, wait, sqrtranges
-from .root import droot, droot_debug, interval, interval_debug
+from .auxiliaries import to_ndarray, wait, sqrtranges, debugsetup
 from . import errorfunctions
-from . import models
+from . import f2zero
+from .GLOBALS import G
+from .models import fitsets
 from . import reference as ref # Careful with this circular import
-# This global dictionary G is for passing some telemtery and debug arguments
-global G
-G = GLOBALS.dictionary
-
-fitsets = {'Poly10': models.Poly10,
-           'Poly1100': models.Poly1100}
+from .root import droot, droot_debug, interval, interval_debug
 
 # @numba.jit(nopython=True,cache=True)
 def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
@@ -76,7 +69,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
     else:
         offset = initial_step
     
-    if is_debug: G.update(aux.debugsetup(x, y, tol, fitset, start))
+    if is_debug: G.update(debugsetup(x, y, tol, fitset, start))
     #───────────────────────────────────────────────────────────────────
     for _ in range(end): # Prevents infinite loop in case error
         if x[start-1] != xc[-1]:
@@ -106,7 +99,13 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
             G['ax_root'].axhline(color = 'red', linestyle = '--')
             G['ax_root'].set_ylabel('Maximum residual')
         #──────────────────────────────────────────────────────────────┘
-        if fit is None:
+        if fit:
+            yc.append(fit)
+            if is_debug: #─────────────────────────────────────────────┐
+                G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
+                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])
+            #──────────────────────────────────────────────────────────┘
+        else:
             if offset == 0: # No skipping of points was possible
                 yc.append(y[start - 1])
                 if is_debug: #─────────────────────────────────────────┐
@@ -115,12 +114,6 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, tol = 1e-2, initial_step = None,
                 #──────────────────────────────────────────────────────┘
             else: # Something weird
                 raise RuntimeError('Fit not found')
-        else:
-            yc.append(fit)
-            if is_debug: #─────────────────────────────────────────────┐
-                G['x_plot'] = G['x'][start -1 + np.arange(- offset, 0)]
-                G['y_plot'] = G['interp'](G['x_plot'], *xc[-2:], *yc[-2:])
-            #──────────────────────────────────────────────────────────┘
         if is_debug: #─────────────────────────────────────────────────┐
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
@@ -166,18 +159,9 @@ class _StreamRecord(collections.abc.Sized):
         self.f_fit      = f_fit 
         self.sqrtrange  = sqrtrange
         self.limit      = -1 # Last index of the buffer
-        self._lenb      = 0 # length of the buffer
         self._lenc      = 1 # length of the Record points
         self.fit1       = np.array((1))
-        self.y1         = -self.tol # Initialising
-    # #───────────────────────────────────────────────────────────────────
-    # def _f2zero(self, i: int) -> tuple:
-    #     '''Function such that i is optimal when f2zero(i) = 0'''
-
-    #     inds = self.sqrtrange(i)
-    #     residuals, fit = self.f_fit(self.xb[inds], self.yb[inds],
-    #                                 self.xc[-1], self.yc[-1])
-    #     return self.errorfunction(residuals, self.tol), fit
+        self.y1         = self.start_y1 # Initialising
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self, x1, y1, x2, y2):
         '''Compresses the buffer by one step'''
@@ -194,7 +178,6 @@ class _StreamRecord(collections.abc.Sized):
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
 
         self.limit -= step
-        self._lenb -= step
         self._lenc += 1
 
         self.x2 = offset # Approximation
@@ -208,11 +191,10 @@ class _StreamRecord(collections.abc.Sized):
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
-        self._lenb += 1
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb)
-            self.yb = to_ndarray(self.yb, (self._lenb, -1))
+            self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
             self.f2zero = f2zero.get(self.xb, self.yb, self.xc[-1], self.yc[-1],
                                      self.tol, self.sqrtrange,
                                      self.f_fit, self.errorfunction)
@@ -228,10 +210,10 @@ class _StreamRecord(collections.abc.Sized):
             # Converting back to lists
             self.xb, self.yb = list(self.xb), list(self.yb)
         #──────────────────────────────────────────────────────────────┘
-        return self._lenc, self._lenb
+        return self._lenc, self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
-        return self._lenc + self._lenb
+        return self._lenc + self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __str__(self):
         return f'{self.x=} {self.y=} {self.tol=}'
@@ -241,7 +223,7 @@ class _StreamRecord(collections.abc.Sized):
         self.state = 'closing'
         # Converting to numpy arrays for computations
         self.xb = to_ndarray(self.xb)
-        self.yb = to_ndarray(self.yb, (self._lenb, -1))
+        self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
         self.f2zero = f2zero.get(self.xb, self.yb, self.xc[-1], self.yc[-1],
                                      self.tol, self.sqrtrange,
                                      self.f_fit, self.errorfunction)
@@ -290,10 +272,9 @@ class _StreamRecord_debug(collections.abc.Sized):
         self.sqrtrange  = sqrtrange
         self.limit      = -1 # Last index of the buffer
 
-        self._lenb      = 0 # length of the buffer
         self._lenc      = 1 # length of the Record points
         self.fit1       = 1
-        self.y1         = -self.tol # Initialising
+        self.y1         = self.start_y1 # Initialising
 
         G.update({'tol': self.tol,
                     'x': np.array(self.xb),
@@ -346,7 +327,6 @@ class _StreamRecord_debug(collections.abc.Sized):
         self.x1, self.y1, step = 0, self.start_y1, offset + 1
 
         self.limit -= step
-        self._lenb -= step
         self._lenc += 1
 
         self.x2 = offset # Approximation
@@ -359,7 +339,6 @@ class _StreamRecord_debug(collections.abc.Sized):
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
-        self._lenb += 1
 
         G['line_buffer'].set_xdata(self.xb)
         G['line_buffer'].set_ydata(self.yb)
@@ -367,17 +346,17 @@ class _StreamRecord_debug(collections.abc.Sized):
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
             self.xb = to_ndarray(self.xb)
-            self.yb = to_ndarray(self.yb, (self._lenb, -1))
+            self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
             G['x'] = self.xb
             G['y'] = self.yb
             self.f2zero = f2zero.get_debug(self.xb, self.yb,
                                            self.xc[-1], self.yc[-1],
                                            self.tol, self.sqrtrange,
                                            self.f_fit, self.errorfunction)
-            if self.xb.shape != (self._lenb,):
-                raise ValueError(f'xb {self.xb.shape} len {self._lenb}')
+            if self.xb.shape != (self.limit + 1,):
+                raise ValueError(f'xb {self.xb.shape} len {self.limit + 1}')
 
-            if self.yb.shape != (self._lenb, len(self.yc[0])):
+            if self.yb.shape != (self.limit + 1, len(self.yc[0])):
                 raise ValueError(f'{self.yb.shape=}')
 
             self.y2, self.fit2 = self.f2zero(self.x2)
@@ -418,10 +397,10 @@ class _StreamRecord_debug(collections.abc.Sized):
             if self.yc[-1].shape != (1,):
                 raise ValueError(f'{self.yc[-1].shape=}')
         #──────────────────────────────────────────────────────────────┘
-        return self._lenc, self._lenb
+        return self._lenc, self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
-        return self._lenc + self._lenb
+        return self._lenc + self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __str__(self):
         return f'{self.x=} {self.y=} {self.tol=}'
@@ -431,7 +410,7 @@ class _StreamRecord_debug(collections.abc.Sized):
 
         # Converting to numpy arrays for computations
         self.xb = to_ndarray(self.xb)
-        self.yb = to_ndarray(self.yb, (self._lenb, -1))
+        self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
         self.f2zero = f2zero.get_debug(self.xb, self.yb,
                                            self.xc[-1], self.yc[-1],
                                            self.tol, self.sqrtrange,
@@ -524,7 +503,7 @@ def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
 # WRAPPING
 # Here are the main external inteface functions
 compressors = {'LSQ10': LSQ10}
-interpolators = {'Poly10': models.Poly10._interpolate}
+interpolators = {'Poly10': fitsets['Poly10']._interpolate}
 #───────────────────────────────────────────────────────────────────────
 def compress(*args, compressor = 'LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''

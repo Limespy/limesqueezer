@@ -1,7 +1,5 @@
-from . import GLOBALS
 from .auxiliaries import wait
-global G
-G = GLOBALS.dictionary
+from .GLOBALS import G
 #%%═════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f, x1, y1, x2, y2, fit1):
