@@ -38,26 +38,64 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
         return 1.
 #%%═════════════════════════════════════════════════════════════════════
 # BLOCK COMPRESSION
-def LSQ10(x_in: np.ndarray, y_in: np.ndarray, /,
-          tolerances = (1e-2, 1e-2, 0), initial_step = None,
-          errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'
-          ) -> tuple:
+def LSQ10(x_in: np.ndarray,y_in: np.ndarray, /,
+          tolerances    = (1e-2, 1e-2, 0),
+          initial_step  = None,
+          errorfunction = 'maxmaxabs',
+          use_numba     = 0,
+          fitset        = 'Poly10',
+          keepshape     = False
+          ) -> tuple[np.ndarray, np.ndarray]:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
+
+    Parameters
+    ----------
+    x_in : np.ndarray
+        x-coordiantes of the points to be compressed
+    y_in : np.ndarray
+        y-coordinates of the points to be compressed
+    tolerances : tuple, optional
+        tollerances in format (relative, absolute, falloff), by default (1e-2, 1e-2, 0)
+    initial_step : int, optional
+        First compression step to be calculated. If None, it is automatically calculated. Provide for testing purposes or for miniscule reduction in setup time, by default None
+    errorfunction : str, optional
+        Function which is used to compute the error of the fit, by default 'maxmaxabs'
+    use_numba : int, optional
+        For using functions with Numba JIT set as 1, by default 0
+    fitset : str, optional
+        Name of the fitting function set, by default 'Poly10'
+    keepshape : bool, optional
+        Whether the output is in similar shape to input. By default False
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Compressed  x and Y as numpy ndarrays
+
+    Raises
+    ------
+    IndexError
+        Compressor has internally gotten out of sync due to internal errors.
+    RuntimeError
+        Creating a fit failed for some unknown reason and returned None.
+    StopIteration
+        For some reason the compression reached the maximum number of iterations possible. Either the input is flawed or comppresion has errors.
     '''
     is_debug = G['debug']
     if G['timed']:  G['t_start'] = time.perf_counter()
-    start   = 1 # Index of starting point for looking for optimum
-    end     = len(x_in) - 1 # Number of datapoints -1, i.e. the last index
-    limit   = end - start
-
+    xlen    = len(x_in)
     x       = to_ndarray(x_in)
-    y       = to_ndarray(y_in, (len(x), -1))
+    y       = to_ndarray(y_in, (xlen, -1))
     # Relative, absolute, falloff
     tol     = tuple([to_ndarray(tol, y[0].shape) for tol in tolerances])
     xc, yc = [x[0]], [y[0]]
 
     start_y1 = - np.amax(tol[1]) # Starting value for discrete root calculation
+
+    start   = 1 # Index of starting point for looking for optimum
+    end     = xlen - 1 # Number of datapoints -1, i.e. the last index
+    limit   = end - start
 
     sqrtrange = sqrtranges[use_numba]
     if isinstance(errorfunction, str):
@@ -111,7 +149,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, /,
                     G['y_plot'] = yc[-2:]
                 #──────────────────────────────────────────────────────┘
             else: # Something weird
-                raise RuntimeError('Fit not found')
+                raise RuntimeError('Fit returned was None, check fit functions for errors')
         else:
             yc.append(fit)
             if is_debug: #─────────────────────────────────────────────┐
@@ -121,7 +159,7 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, /,
         if is_debug: #─────────────────────────────────────────────────┐
             G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
         #──────────────────────────────────────────────────────────────┘
-        
+
         limit -= step
         # Setting up to be next estimation
         if limit < offset: offset = limit
@@ -136,13 +174,15 @@ def LSQ10(x_in: np.ndarray, y_in: np.ndarray, /,
     xc.append(x[-1])
     yc.append(y[-1])
 
-    if G['timed']:
-        G['runtime'] = time.perf_counter() - G['t_start']
-
-    if is_debug:
-        plt.ioff()
-    # if xc[-2] == xc[-1]: print(xc)
-    return to_ndarray(xc), to_ndarray(yc)
+    if G['timed']: G['runtime'] = time.perf_counter() - G['t_start']
+    if is_debug: plt.ioff()
+    # returning in same shape as it came in
+    if keepshape:
+        yshape = tuple([len(xc) if l == xlen else l for l in y_in.shape])
+        xshape = tuple([len(xc) if l == xlen else l for l in x_in.shape])
+        return to_ndarray(xc, xshape), to_ndarray(yc, yshape)
+    else:
+        return np.array(xc), np.array(yc)
 #%%═════════════════════════════════════════════════════════════════════
 # STREAM COMPRESSION
 class _StreamRecord(collections.abc.Sized):
@@ -192,6 +232,7 @@ class _StreamRecord(collections.abc.Sized):
             raise IndexError('End of compressed and beginning of buffer are same')
     #───────────────────────────────────────────────────────────────────
     def __call__(self, x_raw, y_raw):
+        _squeezed = False # For tracking tif the buffer was compressed
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
@@ -210,11 +251,12 @@ class _StreamRecord(collections.abc.Sized):
                 self.x2 += 1
             else: # Squeezing the buffer
                 self.squeeze_buffer(self.x1, self.y1, self.x2, self.y2)
+                _squeezed = True
             #──────────────────────────────────────────────────────────┘
             # Converting back to lists
             self.xb, self.yb = list(self.xb), list(self.yb)
         #──────────────────────────────────────────────────────────────┘
-        return self._lenc, self.limit + 1
+        return _squeezed, self._lenc, self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
         return self._lenc + self.limit + 1
@@ -237,7 +279,7 @@ class _StreamRecord(collections.abc.Sized):
 
         while self.y2 > 0: #───────────────────────────────────────────┐
             self.squeeze_buffer(self.x1, self.y1, self.x2, self.y2)
-            
+
             if self.x2 > self.limit: self.x2 = self.limit
             self.f2zero = f2zero.get(self.xb, self.yb, self.xc[-1], self.yc[-1],
                                      self.tol, self.sqrtrange,
@@ -449,12 +491,16 @@ class _StreamRecord_debug(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of
     1 dimensional system of equations'''
-    def __init__(self, x0, y0, tolerances = (1e-2, 1e-3, 0), initial_step = 100,
-                 errorfunction = 'maxmaxabs', use_numba = 0, fitset = 'Poly10'):
-        self.x0            = x0
+    def __init__(self, x0: float, y0,
+                 tolerances = (1e-2, 1e-3, 0),
+                 initial_step = 100,
+                 errorfunction = 'maxmaxabs',
+                 use_numba = 0,
+                 fitset = 'Poly10'):
+        self.x0  = x0
         # Variables are columns, e.G. 3xn
-        self.y0            = to_ndarray(y0, (-1,))
-        self.tol           = tuple([to_ndarray(tol, self.y0.shape)
+        self.y0  = to_ndarray(y0, (-1,))
+        self.tol = tuple([to_ndarray(tol, self.y0.shape)
                                     for tol in tolerances])
 
         if isinstance(errorfunction, str): #───────────────────────────┐

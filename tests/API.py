@@ -24,9 +24,31 @@ def f2zero_100(n: int) -> float:
     if round(n) != n: raise ValueError('Not whole number')
     if n < 0: raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
+def compressionaxis(x, y):
+    if y.ndim == 1:
+        return 0
+    if y.shape[0] == len(x):
+        return 0
+    if y.shape[0] == len(x):
+        return 1
 #%%═════════════════════════════════════════════════════════════════════
 # TEST CASES
 class Unittests(unittest.TestCase):
+    #═══════════════════════════════════════════════════════════════════
+    # Auxiliaries
+    def assertNpEqual(self, left, right):
+        self.assertTrue(np.all(left == right), f'{left=} {right=}')
+    #───────────────────────────────────────────────────────────────────
+    def assertEndpointEqual(self, left, right):
+        self.assertNpEqual(left[0], right[0])
+        self.assertNpEqual(left[-1], right[-1])
+    #───────────────────────────────────────────────────────────────────
+    def aux_compress_default(self, y_data):
+        xc, yc = ls.compress(x_data, y_data, tolerances = tol, keepshape = True)
+        self.assertEqual(y_data.ndim, yc.ndim)
+        self.assertEndpointEqual(x_data, xc)
+        if compressionaxis(x_data, y_data):
+            self.assertEndpointEqual(y_data.T, yc.T)
     #═══════════════════════════════════════════════════════════════════
     # Metatests on tests themselves
     def test_0_1_f2zero_100(self):
@@ -114,45 +136,16 @@ class Unittests(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Block Compresion
     def test_2_1_compress_default_y1(self):
-        xc, yc = ls.compress(x_data, y_data1, tolerances = tol)
-        self.assertEqual(x_data[0], xc[0])
-        self.assertEqual(y_data1[0], yc[0])
-        self.assertEqual(x_data[-1], xc[-1])
-        self.assertEqual(y_data1[-1], yc[-1])
+        self.aux_compress_default(y_data1)
     #───────────────────────────────────────────────────────────────────
     def test_2_2_compress_default_y1(self):
-        xc, yc = ls.compress(x_data, to_ndarray(y_data1, (-1,1)), tolerances = tol)
-        self.assertEqual(x_data[0], xc[0])
-        self.assertEqual(y_data1[0], yc[0])
-        self.assertEqual(x_data[-1], xc[-1])
-        self.assertEqual(y_data1[-1], yc[-1])
+        self.aux_compress_default(to_ndarray(y_data1, (-1,1)))
     #───────────────────────────────────────────────────────────────────
     def test_2_3_compress_default_y2(self):
-        xc, yc = ls.compress(x_data, y_data2, tolerances = tol)
-        self.assertEqual(x_data[0], xc[0])
-        self.assertTrue(np.all(y_data2[0] == yc[0]))
-        self.assertEqual(x_data[-1], xc[-1])
-        self.assertTrue(np.all(y_data2[-1] == yc[-1]))
+        self.aux_compress_default(y_data2)
     #───────────────────────────────────────────────────────────────────
-    # def test_2_4_compress_default_y2(self):
-    #     print(y_data2.shape)
-    #     xc, yc = ls.compress(x_data, y_data2.T, tolerances = tol)
-    #     y_data2.T
-    #     print(f'{np.all(np.diff(x_data)>0)=}')
-    #     print(f'{np.all(np.diff(xc)>0)=}')
-    #     ydc = ls.decompress(xc, yc)(x_data)
-    #     # plotters.comparison(x_data[:9000], y_data2[:9000], ydc[:9000])
-    #     print(y_data2.shape)
-    #     print(y_data2[:2])
-    #     print(ydc[:2])
-    #     print(y_data2[0] - yc[0])
-    #     print(y_data2[-2:])
-    #     print(ydc[-2:])
-    #     print(y_data2[-1] - yc[-1])
-    #     self.assertEqual(x_data[0], xc[0])
-    #     self.assertTrue(np.allclose(y_data2[0], yc[0]))
-    #     self.assertEqual(x_data[-1], xc[-1])
-    #     self.assertTrue(np.all(y_data2[-1] == yc[-1]))
+    def test_2_4_compress_default_y2(self):
+        self.aux_compress_default(y_data2.T)
     #═══════════════════════════════════════════════════════════════════
     # Stream Compression
     def test_3_1_stream_1y(self):
@@ -165,11 +158,8 @@ class Unittests(unittest.TestCase):
                 record(x, y)
         #───────────────────────────────────────────────────────────────
         self.assertEqual(record.state, 'closed')
-
-        self.assertEqual(x_data[0], record.x[0])
-        self.assertEqual(y_data1[0], record.y[0])
-        self.assertEqual(x_data[-1], record.x[-1])
-        self.assertEqual(y_data1[-1], record.y[-1])
+        self.assertEndpointEqual(x_data, record.x)
+        self.assertEndpointEqual(y_data1, record.y)
     #═══════════════════════════════════════════════════════════════════
     # Stream Compression
     def test_4_3_block_vs_stream_1y(self):
@@ -184,8 +174,8 @@ class Unittests(unittest.TestCase):
             for x, y in zip(x_data[1:], y_data1[1:]):
                 record(x, y)
         #───────────────────────────────────────────────────────────────
-        self.assertTrue(np.all(xc_block == record.x))
-        self.assertTrue(np.all(yc_block == record.y))
+        self.assertNpEqual(xc_block, record.x)
+        self.assertNpEqual(yc_block, record.y)
     #═══════════════════════════════════════════════════════════════════
     # Decompression
     def test_5_1_decompress_mock(self):
@@ -202,6 +192,9 @@ class Unittests(unittest.TestCase):
         function = ls.decompress(xc, yc)
         function_call = ls(x_data, y_data1, tolerances = tol, errorfunction = 'maxmaxabs')
 #═══════════════════════════════════════════════════════════════════════
+def unittests():
+    return unittest.TextTestRunner(verbosity = 2).run(unittest.makeSuite(Unittests))
+#%%═════════════════════════════════════════════════════════════════════
 def benchmark(use_numba: bool, timerange: float):
     endtime = time.time() + timerange
     n = 0
