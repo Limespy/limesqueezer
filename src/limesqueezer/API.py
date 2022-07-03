@@ -80,7 +80,9 @@ def LSQ10(x_in: np.ndarray,y_in: np.ndarray, /,
     RuntimeError
         Creating a fit failed for some unknown reason and returned None.
     StopIteration
-        For some reason the compression reached the maximum number of iterations possible. Either the input is flawed or comppresion has errors.
+        For some reason the compression reached the maximum number of
+        iterations possible. Either the input is flawed or compression has
+        errors.
     '''
     is_debug = G['debug']
     if G['timed']:  G['t_start'] = time.perf_counter()
