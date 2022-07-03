@@ -24,6 +24,7 @@ def f2zero_100(n: int) -> float:
     if round(n) != n: raise ValueError('Not whole number')
     if n < 0: raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
+#%%═════════════════════════════════════════════════════════════════════
 def compressionaxis(x, y):
     if y.ndim == 1:
         return 0
@@ -36,10 +37,13 @@ def compressionaxis(x, y):
 class Unittests(unittest.TestCase):
     #═══════════════════════════════════════════════════════════════════
     # Auxiliaries
-    def assertNpEqual(self, left, right):
+    def assertNpEqual(self, left: np.ndarray, right: np.ndarray, /):
+        '''Asserts that two Numpy arrays have same shape and have equal elements'''
+        self.assertEqual(left.shape, right.shape)
         self.assertTrue(np.all(left == right), f'{left=} {right=}')
     #───────────────────────────────────────────────────────────────────
-    def assertEndpointEqual(self, left, right):
+    def assertEndpointEqual(self, left, right, /):
+        '''Assers that two sequences have both first and last elements equal'''
         self.assertNpEqual(left[0], right[0])
         self.assertNpEqual(left[-1], right[-1])
     #───────────────────────────────────────────────────────────────────
