@@ -1,0 +1,2 @@
+matplotlib ==3.5.2
+numba == 0.55.2

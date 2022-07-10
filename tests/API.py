@@ -25,7 +25,7 @@ def f2zero_100(n: int) -> float:
     if n < 0: raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
 #%%═════════════════════════════════════════════════════════════════════
-def compressionaxis(x, y):
+def compressionaxis(x: np.ndarray, y: np.ndarray) -> int:
     if y.ndim == 1:
         return 0
     if y.shape[0] == len(x):
@@ -163,7 +163,7 @@ class Unittests(unittest.TestCase):
         #───────────────────────────────────────────────────────────────
         self.assertEqual(record.state, 'closed')
         self.assertEndpointEqual(x_data, record.x)
-        self.assertEndpointEqual(y_data1, record.y)
+        self.assertEndpointEqual(to_ndarray(y_data1, (-1, 1)), record.y)
     #═══════════════════════════════════════════════════════════════════
     # Stream Compression
     def test_4_3_block_vs_stream_1y(self):
@@ -192,14 +192,16 @@ class Unittests(unittest.TestCase):
         '''Block and stream compressions must give equal compressed output
         for 1 y variable'''
         x_data, y_data1 = ls.ref.raw_sine_x2(1e4)
-        xc, yc = ls.compress(x_data, y_data1, tolerances = tol, errorfunction = 'maxmaxabs')
+        xc, yc = ls.compress(x_data, y_data1,
+                             tolerances = tol, errorfunction = 'maxmaxabs')
         function = ls.decompress(xc, yc)
-        function_call = ls(x_data, y_data1, tolerances = tol, errorfunction = 'maxmaxabs')
+        function_call = ls(x_data, y_data1,
+                           tolerances = tol, errorfunction = 'maxmaxabs')
 #═══════════════════════════════════════════════════════════════════════
 def unittests():
     return unittest.TextTestRunner(verbosity = 2).run(unittest.makeSuite(Unittests))
 #%%═════════════════════════════════════════════════════════════════════
-def benchmark(use_numba: bool, timerange: float):
+def benchmark(use_numba: bool, timerange: float) -> tuple[float, np.ndarray]:
     endtime = time.time() + timerange
     n = 0
     n2 = 50
@@ -215,7 +217,7 @@ def benchmark(use_numba: bool, timerange: float):
     print(f'\nMean runtime {"with" if use_numba else "without"} numba was {sum(runtime) / (n * n2)*1e3:.1f} ms') # mean runtime
     return runtime, np.cumsum(runtime)
 #═══════════════════════════════════════════════════════════════════════
-def profile(use_numba, n_runs, is_save):
+def profile(use_numba: bool, n_runs: int, is_save: bool):
     ls.G['timed'] = False
     profilecode = f'for _ in range({n_runs}): API.ls.compress(API.x_data, API.y_data2, tolerances = (1e-3, 1e-4, 1), use_numba = {use_numba})'
     path_out = path_testing / 'profiling' / f'{"with" if use_numba else "no"}_numba.pstats'

@@ -13,6 +13,7 @@ import numpy as np
 import sys
 import time
 import types
+from typing import Callable
 
 from .auxiliaries import to_ndarray, wait, sqrtranges, debugsetup, stats
 from . import errorfunctions
@@ -192,10 +193,20 @@ class _StreamRecord(collections.abc.Sized):
     system of equations
     i.e. single wait variable and one or more output variable
     """
-    def __init__(self, x0: float, y0: np.ndarray, tol: np.ndarray, errorfunction: str, f_fit, sqrtrange, x2):
+    def __init__(self,
+                 x0: float,
+                 y0: np.ndarray,
+                 x_type: type,
+                 y_type: type,
+                 tol: np.ndarray,
+                 errorfunction: str,
+                 f_fit: Callable,
+                 sqrtrange: Callable,
+                 x2):
         if G['timed']: G['t_start'] = time.perf_counter()
         self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
         self.xc, self.yc = [x0], [y0]
+        self.x_type, self.y_type = x_type, y_type
         self.x1         = 0 # Index of starting point for looking for optimum
         self.x2         = x2
         self.tol        = tol
@@ -233,8 +244,14 @@ class _StreamRecord(collections.abc.Sized):
         if self.xc[-1] == self.xb[0]:
             raise IndexError('End of compressed and beginning of buffer are same')
     #───────────────────────────────────────────────────────────────────
-    def __call__(self, x_raw, y_raw):
-        _squeezed = False # For tracking tif the buffer was compressed
+    def __call__(self, x_raw, y_raw) -> tuple[bool, int, int]:
+        _squeezed = False # For tracking if the buffer was compressed
+
+        if type(x_raw) != self.x_type:
+            raise TypeError('Type of the x not same as the initial value')
+        if type(y_raw) != self.y_type:
+            raise TypeError('Type of the y not same as the initial value')
+
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
@@ -306,10 +323,21 @@ class _StreamRecord_debug(collections.abc.Sized):
     system of equations
     i.e. single wait variable and one or more output variable
     """
-    def __init__(self, x0: float, y0: np.ndarray, tol: np.ndarray, errorfunction: str, f_fit, sqrtrange, x2, interpolator):
+    def __init__(self,
+                 x0: float,
+                 y0: np.ndarray,
+                 x_type: type,
+                 y_type: type,
+                 tol: np.ndarray,
+                 errorfunction: str,
+                 f_fit: Callable,
+                 sqrtrange: Callable,
+                 x2,
+                 interpolator):
         if G['timed']: G['t_start'] = time.perf_counter()
         self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
         self.xc, self.yc = [x0], [y0]
+        self.x_type, self.y_type = x_type, y_type
         self.x1         = 0 # Index of starting point for looking for optimum
         self.x2         = x2
         self.tol        = tol
@@ -383,7 +411,14 @@ class _StreamRecord_debug(collections.abc.Sized):
         if self.xc[-1] == self.xb[0]:
             raise IndexError('End of compressed and beginning of buffer are same')
     #───────────────────────────────────────────────────────────────────
-    def __call__(self, x_raw, y_raw):
+    def __call__(self, x_raw, y_raw, /):
+        _squeezed = False # For tracking if the buffer was compressed
+
+        if type(x_raw) != self.x_type:
+            raise TypeError('Type of the x not same as the initial value')
+        if type(y_raw) != self.y_type:
+            raise TypeError('Type of the y not same as the initial value')
+
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
@@ -445,7 +480,7 @@ class _StreamRecord_debug(collections.abc.Sized):
             if self.yc[-1].shape != (1,):
                 raise ValueError(f'{self.yc[-1].shape=}')
         #──────────────────────────────────────────────────────────────┘
-        return self._lenc, self.limit + 1
+        return _squeezed, self._lenc, self.limit + 1
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
         return self._lenc + self.limit + 1
@@ -493,15 +528,17 @@ class _StreamRecord_debug(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of
     1 dimensional system of equations'''
-    def __init__(self, x0: float, y0,
-                 tolerances = (1e-2, 1e-3, 0),
-                 initial_step = 100,
-                 errorfunction = 'maxmaxabs',
-                 use_numba = 0,
-                 fitset = 'Poly10'):
+    def __init__(self, x0: float, y0: float | np.ndarray,
+                 tolerances: float | tuple[float, float, float] = (1e-2, 1e-3, 0),
+                 initial_step: int = 100,
+                 errorfunction: Callable | str = 'maxmaxabs',
+                 use_numba: 0 | 1 = 0,
+                 fitset: object | str = 'Poly10'):
         self.x0  = x0
+        self.x_type = type(x0)
         # Variables are columns, e.G. 3xn
         self.y0  = to_ndarray(y0, (-1,))
+        self.y_type = type(y0)
         self.tol = tuple([to_ndarray(tol, self.y0.shape)
                                     for tol in tolerances])
 
@@ -520,12 +557,13 @@ class Stream():
         self.x2         = initial_step
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
+        basic_args = (self.x0, self.y0, self.x_type, self.y_type, self.tol,
+                      self.errorfunction, self.f_fit, self.sqrtrange, self.x2)
         if G['debug']:
-            self.record = _StreamRecord_debug(self.x0, self.y0, self.tol,
-                                          self.errorfunction, self.f_fit, self.sqrtrange, self.x2, self.fitset.interpolate)
+            self.record = _StreamRecord_debug(*basic_args, 
+                                              self.fitset.interpolate)
         else:
-            self.record = _StreamRecord(self.x0, self.y0, self.tol,
-                                          self.errorfunction, self.f_fit, self.sqrtrange, self.x2)
+            self.record = _StreamRecord(*basic_args)
         return self.record
     #───────────────────────────────────────────────────────────────────
     def __exit__(self, exc_type, exc_value, traceback):

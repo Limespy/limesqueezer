@@ -12,7 +12,7 @@ from src.limesqueezer.__init__ import __version__ as version
 path_package = pathlib.Path(__file__).parent
 
 source = 'src'
-Python_version = '>=3.10'
+Python_version = '>=3.9'
 changelog_name = 'CHANGELOG.rst'
 license_name = 'LICENSE.txt'
 
@@ -34,6 +34,11 @@ with io.open(path_package / license_name, 'r') as file:
 name = tuple(path_src.rglob('__init__.py'))[0].parent.stem
 
 github_URL = f'https://github.com/limespy/{name}'
+
+
+# Loading the list of dependencies
+with open(path_package / 'dependencies.txt', encoding = 'utf8') as f:
+    dependencies = [line.rstrip() for line in f.readlines()]
 
 def c(*args):
     out = f'{args[0]} :: {args[1]}'
@@ -89,10 +94,7 @@ setup(name = name,
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
       python_requires = Python_version,
-      install_requires = ['matplotlib ~=3.5.1',
-                          'numba ~= 0.55.1',
-                          'numpy ~= 1.21.5'
-    ],
+      install_requires = dependencies
       extras_require = {
     },
       entry_points = {
