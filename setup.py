@@ -1,28 +1,26 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
+from src.limesqueezer.__init__ import __version__ as version
 
-import re
+import pandoc
+
+import os
 import pathlib
+import re
 from setuptools import find_packages
 from setuptools import setup
-
-from src.limesqueezer.__init__ import __version__ as version
 
 path_package = pathlib.Path(__file__).parent
 
 source = 'src'
 Python_version = '>=3.10'
-changelog_name = 'CHANGELOG.rst'
-license_fname = 'LICENSE'
-
+changelog_fname = 'CHANGELOG.rst'
+license_fname = 'LICENSE.txt'
 path_src = path_package / source
 
 def read(*names):
     with open(path_package.joinpath(*names), 'r', encoding = 'utf8') as f:
         return f.read()
-
-badges = re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('badges.rst'))
-changelog = re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read(changelog_name))
 
 # Licence name
 with open(path_package / license_fname, 'r', encoding = 'utf8') as f:
@@ -30,7 +28,23 @@ with open(path_package / license_fname, 'r', encoding = 'utf8') as f:
 
 name = tuple(path_src.rglob('__init__.py'))[0].parent.stem
 
+# Long description
+# Converting the markdown format to rst
+readme_md = read('README.md')
+readme_rst = pandoc.write(pandoc.read(readme_md), format = 'rst')
+with open(path_package / 'README.rst', 'w', encoding = 'utf8', newline = '') as f:
+    f.write(readme_rst)
+badges = read('badges.rst')
+changelog = read(changelog_fname)
+long_description = f'{badges}\n\n{readme_rst}\n{changelog}'
+
+
+
+# For verification
+print(f'{"-"*60}\n\tSoftware description\n{"-"*60}\n\n{long_description}\n\n') 
+
 github_URL = f'https://github.com/limespy/{name}'
+
 
 # Loading the list of dependencies
 with open(path_package / 'dependencies.txt', encoding = 'utf8') as f:
@@ -57,7 +71,7 @@ setup(name                 = name,
       version              = version,
       license              = f'{license_name.split()[0]}',
       description          = 'Lossy compression for smooth numerical data series',
-      long_description     = f'{badges}\n{changelog}',
+      long_description     = long_description,
       author               = 'Limespy',
       author_email         = '',
       url                  = github_URL,
@@ -82,7 +96,7 @@ setup(name                 = name,
                      *cset('Topic',
                            ('System', 'Archiving', 'Compression'), 'Utilities'),
     ],
-      project_urls = {'Changelog': f'{github_URL}/blob/master/{changelog_name}',
+      project_urls = {'Changelog': f'{github_URL}/blob/master/{changelog_fname}',
                       'Issue Tracker': f'{github_URL}/issues',
     },
       keywords = [

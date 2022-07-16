@@ -1,17 +1,17 @@
-# interp-compression
+# Overview
 
 Lossy compression tools for smooth data series.
 WIP
 
-- [interp-compression](#interp-compression)
-  - [Use](#use)
-    - [Examples](#examples)
-      - [Block](#block)
-      - [Stream](#stream)
-    - [Combining comression methods](#combining-comression-methods)
+- [Overview](#overview)
+- [Use](#use)
+  - [Examples](#examples)
+    - [Block](#block)
+    - [Stream](#stream)
+    - [Combining compression methods](#combining-compression-methods)
 
-## Use
-### Examples
+# Use
+## Examples
 
 limesqueezer uses numpy ndarrays types for input and output.
 The package itself with author-recommended abbreviation.
@@ -27,14 +27,15 @@ For example, let's take 100 000 datapoints along some function
     input_x = np.linspace(0,1,int(1e4))
     input_y = np.sin(24 * input_x ** 2)
 ```
-
+Example of the data, compression output, and residuals
+![Example of the data, compression output, and residuals](figures/example.png)
 
 Or maybe you have some generator-like thing that gives out numbers.
 E.g. some simulation step
 Here you use the context manager "Stream"
 Initialise with first values, here I am just going to use the first
 
-#### Block
+### Block
 
 A function.
 
@@ -54,7 +55,7 @@ You can also use
 ```
 if that is more comfortable for you.
 
-#### Stream
+### Stream
 
 Context manager and a class.
 
@@ -95,12 +96,10 @@ in data and being storage of the data, it is a fitting name for the object
 ``` python
     output_x, output_y = record.x, record.y
     print(record.state)
-    print(record.__str__)
+    print(record)
 ```
 
-![Plot form the example](figures/example.png)
-
-### Combining comression methods
+### Combining compression methods
 
 This compression method can be combined with lossless compressiom to achieve even higher compression ratios.
 The lossless compression should come after doing the compression this package provides.
