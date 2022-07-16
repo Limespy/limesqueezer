@@ -2,37 +2,7 @@
 Overview
 ========
 
-.. start-badges
-
-.. list-table::
-    :stub-columns: 1
-
-    * - package
-      - | |version| |wheel| |supported-versions| |supported-implementations|
-        | |commits-since|
-
-.. |version| image:: https://img.shields.io/pypi/v/limesqueezer.svg
-    :alt: PyPI Package latest release
-    :target: https://pypi.org/project/limesqueezer
-
-.. |wheel| image:: https://img.shields.io/pypi/wheel/limesqueezer.svg
-    :alt: PyPI Wheel
-    :target: https://pypi.org/project/limesqueezer
-
-.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/limesqueezer.svg
-    :alt: Supported versions
-    :target: https://pypi.org/project/limesqueezer
-
-.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/limesqueezer.svg
-    :alt: Supported implementations
-    :target: https://pypi.org/project/limesqueezer
-
-.. |commits-since| image:: https://img.shields.io/github/commits-since/limespy/limesqueezer/v1.0.10.svg
-    :alt: Commits since latest release
-    :target: https://github.com/limespy/limesqueezer/compare/v1.0.10...master
-
-
-.. end-badges
+.. include:: ./badges.rst
 
 Lossy compression tools for smooth data series. WIP
 
@@ -41,7 +11,7 @@ Lossy compression tools for smooth data series. WIP
 Installation
 ============
 
-::
+.. code-block:: python
 
     pip install limesqueezer
 
@@ -49,12 +19,13 @@ You can also install the in-development version with::
 
     pip install https://github.com/limespy/limesqueezer/archive/master.zip
 
-
-Documentation
-=============
-
 Examples
 ========
+
+.. figure:: ./figures/example.png
+    :align: center
+
+    Example with error function being maximum of maximum absolute error
 
 limesqueezer uses numpy ndarrays types for input and output.
 The package itself with author-recommended abbreviation.
@@ -106,6 +77,7 @@ Stream
     generator = zip(input_x[1:], input_y[1:])
 
 The context manager for stream data is called 'Stream'.
+Author recommends idiom of naming the object 'record'
 
 .. code-block:: python
 
@@ -134,7 +106,7 @@ the record to be compressed.
 
 A side mote: In English language the word 'record' can be either
 verb or noun and since it performs this double role of both taking
-in data and being storage of the data, it is a fitting name for the object
+in data and being storage of the data, it is a fitting idiom for the object
 
 .. code-block:: python
 

@@ -1,8 +1,6 @@
-import sys
 import pathlib
 import numpy as np
 from collections import namedtuple
-from scipy import interpolate
 import math
 
 from .. import API as ls # Careful with this circular import
@@ -32,29 +30,29 @@ def f2zero_100(n: int) -> float:
 #%%═════════════════════════════════════════════════════════════════════
 # Reference raw data
 def raw_poly0(n = 1e1):
-    x = np.linspace(0,1,int(n))
+    x = np.linspace(0, 1, int(n))
     return x, np.zeros(len(x))
 #───────────────────────────────────────────────────────────────────────
 def raw_poly1(n = 1e1):
-    x = np.linspace(0,1,int(n))
+    x = np.linspace(0, 1, int(n))
     return x, x
 #───────────────────────────────────────────────────────────────────────
 def raw_poly2(n = 1e2):
-    x = np.linspace(0,1,int(n))
-    return x, np.array(x**2)
+    x = np.linspace(0, 1, int(n))
+    return x, np.array(x ** 2)
 #───────────────────────────────────────────────────────────────────────
 def raw_sine(n = 1e4):
-    x = np.linspace(0,6,int(n))
-    return x, np.array(np.sin(x*2*math.pi))
+    x = np.linspace(0, 6, int(n))
+    return x, np.array(np.sin(x * 2 * math.pi))
 #───────────────────────────────────────────────────────────────────────
 def raw_sine_x2(n = 1e4):
-    x = np.linspace(0,6,int(n))
-    return x, np.array(np.sin(x*x))
+    x = np.linspace(0, 6, int(n))
+    return x, np.array(np.sin(x * x))
 #───────────────────────────────────────────────────────────────────────
-def raw_sine_normal(n = 1e4, std=0.1):
+def raw_sine_x2_normal(n = 1e4, std = 0.1):
     rng = np.random.default_rng(12345)
-    x = np.linspace(0,1,int(n))
-    return x, np.array(np.sin(x*2*math.pi)) + std*rng.standard_normal(int(n))
+    x = np.linspace(0, 6, int(n))
+    return x, np.array(np.sin(x * x)) + std * rng.standard_normal(int(n))
 #───────────────────────────────────────────────────────────────────────
 raw = {'poly0': raw_poly0,
        'poly1': raw_poly1,
@@ -70,15 +68,6 @@ class Data():
         self.ytol = ytol
         self.xc = None
         self.yc = None
-    #───────────────────────────────────────────────────────────────────
-    def make_lerp(self):
-        self.lerp = interpolate.interp1d(self.xc.flatten(), self.yc.flatten(),
-                                            assume_sorted=True)
-        self.residuals = self.lerp(self.x) - self.y
-        self.residuals_relative = self.residuals / self.ytol
-        self.residuals_relative_cumulative = np.cumsum(self.residuals_relative)
-        self.NRMSE = np.std(self.residuals)/self.y_range
-        self.covariance = np.cov((self.lerp(self.x), self.y))
 #───────────────────────────────────────────────────────────────────────
 references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
 #───────────────────────────────────────────────────────────────────────
