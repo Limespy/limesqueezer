@@ -23,8 +23,8 @@
     :alt: Supported implementations
     :target: https://pypi.org/project/limesqueezer
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/limespy/limesqueezer/v1.0.11.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/limespy/limesqueezer/v1.0.12.svg
     :alt: Commits since latest release
-    :target: https://github.com/limespy/limesqueezer/compare/v1.0.11...master
+    :target: https://github.com/limespy/limesqueezer/compare/v1.0.12...master
 
 .. end-badges

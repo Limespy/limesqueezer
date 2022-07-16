@@ -111,7 +111,7 @@ A custom compressor needs a fucntion
 
 '''
 
-__version__ = '1.0.11'
+__version__ = '1.0.12'
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
 from .API import *
