@@ -13,7 +13,7 @@ path_package = pathlib.Path(__file__).parent
 source = 'src'
 Python_version = '>=3.10'
 changelog_name = 'CHANGELOG.rst'
-license_name = 'LICENSE.txt'
+license_fname = 'LICENSE'
 
 path_src = path_package / source
 
@@ -25,7 +25,7 @@ badges = re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', rea
 changelog = re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read(changelog_name))
 
 # Licence name
-with open(path_package / license_name, 'r', encoding = 'utf8') as f:
+with open(path_package / license_fname, 'r', encoding = 'utf8') as f:
     license_name = f.readline()[:-1]
 
 name = tuple(path_src.rglob('__init__.py'))[0].parent.stem
@@ -88,7 +88,7 @@ setup(name                 = name,
       keywords = [
     ],
       python_requires = Python_version,
-      install_requires = dependencies
+      install_requires = dependencies,
       extras_require = {
     },
       entry_points = {'console_scripts': [f'{name} = {name}.CLI:main',]
