@@ -137,7 +137,7 @@ def LSQ10(x_in: np.ndarray,
 
     if is_debug:
         G.update(debugsetup(x, y, tol[1], fitset, start))
-        get_f2z = f2zero.get
+        get_f2z = f2zero.get_debug
         solver = droot_debug
     else:
         get_f2z = f2zero.get
@@ -373,8 +373,10 @@ class _StreamRecord_debug(collections.abc.Sized):
         self._lenc      = 1 # length of the Record points
         self.fit1       = 1
         self.err1         = self.start_err1 # Initialising
-
-        G.update({'tol': self.tol,
+        self.get_f2zero = get_f2zero
+        self.max_y = self.yc[0] # For plotting
+        self.min_y = self.yc[0] # For plotting
+        G.update({'tol': self.tol[1],
                     'x': np.array(self.xb),
                     'y': np.array(self.yb),
                     'xc': self.xb,
@@ -417,7 +419,7 @@ class _StreamRecord_debug(collections.abc.Sized):
         else:
             self.yc.append(fit)
 
-            G['x_plot'] = self.xb[np.arange(0, offset + 1)]
+            G['x_plot'] = self.xb[:offset + 1]
             G['y_plot'] = G['interp'](G['x_plot'], *self.xc[-2:], *self.yc[-2:])
 
         G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
@@ -447,6 +449,13 @@ class _StreamRecord_debug(collections.abc.Sized):
 
         G['line_buffer'].set_xdata(self.xb)
         G['line_buffer'].set_ydata(self.yb)
+        G['ax_data'].set_xlim(self.xc[0], self.xb[-1]* 1.05)
+        if y_raw < self.min_y:
+            self.min_y = y_raw
+            G['ax_data'].set_ylim(self.min_y, self.max_y * 1.1)
+        elif y_raw > self.max_y:
+            self.max_y = y_raw
+            G['ax_data'].set_ylim(self.min_y, self.max_y * 1.1)
 
         if  self.limit >= self.x2: #───────────────────────────────────┐
             # Converting to numpy arrays for computations
@@ -585,7 +594,7 @@ class Stream():
                       self.get_f2z)
         if G['debug']:
             self.record = _StreamRecord_debug(*basic_args, 
-                                              self.fitset.interpolate)
+                                              self.fitset._interpolate)
         else:
             self.record = _StreamRecord(*basic_args)
         return self.record

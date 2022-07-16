@@ -64,7 +64,9 @@ def get_debug(x: np.ndarray,
         G['ax_res'].grid()
         G['ax_res'].axhline(color = 'red', linestyle = '--')
         G['ax_res'].set_ylabel('Residual relative to tolerance')
-        G['ax_res'].plot(indices_all[1:] - G['start'], np.abs(res_all) / G['tol']-1,
+        indices_x = indices_all[1:] - G['start']
+        residuals_relative =  np.abs(res_all) / G['tol'] - 1
+        G['ax_res'].plot(indices_x, residuals_relative,
                             '.', color = 'blue', label = 'ignored')
         G['ax_res'].plot(inds, np.abs(residuals) / G['tol']-1,
                             'o', color = 'red', label = 'sampled')
