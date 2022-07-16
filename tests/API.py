@@ -89,7 +89,8 @@ class Unittests(unittest.TestCase):
         #         compare = tuple([n if v == -1 else n for v in shape])
         #         self.assertEqual(to_ndarray(array, shape = shape).shape, compare)
     #───────────────────────────────────────────────────────────────────
-    def test_1_2_sqrtfill(self):
+    def test_1_2_sqrtrange(self):
+        '''- sqrtrange works as it should'''
         self.assertTrue(isinstance(ls.API.sqrtranges[0](1), np.ndarray))
         reltol = 5e-2
         for i in [1, 5 , 100, 1000, 10000]:
@@ -139,21 +140,64 @@ class Unittests(unittest.TestCase):
             self.assertGreaterEqual(lines, 1)
     #═══════════════════════════════════════════════════════════════════
     # Block Compresion
-    def test_2_1_compress_default_y1(self):
+    def test_block_1_1_compress_default_y1(self):
+        '''- 1D input'''
         self.aux_compress_default(y_data1)
     #───────────────────────────────────────────────────────────────────
-    def test_2_2_compress_default_y1(self):
+    def test_block_1_2_compress_default_y1(self):
+        '''- 1D input with as compum array'''
         self.aux_compress_default(to_ndarray(y_data1, (-1,1)))
     #───────────────────────────────────────────────────────────────────
-    def test_2_3_compress_default_y2(self):
+    def test_block_1_3_compress_default_y2(self):
+        '''- 2D input'''
         self.aux_compress_default(y_data2)
     #───────────────────────────────────────────────────────────────────
-    def test_2_4_compress_default_y2(self):
+    def test_block_1_4_compress_default_y2(self):
+        '''- 2D input transposed'''
         self.aux_compress_default(y_data2.T)
+    #───────────────────────────────────────────────────────────────────
+    def test_block_2_1_tolerances_correct_input(self):
+        '''- Compression accepts different tolerance inputs
+        '''
+        ls.compress(x_data, y_data1, tolerances = (1e-2, 1e-2, 0))
+        ls.compress(x_data, y_data1, tolerances = (1e-2, 1e-2))
+        ls.compress(x_data, y_data1, tolerances = (1e-2))
+        ls.compress(x_data, y_data1, tolerances = 1e-2)
+    #───────────────────────────────────────────────────────────────────
+    def test_block_2_1_tolerances_incorrect_input(self):
+        '''- Compression rejects incorrect tolerance inputs
+        '''
+        with self.assertRaises(TypeError):
+            ls.compress(x_data, y_data1, tolerances = 'hmm')
+        with self.assertRaises(ValueError):
+            ls.compress(x_data, y_data1, tolerances = ())
+        with self.assertRaises(ValueError):
+            ls.compress(x_data, y_data1, tolerances = (1, 2, 3, 4))
+    #───────────────────────────────────────────────────────────────────
+    def test_block_2_3_tolerances_limits(self):
+        '''- Compression works as expected at the edges of the tolerance
+        range
+        '''
+        x_c, y_c = ls.compress(x_data, y_data1,
+                              tolerances = np.finfo(float).max / 1e2,
+                              keepshape = True)
+        self.assertEqual((2,), x_c.shape)
+        self.assertEqual((2,), y_c.shape)
+        x_c, y_c = ls.compress(x_data, y_data1,
+                               tolerances = np.finfo(float).eps,
+                               keepshape = True)
+        self.assertEqual(x_data.shape, x_c.shape)
+        self.assertEqual(y_data1.shape, y_c.shape)
+    #───────────────────────────────────────────────────────────────────
+    def test_block_3_1_keepshape(self):
+        '''- Array noncompressed dimension is kept same'''
+        x_c, y_c = ls.compress(x_data, y_data2, keepshape = True)
+        self.assertEqual(len(x_data.shape), len(x_c.shape))
+        self.assertEqual(y_data2.shape[1], y_c.shape[1])
     #═══════════════════════════════════════════════════════════════════
     # Stream Compression
-    def test_3_1_stream_1y(self):
-        '''Stream compression runs and outputs correctly'''
+    def test_stream_1_1y(self):
+        '''- Stream compression runs and outputs correctly'''
         #───────────────────────────────────────────────────────────────
         with ls.Stream(x_data[0], y_data1[0], tolerances = tol) as record:
             self.assertTrue(isinstance(record, ls.API._StreamRecord))
@@ -166,8 +210,8 @@ class Unittests(unittest.TestCase):
         self.assertEndpointEqual(to_ndarray(y_data1, (-1, 1)), record.y)
     #═══════════════════════════════════════════════════════════════════
     # Stream Compression
-    def test_4_3_block_vs_stream_1y(self):
-        '''Block and stream compressions must give equal compressed output
+    def test_stream_vs_block_3_1y(self):
+        '''- Block and stream compressions must give equal compressed output
         for 1 y variable'''
 
         x_data, y_data1 = ls.ref.raw_sine_x2(1e4)
@@ -182,14 +226,14 @@ class Unittests(unittest.TestCase):
         self.assertNpEqual(yc_block, record.y)
     #═══════════════════════════════════════════════════════════════════
     # Decompression
-    def test_5_1_decompress_mock(self):
-        '''Runs decompression on and compares to original.'''
+    def test_decompress_1_mock(self):
+        '''- Runs decompression on and compares to original.'''
         self.assertTrue(np.allclose(ls.decompress(x_data, y_data1)(x_data),
                                     y_data1, atol = 1e-14))
     #═══════════════════════════════════════════════════════════════════
     # Compression decompression
-    def test_6_2_module_call(self):
-        '''Block and stream compressions must give equal compressed output
+    def test_module_2_call(self):
+        '''- Block and stream compressions must give equal compressed output
         for 1 y variable'''
         x_data, y_data1 = ls.ref.raw_sine_x2(1e4)
         xc, yc = ls.compress(x_data, y_data1,

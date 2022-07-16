@@ -10,10 +10,10 @@ class Poly10:
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def _fit_python(x: np.ndarray,
-                           y: np.ndarray,
-                           x0:float,
-                           y0: np.ndarray
-                           ) -> tuple[np.ndarray, np.ndarray]:
+                    y: np.ndarray,
+                    x0:float,
+                    y0: np.ndarray
+                    ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters
 
         Parameters
@@ -29,8 +29,8 @@ class Poly10:
 
         Returns
         -------
-        residuals: np.ndarray
-            _description_
+        np.ndarray
+            Fitted y-values
         '''
 
         Dx = x - x0
@@ -38,12 +38,12 @@ class Poly10:
         return np.outer(Dx, Dx @ Dy / Dx.dot(Dx)) + y0
     #───────────────────────────────────────────────────────────────────
     @staticmethod
-    @numba.jit(nopython=True, cache=True, fastmath = True)
+    @numba.jit(nopython = True, cache = True, fastmath = True)
     def _fit_numba(x: np.ndarray,
-                           y: np.ndarray,
-                           x0:float,
-                           y0: np.ndarray
-                           ) -> tuple[np.ndarray, np.ndarray]:
+                   y: np.ndarray,
+                   x0:float,
+                   y0: np.ndarray
+                   ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters
 
         Parameters
@@ -59,8 +59,8 @@ class Poly10:
 
         Returns
         -------
-        residuals: np.ndarray
-            _description_
+        np.ndarray
+            Fitted y-values
         '''
 
         Dx = x - x0
@@ -70,7 +70,8 @@ class Poly10:
     fit = (_fit_python, _fit_numba)
     #═══════════════════════════════════════════════════════════════════
     @staticmethod
-    def _interpolate(x, x1: float, x2: float, y1: np.ndarray, y2: np.ndarray) -> np.ndarray:
+    def _interpolate(x, x1: float, x2: float, y1: np.ndarray, y2: np.ndarray
+                     ) -> np.ndarray:
         '''Interpolates between two consecutive points of compressed data'''
         return (y2 - y1) / (x2 - x1) * (x - x1) + y1
 #%%═════════════════════════════════════════════════════════════════════
@@ -79,10 +80,10 @@ class Poly1100:
     #───────────────────────────────────────────────────────────────────
     @staticmethod
     def _fit_python(x: np.ndarray,
-                           y: np.ndarray,
-                           x0:float,
-                           y0: np.ndarray
-                           ) -> tuple[np.ndarray, np.ndarray]:
+                    y: np.ndarray,
+                    x0:float,
+                    y0: np.ndarray
+                    ) -> tuple[np.ndarray, np.ndarray]:
         '''Takes block of data, previous fitting parameters and calculates next fitting parameters'''
         y = y.T
         Dx = x - x0
@@ -214,7 +215,3 @@ def get(name: str):
         return dictionary[name]
     except KeyError:
         raise NotImplementedError(f'Builtin fit function {name} not recognised. Valid are {tuple(dictionary.keys())}')
-    # try:
-    #     return versions[use_numba]
-    # except IndexError:
-    #     raise ValueError(f'Numba selector should be 0 or 1, not {use_numba}')

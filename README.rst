@@ -77,6 +77,7 @@ Stream
     generator = zip(input_x[1:], input_y[1:])
 
 The context manager for stream data is called 'Stream'.
+Author recommends idiom of naming the object 'record'
 
 .. code-block:: python
 
@@ -105,7 +106,7 @@ the record to be compressed.
 
 A side mote: In English language the word 'record' can be either
 verb or noun and since it performs this double role of both taking
-in data and being storage of the data, it is a fitting name for the object
+in data and being storage of the data, it is a fitting idiom for the object
 
 .. code-block:: python
 

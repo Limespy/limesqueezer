@@ -9,34 +9,33 @@ import sys
 from .GLOBALS import G
 from . import API as ls
 from . import reference as ref
+#%%═════════════════════════════════════════════════════════════════════
+# Setup
 helpstring = 'No arguments given'
-
-#───────────────────────────────────────────────────────────────────────
-def main():
-    '''The main command line app'''
-    args = sys.argv[1:]
-    is_verbose =  ('--verbose' in args or '-v' in args)
-    is_timed = ('--timed' in args or '-t' in args)
-    is_plot = '--plot' in args
-    is_save = '--save' in args
-    is_show = '--show' in args
-    G['timed'] = '--timed' in args
-    G['debug'] = '--debug' in args
-    use_numba = int('--numba' in args)
-    if len(args) == 0:
-        print(helpstring)
-        sys.exit()
-    path_cwd = pathlib.Path.cwd()
-
-    if is_verbose: print('Selected path is:\n\t%s' % path_cwd)
-    if args[0] == 'sandbox': #──────────────────────────────────────────
-        args = args[1:]
-        import sandbox
-    else:
-        run(args, use_numba, is_plot, is_timed)
-    sys.exit()
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
+def get_kwarg(kwarg: str, args: list) -> tuple[bool, list]: #──────────┐
+    '''Checks for presence of given argument in the arguments list,
+    removes it if present, and returns True. Else False
+    Parameters
+    ----------
+    kwarg : str
+        Keyword to be extracted fromt the arguments
+    args : list
+        Arguments
+
+    Returns
+    -------
+    tuple[bool, list]
+        Whether the keyword was in arguments
+        and the arguments without the keyword
+    '''
+    try:
+        args.pop(args.index(kwarg))
+        return True, args
+    except ValueError:
+        return False, args
+#───────────────────────────────────────────────────────────────────────
 def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
     x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.00001)
     # y_data[1000] += 1 
@@ -59,7 +58,7 @@ def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
                 break
         print(xcb)
         print(xcs)
-        
+
         xc, yc = xcb, ycb
     if is_plot:
         from . import plotters
@@ -74,3 +73,28 @@ def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
         for x, y in zip(x_data[1:], y_data[1:]):
             record(x, y)
     return record.x, record.y
+#───────────────────────────────────────────────────────────────────────
+def main():
+    '''The main command line app'''
+    args = sys.argv[1:]
+    is_verbose, args = get_kwarg('--verbose', args)
+    is_plot, args = get_kwarg('--plot', args)
+    is_save, args = get_kwarg('--save', args)
+    is_show, args = get_kwarg('--show', args)
+    G['timed'], args = get_kwarg('--timed', args)
+    G['debug'], args = get_kwarg('--debug', args)
+    use_numba, args = get_kwarg('--numba', args)
+    use_numba = int(use_numba)
+    if len(args) == 0:
+        print(helpstring)
+        sys.exit()
+    path_cwd = pathlib.Path.cwd()
+
+    if is_verbose: print('Selected path is:\n\t%s' % path_cwd)
+    if args[0] == 'sandbox': #──────────────────────────────────────────
+        args = args[1:]
+        import sandbox
+    else:
+        run(args, use_numba, is_plot, G['timed'])
+    sys.exit()
+

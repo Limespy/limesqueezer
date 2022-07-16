@@ -1,8 +1,19 @@
-import numpy as np
+"""Functions to be solved in discrete root finding"""
 from .auxiliaries import wait
 from .GLOBALS import G
+
+import numpy as np
+
+from typing import Callable
 #───────────────────────────────────────────────────────────────────────
-def get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
+def get(x: np.ndarray,
+        y: np.ndarray,
+        x0: float,
+        y0: np.ndarray,
+        tol: tuple,
+        sqrtrange: Callable,
+        f_fit: Callable,
+        errorfunction: Callable) -> Callable:
     def f2zero(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0
 
@@ -14,7 +25,7 @@ def get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         Returns
         -------
         tuple
-            output of the error function and fit
+            output of the error function and last of the fit
         '''
         inds = sqrtrange(i)
         x_sample, y_sample = x[inds], y[inds]
@@ -22,7 +33,14 @@ def get(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
         return errorfunction(y_sample, y_fit, tol), y_fit[-1]
     return f2zero
 #───────────────────────────────────────────────────────────────────────
-def get_debug(x, y, x0, y0, tol, sqrtrange, f_fit, errorfunction):
+def get_debug(x: np.ndarray,
+              y: np.ndarray,
+              x0: float,
+              y0: np.ndarray,
+              tol: tuple,
+              sqrtrange: Callable,
+              f_fit: Callable,
+              errorfunction: Callable) -> Callable:
     def f2zero_debug(i: int) -> tuple:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)

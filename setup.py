@@ -11,7 +11,7 @@ from src.limesqueezer.__init__ import __version__ as version
 path_package = pathlib.Path(__file__).parent
 
 source = 'src'
-Python_version = '>=3.9'
+Python_version = '>=3.10'
 changelog_name = 'CHANGELOG.rst'
 license_name = 'LICENSE.txt'
 

@@ -76,8 +76,8 @@ def _maxMS_python(y_sample: np.ndarray,
         Y values from fitting the model into data
     tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
         Tolerances for errors
-        1) Relative error array
-        2) Absolute error array
+        1) Relative tolerance array
+        2) Absolute tolerance array
         3) Falloff array
 
     Returns
@@ -109,8 +109,8 @@ def _maxMS_numba(y_sample: np.ndarray,
         Y values from fitting the model into data
     tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
         Tolerances for errors
-        1) Relative error array
-        2) Absolute error array
+        1) Relative tolerance array
+        2) Absolute tolerance array
         3) Falloff array
 
     Returns
