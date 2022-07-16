@@ -1,12 +1,22 @@
 
 Changelog
 =========
-1.0.10 (2021-11-30)
+
+1.0.12 (2022-07-16)
 -------------------
 
-- Cleaned documentation
+- 
 
-1.0.10 (2021-11-30)
+1.0.11 (2022-07-16)
+-------------------
+
+- Debug plotting improvements
+- Added undocumented API for other fitting functions
+- More tests
+- Profiling and benchmarking from tests
+- 
+
+1.0.10 (2022-05-08)
 -------------------
 
 - Cleaned documentation
