@@ -4,6 +4,7 @@ Command line interface for processing command line input
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
 import numpy as np
+from numpy.typing import NDArray
 import pathlib
 import sys
 from .GLOBALS import G
@@ -14,7 +15,8 @@ from . import reference as ref
 helpstring = 'No arguments given'
 #%%═════════════════════════════════════════════════════════════════════
 # UI UTILITES
-def get_kwarg(kwarg: str, args: list) -> tuple[bool, list]: #──────────┐
+def get_kwarg(kwarg: str, args: list[str]
+              ) -> tuple[bool, list[str]]:
     '''Checks for presence of given argument in the arguments list,
     removes it if present, and returns True. Else False
     Parameters
@@ -36,7 +38,7 @@ def get_kwarg(kwarg: str, args: list) -> tuple[bool, list]: #──────�
     except ValueError:
         return False, args
 #───────────────────────────────────────────────────────────────────────
-def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
+def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
     x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.00001)
     # y_data[1000] += 1 
     if args[0] == 'block':
@@ -47,7 +49,7 @@ def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
         xc, yc = _stream(x_data, y_data, (1e-2, 1e-3, 1), use_numba)
     elif args[0] == 'both':
         xcb, ycb = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1), use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
-        xcs, ycs = _stream(x_data, y_data, (1e-2, 1e-3, 1), use_numba)
+        xcs, ycs = _stream(x_data, y_data, (1e-2, 1e-3, 1.), use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:
                 print(f'Deviation at {i=}, {xb=}, {xs=}')
@@ -67,7 +69,10 @@ def run(args: list, use_numba: int, is_plot: bool, is_timed: bool):
     print(f'{len(x_data)=}\t{len(xc)=}')
     if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
-def _stream(x_data: np.ndarray, y_data: np.ndarray, tol: float, use_numba: int):
+def _stream(x_data: NDArray[np.float64],
+            y_data: NDArray[np.float64],
+            tol: tuple[float, float, float],
+            use_numba: int):
 
     with ls.Stream(x_data[0], y_data[0], tolerances = tol, use_numba = use_numba) as record:
         for x, y in zip(x_data[1:], y_data[1:]):

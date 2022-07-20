@@ -3,9 +3,12 @@ import numba
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+from .GLOBALS import FloatArray, Any, Callable
+
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
-def to_ndarray(item, shape = ()) :
+def to_ndarray(item: Any, shape: tuple[int, ...] = ()
+               ) -> FloatArray:
     if not hasattr(item, '__iter__'): # Not some iterable
         if -1 in shape: # Array of shape length of dimensions with one item
             return np.array(item, ndmin = len(shape))
@@ -15,6 +18,7 @@ def to_ndarray(item, shape = ()) :
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
 #───────────────────────────────────────────────────────────────────────
+SqrtRange = Callable[[int], np.int64]
 def sqrtrange_python(n: int):
     '''~ sqrt(n + 2) equally spaced integers including the n'''
     inds = np.arange(0, n + 1, round((n + 1) ** 0.5), np.int64)
@@ -46,7 +50,8 @@ def stats(x_data, xc):
 {datarange / hmeanslice / len(xc):.1f} x better than mean slices
 {datarange / minslice / len(xc):.1f} x better than minimum slices'''
 #───────────────────────────────────────────────────────────────────────
-def debugsetup(x, y, tol, fitset, start):
+def debugsetup(x: FloatArray, y: FloatArray, tol: float, fitset, start
+               ) -> dict[str, Any]:
     _G = {'x': x,
           'y': y,
           'tol': tol,
@@ -56,7 +61,7 @@ def debugsetup(x, y, tol, fitset, start):
     _G['fig'], axs = plt.subplots(3,1)
     for ax in axs:
         ax.grid()
-    _G['ax_data'], _G['ax_res'], _G['ax_root'] = axs
+    _G['ax_data'], _G['ax_res'], _G['ax_root']  = axs
 
     _G['ax_data'].fill_between(x, (y - tol).flatten(), (y + tol).flatten(),
                                alpha=.3, color = 'blue')

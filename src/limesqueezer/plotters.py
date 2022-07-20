@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import limesqueezer as ls
 import numpy as np
-
+from numpy.typing import NDArray
 def data_compressed_1d(input_x, input_y, tolerance):
     
     output_x, output_y = ls.compress(input_x, input_y, tolerances = tolerance)
@@ -26,7 +26,7 @@ def data_compressed_1d(input_x, input_y, tolerance):
     fig.tight_layout()
     plt.show()
 #───────────────────────────────────────────────────────────────────────
-def comparison(x: np.ndarray, y1: np.ndarray, y2: np.ndarray):
+def comparison(x: NDArray[np.float64], y1: NDArray[np.float64], y2: NDArray[np.float64]):
     xlen = len(x)
     if len(y1.shape) == 1:
         shape = (1, xlen)

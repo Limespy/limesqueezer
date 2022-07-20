@@ -1,20 +1,33 @@
 """Functions to be solved in discrete root finding"""
-from .auxiliaries import wait
-from .GLOBALS import G
-
+from .auxiliaries import wait, SqrtRange
+from .GLOBALS import (G, 
+                      FloatArray,
+                      Callable,
+                      TolerancesInternal)
+from .models import  FitFunction
+from .errorfunctions import ErrorFunction
 import numpy as np
-
-from typing import Callable
 #───────────────────────────────────────────────────────────────────────
-def get(x: np.ndarray,
-        y: np.ndarray,
+F2Zero = Callable[[int], tuple[float, FloatArray]]
+Get =  Callable[[FloatArray,
+                       FloatArray,
+                       float,
+                       FloatArray,
+                       TolerancesInternal,
+                       SqrtRange,
+                       FitFunction,
+                       ErrorFunction],
+                      F2Zero]
+def get(x: FloatArray,
+        y: FloatArray,
         x0: float,
-        y0: np.ndarray,
-        tol: tuple,
-        sqrtrange: Callable,
-        f_fit: Callable,
-        errorfunction: Callable) -> Callable:
-    def f2zero(i: int) -> tuple:
+        y0: FloatArray,
+        tol: TolerancesInternal,
+        sqrtrange: SqrtRange,
+        f_fit: FitFunction,
+        errorfunction: ErrorFunction
+        ) -> F2Zero:
+    def f2zero(i: int) -> tuple[float, FloatArray]:
         '''Function such that i is optimal when f2zero(i) = 0
 
         Parameters
@@ -33,15 +46,16 @@ def get(x: np.ndarray,
         return errorfunction(y_sample, y_fit, tol), y_fit[-1]
     return f2zero
 #───────────────────────────────────────────────────────────────────────
-def get_debug(x: np.ndarray,
-              y: np.ndarray,
+def get_debug(x: FloatArray,
+              y: FloatArray,
               x0: float,
-              y0: np.ndarray,
-              tol: tuple,
-              sqrtrange: Callable,
-              f_fit: Callable,
-              errorfunction: Callable) -> Callable:
-    def f2zero_debug(i: int) -> tuple:
+              y0: FloatArray,
+              tol: TolerancesInternal,
+              sqrtrange: Callable[[int], np.int64],
+              f_fit: FitFunction,
+              errorfunction: ErrorFunction
+              ) -> Callable[[int], tuple[float, FloatArray]]:
+    def f2zero(i: int) -> tuple[float, FloatArray]:
         '''Function such that i is optimal when f2zero(i) = 0'''
         inds = sqrtrange(i)
         x_sample, y_sample = x[inds], y[inds]
@@ -73,4 +87,4 @@ def get_debug(x: np.ndarray,
         G['ax_res'].legend(loc = 'lower right')
         wait('\t\tFitting\n')
         return errorfunction(y_sample, y_fit, tol), y_fit[-1]
-    return f2zero_debug
+    return f2zero

@@ -110,7 +110,7 @@ Making custom compressors
 A custom compressor needs a fucntion
 
 '''
-
+import sys
 __version__ = '1.0.12'
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT

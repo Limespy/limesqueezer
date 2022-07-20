@@ -1,20 +1,23 @@
 import numpy as np
 import numba as nb
+from .GLOBALS import Callable, FloatArray, TolerancesInternal
+
+ErrorFunction = Callable[[FloatArray, FloatArray, TolerancesInternal], float]
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
-def _maxmaxabs_python(y_sample: np.ndarray,
-                      y_fit: np.ndarray,
-                      tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxmaxabs_python(y_sample: FloatArray,
+                      y_fit: FloatArray,
+                      tolerances: tuple[FloatArray, FloatArray, FloatArray]
                       ) -> float:
     '''Maximum of absolute orrors relative to tolerance
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative error array
         2) Absolute error array
@@ -31,19 +34,19 @@ def _maxmaxabs_python(y_sample: np.ndarray,
     return np.max(np.abs(y_fit - y_sample) - reltols - abstols)
 #───────────────────────────────────────────────────────────────────────
 @nb.jit(nopython = True, cache = True, fastmath = True)
-def _maxmaxabs_numba(y_sample: np.ndarray,
-                     y_fit: np.ndarray,
-                     tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxmaxabs_numba(y_sample: FloatArray,
+                     y_fit: FloatArray,
+                     tolerances: tuple[FloatArray, FloatArray, FloatArray]
                      ) -> float:
     '''Maximum of absolute orrors relative to tolerance. Numba version
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative error array
         2) Absolute error array
@@ -59,9 +62,9 @@ def _maxmaxabs_numba(y_sample: np.ndarray,
     abstols = tolerances[1] / (tolerances[2] * y_sample_abs + 1)
     return np.max(np.abs(y_fit - y_sample) - reltols - abstols)
 #%%═════════════════════════════════════════════════════════════════════
-def _maxMS_python(y_sample: np.ndarray,
-                   y_fit: np.ndarray,
-                   tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxMS_python(y_sample: FloatArray,
+                   y_fit: FloatArray,
+                   tolerances: tuple[FloatArray, FloatArray, FloatArray]
                    ) -> float:
     '''Root mean square error without numba.
     1. Calculate residuals squared
@@ -70,11 +73,11 @@ def _maxMS_python(y_sample: np.ndarray,
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative tolerance array
         2) Absolute tolerance array
@@ -92,9 +95,9 @@ def _maxMS_python(y_sample: np.ndarray,
     return np.amax(np.mean(residuals * residuals - reltols - abstols, 0))
 #───────────────────────────────────────────────────────────────────────
 @nb.jit(nopython=True, cache=True, fastmath = True)
-def _maxMS_numba(y_sample: np.ndarray,
-                  y_fit: np.ndarray,
-                  tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxMS_numba(y_sample: FloatArray,
+                  y_fit: FloatArray,
+                  tolerances: TolerancesInternal
                   ) -> float:
     '''Root mean square error using Numba.
     1. Calculate residuals squared
@@ -103,11 +106,11 @@ def _maxMS_numba(y_sample: np.ndarray,
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative tolerance array
         2) Absolute tolerance array
@@ -124,9 +127,9 @@ def _maxMS_numba(y_sample: np.ndarray,
     residuals = y_fit - y_sample
     return np.amax(np.mean(residuals * residuals - reltols - abstols, 0))
 #%%═════════════════════════════════════════════════════════════════════
-def _maxMS_absend_python(y_sample: np.ndarray,
-                          y_fit: np.ndarray,
-                          tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxMS_absend_python(y_sample: FloatArray,
+                          y_fit: FloatArray,
+                          tolerances: TolerancesInternal
                           ) -> float:
     '''Without Numba. Intended to clamp the end point within absolute value of tolerance for more stability. Returns bigger of:
     - root mean square error
@@ -136,11 +139,11 @@ def _maxMS_absend_python(y_sample: np.ndarray,
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative error array
         2) Absolute error array
@@ -165,9 +168,9 @@ def _maxMS_absend_python(y_sample: np.ndarray,
     return excess_end if excess_end > excess_max_MS else excess_max_MS
 #───────────────────────────────────────────────────────────────────────
 @nb.jit(nopython=True, cache=True, fastmath = True)
-def _maxMS_absend_numba(y_sample: np.ndarray,
-                         y_fit: np.ndarray,
-                         tolerances: tuple[np.ndarray, np.ndarray, np.ndarray]
+def _maxMS_absend_numba(y_sample: FloatArray,
+                         y_fit: FloatArray,
+                         tolerances: tuple[FloatArray, FloatArray, FloatArray]
                          ) -> float:
     '''With Numba. Intended to clamp the end point within absolute value of tolerance for more stability. Returns bigger of:
     - root mean square error
@@ -177,11 +180,11 @@ def _maxMS_absend_numba(y_sample: np.ndarray,
 
     Parameters
     ----------
-    y_sample : np.ndarray
+    y_sample : FloatArray
         Y values of points of data selected for error calculation
-    y_fit : np.ndarray
+    y_fit : FloatArray
         Y values from fitting the model into data
-    tolerances : tuple[np.ndarray, np.ndarray, np.ndarray]
+    tolerances : tuple[FloatArray, FloatArray, FloatArray]
         Tolerances for errors
         1) Relative error array
         2) Absolute error array
@@ -205,7 +208,7 @@ def _maxMS_absend_numba(y_sample: np.ndarray,
     excess_max_MS = np.amax(np.mean(residuals - tols, 0))
     return excess_end if excess_end > excess_max_MS else excess_max_MS
 #%%═════════════════════════════════════════════════════════════════════
-def maxsumabs(residuals: np.ndarray, tolerance: np.ndarray) -> float:
+def maxsumabs(residuals: FloatArray, tolerance: float | FloatArray) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
 #%%═════════════════════════════════════════════════════════════════════

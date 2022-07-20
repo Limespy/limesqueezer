@@ -6,25 +6,44 @@ API
 
 Connection point for all package utilities provided
 '''
+from .auxiliaries import (to_ndarray,
+                          wait,
+                          sqrtranges,
+                          SqrtRange,
+                          debugsetup,
+                          stats)
+from . import errorfunctions
+from .errorfunctions import ErrorFunction
+from . import f2zero
+from .GLOBALS import (G,
+                      FloatArray,
+                      MaybeArray,
+                      Any,
+                      Callable,
+                      TolerancesInput,
+                      TolerancesInternal) # Type signatures
+from . import models
+from .models import FitFunction, Interpolator # Type signatures
+from . import reference as ref # Careful with this circular import
+from .root import droot, droot_debug, interval, interval_debug
+
 from bisect import bisect_left
 import collections
 from matplotlib import pyplot as plt
 import numpy as np
+
+from typing import Literal
+
 import sys
 import time
 import types
-from typing import Callable
-
-from .auxiliaries import to_ndarray, wait, sqrtranges, debugsetup, stats
-from . import errorfunctions
-from . import f2zero
-from .GLOBALS import G
-from . import models
-from . import reference as ref # Careful with this circular import
-from .root import droot, droot_debug, interval, interval_debug
-
+#%%═════════════════════════════════════════════════════════════════════
 # @numba.jit(nopython=True,cache=True)
-def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
+def n_lines(x: FloatArray,
+            y: FloatArray,
+            x0: float,
+            y0: FloatArray,
+            tol: FloatArray
             ) -> float:
     '''Estimates number of lines required to fit within error tolerance'''
 
@@ -38,25 +57,55 @@ def n_lines(x: np.ndarray, y: np.ndarray, x0: float, y0: np.ndarray, tol: float
     else:
         return 1.
 #%%═════════════════════════════════════════════════════════════════════
+def parse_tolerances(tolerances: TolerancesInput, shape: tuple[int, ...]
+                     ) -> TolerancesInternal:
+    if isinstance(tolerances, (float, np.ndarray)):
+        tolerances_triplet: tuple[MaybeArray, MaybeArray, MaybeArray]  = (0., tolerances, 0.)
+    elif isinstance(tolerances, (tuple, list)):
+        len_tol = len(tolerances)
+        if not (0 < len_tol < 4):
+            raise ValueError(f'Tolerances length should be 1-3, was {len_tol}')
+        elif len(tolerances) == 1:
+            tolerances_triplet = (0., tolerances[0], 0.)
+        elif len(tolerances) == 2:
+            tolerances_triplet = (tolerances[0], tolerances[1], 0.)
+        else:
+            tolerances_triplet = tolerances
+    else:
+        raise TypeError(
+            'Tolerances should be a number or sequence of 1-3 numbers')
+    # Relative, absolute, falloff
+    return (to_ndarray(tolerances_triplet[0], shape),
+            to_ndarray(tolerances_triplet[1], shape),
+            to_ndarray(tolerances_triplet[2], shape))
+#%%═════════════════════════════════════════════════════════════════════
 # BLOCK COMPRESSION
-def LSQ10(x_in: np.ndarray,
-          y_in: np.ndarray, /,
-          tolerances: float | tuple = (1e-2, 1e-2, 0),
+Compressor = Callable[[FloatArray,
+                       FloatArray,
+                       TolerancesInput,
+                       int | None,
+                       str | ErrorFunction,
+                       int,
+                       str | Any,
+                       bool],
+                      tuple[FloatArray, FloatArray]]
+def LSQ10(x_in: FloatArray,
+          y_in: FloatArray, /,
+          tolerances: TolerancesInput = (1e-2, 1e-2, 0),
           initial_step: int | None  = None,
-          errorfunction:
-            str | Callable[[np.ndarray, np.ndarray, tuple[float, float, float]], float]= 'maxmaxabs',
-          use_numba: int  = 0,
-          fitset: str     = 'Poly10',
+          errorfunction: str | ErrorFunction = 'maxmaxabs',
+          use_numba: int = 0,
+          fitset: str | Any   = 'Poly10',
           keepshape: bool = False
-          ) -> tuple[np.ndarray, np.ndarray]:
+          ) -> tuple[FloatArray, FloatArray]:
     '''Compresses the data of 1-dimensional system of equations
     i.e. single wait variable and one or more output variable
 
     Parameters
     ----------
-    x_in : np.ndarray
+    x_in : FloatArray
         x-coordiantes of the points to be compressed
-    y_in : np.ndarray
+    y_in : FloatArray
         y-coordinates of the points to be compressed
     tolerances : tuple, default (1e-2, 1e-2, 0)
         tolerances, Falloff determines how much the absolute error is
@@ -77,8 +126,8 @@ def LSQ10(x_in: np.ndarray,
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
-        Compressed  x and Y as numpy ndarrays
+    tuple[FloatArray, FloatArray]
+        Compressed  x and Y as numpy FloatArrays
 
     Raises
     ------
@@ -97,21 +146,7 @@ def LSQ10(x_in: np.ndarray,
     xlen    = len(x_in)
     x       = to_ndarray(x_in)
     y       = to_ndarray(y_in, (xlen, -1))
-    if isinstance(tolerances, (int, float)):
-        tolerances = (0, tolerances, 0)
-    elif hasattr(tolerances, '__iter__'):
-        len_tol = len(tolerances)
-        if not (0 < len_tol < 4):
-            raise ValueError(f'Tolerances length should be 1-3, was {len_tol}')
-        elif len(tolerances) == 1:
-            tolerances = (0, *tolerances, 0)
-        elif len(tolerances) == 2:
-            tolerances = (*tolerances, 0)
-    else:
-        raise TypeError(
-            'Tolerances should be a number or sequence of 1-3 numbers')
-    # Relative, absolute, falloff
-    tol     = tuple([to_ndarray(tol, y[0].shape) for tol in tolerances])
+    tol = parse_tolerances(tolerances, y[0].shape)
 
     xc, yc = [x[0]], [y[0]]
 
@@ -122,8 +157,9 @@ def LSQ10(x_in: np.ndarray,
     limit   = end - start
 
     sqrtrange = sqrtranges[use_numba]
-    if isinstance(errorfunction, str):
-        errorfunction = errorfunctions.get(errorfunction, use_numba)
+    _errorfunction = (errorfunctions.get(errorfunction, use_numba)
+                      if isinstance(errorfunction, str)
+                      else errorfunction)
     if isinstance(fitset, str):
         fitset = models.get(fitset)
     f_fit = fitset.fit[use_numba]
@@ -136,7 +172,7 @@ def LSQ10(x_in: np.ndarray,
         offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol[1]))
 
     if is_debug:
-        G.update(debugsetup(x, y, tol[1], fitset, start))
+        G.update(debugsetup(x, y, start_err1, fitset, start))
         get_f2z = f2zero.get_debug
         solver = droot_debug
     else:
@@ -148,7 +184,7 @@ def LSQ10(x_in: np.ndarray,
         if x[start-1] != xc[-1]:
             raise IndexError(f'Indices out of sync {start}')
         offset, fit = solver(get_f2z(x[start:], y[start:], xc[-1], yc[-1],
-                                     tol, sqrtrange, f_fit, errorfunction),
+                                     tol, sqrtrange, f_fit, _errorfunction),
                              start_err1, offset, limit)
         step = offset + 1
         start += step # Start shifted by the number Record and the
@@ -216,42 +252,43 @@ class _StreamRecord(collections.abc.Sized):
     """
     def __init__(self,
                  x0: float,
-                 y0: np.ndarray,
+                 y0: FloatArray,
                  x_type: type,
                  y_type: type,
-                 tol: np.ndarray,
-                 errorfunction: str,
-                 f_fit: Callable,
-                 sqrtrange: Callable,
+                 tol: TolerancesInternal,
+                 errorfunction: ErrorFunction,
+                 f_fit: FitFunction,
+                 sqrtrange: SqrtRange,
                  x2: int,
-                 get_f2zero: Callable):
+                 get_f2zero: f2zero.Get):
         if G['timed']: G['t_start'] = time.perf_counter()
-        self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
+        self.xb: list[float] = [] # Buffers for yet-to-be-recorded data
+        self.yb: list[FloatArray] = [] 
         self.xc, self.yc = [x0], [y0]
         self.x_type, self.y_type = x_type, y_type
-        self.x1         = 0 # Index of starting point for looking for optimum
-        self.x2         = x2
+        self.n1: int         = 0 # Index of starting point for looking for optimum
+        self.n2         = x2
         self.tol        = tol
         self.start_err1   = -np.amax(tol[1]) # Default starting value
         self.state      = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
         self.f_fit      = f_fit 
         self.sqrtrange  = sqrtrange
-        self.limit      = -1 # Last index of the buffer
-        self._lenc      = 1 # length of the Record points
-        self.fit1       = np.array((1)) 
+        self.limit: int      = -1 # Last index of the buffer
+        self._lenc: int      = 1 # length of the Record points
+        self.fit1: FloatArray = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
         self.get_f2zero = get_f2zero
     #───────────────────────────────────────────────────────────────────
-    def _update_f2zero(self):
-        self.f2zero = self.get_f2zero(self.xb, self.yb,
+    def _update_f2zero(self, x_array: FloatArray, y_array: FloatArray):
+        self.f2zero = self.get_f2zero(x_array, y_array,
                                           self.xc[-1], self.yc[-1],
                                           self.tol, self.sqrtrange,
                                           self.f_fit, self.errorfunction)
-        self.err2, self.fit2 = self.f2zero(self.x2)
+        self.err2, self.fit2 = self.f2zero(self.n2)
     #───────────────────────────────────────────────────────────────────
-    def squeeze_buffer(self, x1: float, err1: np.ndarray,
-                       x2: float, err2: np.ndarray):
+    def squeeze_buffer(self, x1: float, err1: float,
+                       x2: float, err2: float):
         '''Compresses the buffer by one step'''
         #──────────────────────────────────────────────────────────────┘
         offset, fit = interval(self.f2zero, x1, err1, x2, err2, self.fit1)
@@ -263,19 +300,17 @@ class _StreamRecord(collections.abc.Sized):
                 raise RuntimeError('Fit not found')
         else:
             self.yc.append(fit)
-        self.x1, self.err1, step = 0, self.start_err1, offset + 1
+        self.n1, self.err1, step = 0, self.start_err1, offset + 1
 
         self.limit -= step
         self._lenc += 1
 
-        self.x2 = offset # Approximation
-
-        self.xb, self.yb = self.xb[step:], self.yb[step:]
-
+        self.n2 = offset # Approximation
         if self.xc[-1] == self.xb[0]:
             raise IndexError('End of compressed and beginning of buffer are same')
+        return step
     #───────────────────────────────────────────────────────────────────
-    def __call__(self, x_raw, y_raw) -> bool:
+    def __call__(self, x_raw: float, y_raw: MaybeArray) -> bool:
         _squeezed = False # For tracking if the buffer was compressed
 
         if type(x_raw) != self.x_type:
@@ -286,27 +321,25 @@ class _StreamRecord(collections.abc.Sized):
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
-        if  self.limit >= self.x2: #───────────────────────────────────┐
+        if  self.limit >= self.n2: #───────────────────────────────────┐
             # Converting to numpy arrays for fitting
-            self.xb = to_ndarray(self.xb)
-            self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
-            self._update_f2zero()
+            self._update_f2zero(to_ndarray(self.xb),
+                                to_ndarray(self.yb, (self.limit + 1, -1)))
 
             if self.err2 < 0: #──────────────────────────────────────────┐
-                self.x1, self.err1, self.fit1 = self.x2, self.err2, self.fit2
-                self.x2 *= 2
-                self.x2 += 1
+                self.n1, self.err1, self.fit1 = self.n2, self.err2, self.fit2
+                self.n2 *= 2
+                self.n2 += 1
             else: # Squeezing the buffer
-                self.squeeze_buffer(self.x1, self.err1, self.x2, self.err2)
+                step = self.squeeze_buffer(self.n1, self.err1,
+                                           self.n2, self.err2)
+                self.xb, self.yb = self.xb[step:], self.yb[step:]
                 _squeezed = True
-            #──────────────────────────────────────────────────────────┘
-            # Converting back to lists
-            self.xb, self.yb = list(self.xb), list(self.yb)
         #──────────────────────────────────────────────────────────────┘
         return _squeezed
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
-        return self._lenc + self.limit + 1
+        return len(self.x)
     #───────────────────────────────────────────────────────────────────
     def __str__(self):
         return f'{self.x=} {self.y=} {self.tol=}'
@@ -315,16 +348,19 @@ class _StreamRecord(collections.abc.Sized):
         '''Closes the context manager'''
         self.state = 'closing'
         # Clamping x2 to not go over the last buffer index
-        if self.x2 > self.limit: self.x2 = self.limit
+        if self.n2 > self.limit: self.n2 = self.limit
         # Converting to numpy arrays for fitting
-        self.xb = to_ndarray(self.xb)
-        self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
-        self._update_f2zero()
+        x_array = to_ndarray(self.xb)
+        if self.limit < 0:
+            raise ValueError
+        y_array = to_ndarray(self.yb, (self.limit + 1, -1))
+        self._update_f2zero(x_array, y_array)
         while self.err2 > 0: #─────────────────────────────────────────┐
-            self.squeeze_buffer(self.x1, self.err1, self.x2, self.err2)
+            step = self.squeeze_buffer(self.n1, self.err1, self.n2, self.err2)
+            x_array, y_array = x_array[step:], y_array[step:]
             # Clamping x2 to not go over the last buffer index
-            if self.x2 > self.limit: self.x2 = self.limit
-            self._update_f2zero()
+            if self.n2 > self.limit: self.n2 = self.limit
+            self._update_f2zero(x_array, y_array)
         #──────────────────────────────────────────────────────────────┘
         self.xc.append(self.xb[-1])
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
@@ -346,36 +382,37 @@ class _StreamRecord_debug(collections.abc.Sized):
     """
     def __init__(self,
                  x0: float,
-                 y0: np.ndarray,
+                 y0: FloatArray,
                  x_type: type,
                  y_type: type,
-                 tol: np.ndarray,
-                 errorfunction: str,
-                 f_fit: Callable,
-                 sqrtrange: Callable,
+                 tol: TolerancesInternal,
+                 errorfunction: ErrorFunction,
+                 f_fit: FitFunction,
+                 sqrtrange: SqrtRange,
                  x2: int,
-                 get_f2zero: Callable,
+                 get_f2zero: f2zero.Get,
                  interpolator):
         if G['timed']: G['t_start'] = time.perf_counter()
-        self.xb, self.yb = [], [] # Buffers for yet-to-be-recorded data
+        self.xb: list[float] = [] # Buffers for yet-to-be-recorded data
+        self.yb: list[FloatArray] = [] 
         self.xc, self.yc = [x0], [y0]
         self.x_type, self.y_type = x_type, y_type
-        self.x1         = 0 # Index of starting point for looking for optimum
-        self.x2         = x2
+        self.n1: int    = 0 # Index of starting point for looking for optimum
+        self.n2: int         = x2
         self.tol        = tol
         self.start_err1   = -np.amax(tol[1]) # Default starting value
         self.state      = 'open' # The object is ready to accept more values
         self.errorfunction = errorfunction
         self.f_fit      = f_fit 
         self.sqrtrange  = sqrtrange
-        self.limit      = -1 # Last index of the buffer
+        self.limit: int      = -1 # Last index of the buffer
 
-        self._lenc      = 1 # length of the Record points
-        self.fit1       = 1
+        self._lenc: int      = 1 # length of the Record points
+        self.fit1: FloatArray = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
         self.get_f2zero = get_f2zero
-        self.max_y = self.yc[0] # For plotting
-        self.min_y = self.yc[0] # For plotting
+        self.max_y: float = y0[0] # For plotting
+        self.min_y: float = y0[0] # For plotting
         G.update({'tol': self.tol[1],
                     'x': np.array(self.xb),
                     'y': np.array(self.yb),
@@ -398,6 +435,19 @@ class _StreamRecord_debug(collections.abc.Sized):
         plt.ion()
         plt.show()
         wait('Initialised')
+    #───────────────────────────────────────────────────────────────────
+    def _update_f2zero(self, x_array: FloatArray, y_array: FloatArray):
+        self.f2zero = self.get_f2zero(x_array, y_array,
+                                      self.xc[-1], self.yc[-1],
+                                      self.tol, self.sqrtrange,
+                                      self.f_fit, self.errorfunction)
+        if x_array.shape != (self.limit + 1,):
+            raise ValueError(f'xb {x_array.shape} len {self.limit + 1}')
+        if y_array.shape != (self.limit + 1,):
+            raise ValueError(f'{y_array.shape=}')
+        G['x'] = x_array
+        G['y'] = y_array
+        self.err2, self.fit2 = self.f2zero(self.n2)
     #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self, x1, err1, x2, err2):
         '''Compresses the buffer by one step'''
@@ -424,18 +474,14 @@ class _StreamRecord_debug(collections.abc.Sized):
 
         G['ax_data'].plot(G['x_plot'], G['y_plot'], color = 'red')
 
-        self.x1, self.err1, step = 0, self.start_err1, offset + 1
+        self.n1, self.err1, step = 0, self.start_err1, offset + 1
 
         self.limit -= step
         self._lenc += 1
 
-        self.x2 = offset # Approximation
-
-        self.xb, self.yb = self.xb[step:], self.yb[step:]
-        if self.xc[-1] == self.xb[0]:
-            raise IndexError('End of compressed and beginning of buffer are same')
+        self.n2 = offset # Approximation
     #───────────────────────────────────────────────────────────────────
-    def __call__(self, x_raw, y_raw, /):
+    def __call__(self, x_raw: float, y_raw: float) -> bool:
         _squeezed = False # For tracking if the buffer was compressed
 
         if type(x_raw) != self.x_type:
@@ -457,97 +503,78 @@ class _StreamRecord_debug(collections.abc.Sized):
             self.max_y = y_raw
             G['ax_data'].set_ylim(self.min_y, self.max_y * 1.1)
 
-        if  self.limit >= self.x2: #───────────────────────────────────┐
-            # Converting to numpy arrays for computations
-            self.xb = to_ndarray(self.xb)
-            self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
-            G['x'] = self.xb
-            G['y'] = self.yb
-            self.f2zero = self.get_f2zero(self.xb, self.yb,
-                                          self.xc[-1], self.yc[-1],
-                                          self.tol, self.sqrtrange,
-                                          self.f_fit, self.errorfunction)
-            if self.xb.shape != (self.limit + 1,):
-                raise ValueError(f'xb {self.xb.shape} len {self.limit + 1}')
+        if  self.limit >= self.n2: #───────────────────────────────────┐
+            # Converting to numpy arrays for fitting
+            self._update_f2zero(to_ndarray(self.xb),
+                                to_ndarray(self.yb, (self.limit + 1, -1)))
 
-            if self.yb.shape != (self.limit + 1, len(self.yc[0])):
-                raise ValueError(f'{self.yb.shape=}')
+            self.err2, self.fit2 = self.f2zero(self.n2)
 
-            self.err2, self.fit2 = self.f2zero(self.x2)
-
-            G['xy1'], = G['ax_root'].plot(self.x1, self.err1,'g.')
-            G['xy2'], = G['ax_root'].plot(self.x2, self.err2,'b.')
+            G['xy1'], = G['ax_root'].plot(self.n1, self.err1,'g.')
+            G['xy2'], = G['ax_root'].plot(self.n2, self.err2,'b.')
 
             if self.err2 < 0: #──────────────────────────────────────────┐
 
                 wait('Calculating new attempt in end\n')
-                G['ax_root'].plot(self.x1, self.err1,'.', color = 'black')
+                G['ax_root'].plot(self.n1, self.err1,'.', color = 'black')
 
-                self.x1, self.err1, self.fit1 = self.x2, self.err2, self.fit2
-                self.x2 *= 2
-                self.x2 += 1
+                self.n1 = self.n2
+                self.err1 = self.err2
+                self.fit1 = self.fit2
+                self.n2 *= 2
+                self.n2 += 1
 
                 print(f'{self.limit=}')
-                print(f'{self.x1=}\t{self.err1=}')
-                print(f'{self.x2=}\t{self.err2=}')
-                G['xy1'].set_xdata(self.x1)
+                print(f'{self.n1=}\t{self.err1=}')
+                print(f'{self.n2=}\t{self.err2=}')
+                G['xy1'].set_xdata(self.n1)
                 G['xy1'].set_ydata(self.err1)
-                G['xy2'].set_xdata(self.x2)
+                G['xy2'].set_xdata(self.n2)
 
             else: # Squeezing the buffer
                 G['xy2'].set_color('red')
                 wait('Points for interval found\n')
                 print(f'{self._lenc=}')
-
-                self.squeeze_buffer(self.x1, self.err1, self.x2, self.err2)
+                step = self.squeeze_buffer(self.n1, self.err1,
+                                           self.n2, self.err2)
+                self.xb, self.yb = self.xb[step:], self.yb[step:]
+                if self.xc[-1] == self.xb[0]:
+                    raise IndexError(
+                        'End of compressed and beginning of buffer are same')
             #──────────────────────────────────────────────────────────┘
-            # Converting back to lists
-            self.xb, self.yb = list(self.xb), list(self.yb)
-
             G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
             wait('Next iteration\n')
-            if self.yb[-1].shape != (1,):
-                raise ValueError(f'{self.yb[-1].shape=}')
-            if self.yc[-1].shape != (1,):
-                raise ValueError(f'{self.yc[-1].shape=}')
         #──────────────────────────────────────────────────────────────┘
-        return _squeezed, self._lenc, self.limit + 1
+        return _squeezed
     #───────────────────────────────────────────────────────────────────
     def __len__(self):
-        return self._lenc + self.limit + 1
+        return len(self.x)
     #───────────────────────────────────────────────────────────────────
     def __str__(self):
         return f'{self.x=} {self.y=} {self.tol=}'
     #───────────────────────────────────────────────────────────────────
     def close(self):
+        '''Closes the context manager'''
         self.state = 'closing'
-
-        # Converting to numpy arrays for computations
-        self.xb = to_ndarray(self.xb)
-        self.yb = to_ndarray(self.yb, (self.limit + 1, -1))
-        self.f2zero = f2zero.get_debug(self.xb, self.yb,
-                                           self.xc[-1], self.yc[-1],
-                                           self.tol, self.sqrtrange,
-                                           self.f_fit, self.errorfunction)
-        self.x2 = min(self.x2, self.limit)
-        self.err2, self.fit2 = self.f2zero(self.x2)
-
-        while self.err2 > 0: #───────────────────────────────────────────┐
-            self.squeeze_buffer(self.x1, self.err1, self.x2, self.err2)
-            self.f2zero = self.get_f2zero(self.xb, self.yb,
-                                          self.xc[-1], self.yc[-1],
-                                          self.tol, self.sqrtrange,
-                                          self.f_fit, self.errorfunction)
-            self.x2 = min(self.x2, self.limit)
-            self.err2, self.fit2 = self.f2zero(self.x2)
+        # Clamping x2 to not go over the last buffer index
+        if self.n2 > self.limit: self.n2 = self.limit
+        # Converting to numpy arrays for fitting
+        x_array = to_ndarray(self.xb)
+        y_array = to_ndarray(self.yb, (self.limit + 1, -1))
+        self._update_f2zero(x_array, y_array)
+        while self.err2 > 0: #─────────────────────────────────────────┐
+            step = self.squeeze_buffer(self.n1, self.err1, self.n2, self.err2)
+            x_array, y_array = x_array[step:], y_array[step:]
+            # Clamping x2 to not go over the last buffer index
+            if self.n2 > self.limit: self.n2 = self.limit
+            self._update_f2zero(x_array, y_array)
         #──────────────────────────────────────────────────────────────┘
         self.xc.append(self.xb[-1])
         self.yc.append(to_ndarray(self.yb[-1], (1,)))
 
-        plt.ioff()
         # Final packing and cleaning
-        self.x = to_ndarray(self.xc, (self._lenc+1,))
-        self.y = to_ndarray(self.yc, (self._lenc+1, -1))
+        self.x = to_ndarray(self.xc, (self._lenc + 1,))
+        self.y = to_ndarray(self.yc, (self._lenc + 1, -1))
         for key in tuple(self.__dict__):
             if key not in {'x', 'y', 'state', 'tol'}:
                 del self.__dict__[key]
@@ -559,19 +586,18 @@ class _StreamRecord_debug(collections.abc.Sized):
 class Stream():
     '''Context manager for stream compression of data of
     1 dimensional system of equations'''
-    def __init__(self, x0: float, y0: float | np.ndarray,
-                 tolerances: float | tuple[float, float, float] = (1e-2, 1e-3, 0),
+    def __init__(self, x_initial: float, y_initial: float | FloatArray,
+                 tolerances: TolerancesInput = (1e-2, 1e-3, 0),
                  initial_step: int = 100,
-                 errorfunction: Callable | str = 'maxmaxabs',
-                 use_numba: 0 | 1 = 0,
+                 errorfunction: ErrorFunction | str = 'maxmaxabs',
+                 use_numba: int = 0,
                  fitset: object | str = 'Poly10'):
-        self.x0  = x0
-        self.x_type = type(x0)
+        self.x0  = x_initial
+        self.x_type = type(self.x0)
         # Variables are columns, e.G. 3xn
-        self.y0  = to_ndarray(y0, (-1,))
-        self.y_type = type(y0)
-        self.tol = tuple([to_ndarray(tol, self.y0.shape)
-                                    for tol in tolerances])
+        self.y0  = to_ndarray(y_initial, (-1,))
+        self.y_type = type(self.y0)
+        self.tol = parse_tolerances(tolerances, self.y0.shape)
 
         if isinstance(errorfunction, str): #───────────────────────────┐
             self.errorfunction = errorfunctions.get(errorfunction, use_numba)
@@ -585,15 +611,15 @@ class Stream():
         #──────────────────────────────────────────────────────────────┘
         self.f_fit      = self.fitset.fit[use_numba]
         self.sqrtrange  = sqrtranges[use_numba]
-        self.x2         = initial_step
+        self.n2         = initial_step
         self.get_f2z = f2zero.get_debug if G['debug'] else f2zero.get
     #───────────────────────────────────────────────────────────────────
     def __enter__(self):
         basic_args = (self.x0, self.y0, self.x_type, self.y_type, self.tol,
-                      self.errorfunction, self.f_fit, self.sqrtrange, self.x2,
+                      self.errorfunction, self.f_fit, self.sqrtrange, self.n2,
                       self.get_f2z)
         if G['debug']:
-            self.record = _StreamRecord_debug(*basic_args, 
+            self.record: _StreamRecord_debug | _StreamRecord = _StreamRecord_debug(*basic_args,
                                               self.fitset._interpolate)
         else:
             self.record = _StreamRecord(*basic_args)
@@ -603,11 +629,14 @@ class Stream():
         self.record.close()
 
 #%%═════════════════════════════════════════════════════════════════════
-def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
+def _decompress(x_compressed: FloatArray,
+               fit_array: FloatArray,
+               interpolator: Interpolator):
     '''Takes array of fitting parameters and constructs whole function'''
     #───────────────────────────────────────────────────────────────
-    def _iteration(x, low = 1):
-        index = bisect_left(x_compressed, x, lo = low, hi = fit_array.shape[0]-1)
+    def _iteration(x: float, low: int = 1):
+        index = bisect_left(x_compressed, x,
+                            lo = low, hi = fit_array.shape[0]-1) # type:ignore
         return index, interpolator(x, *x_compressed[index-1:(index + 1)],
                                    *fit_array[index-1:(index + 1)])
     #───────────────────────────────────────────────────────────────
@@ -628,7 +657,7 @@ def _decompress(x_compressed: np.ndarray, fit_array: np.ndarray, interpolator):
 compressors = {'LSQ10': LSQ10}
 interpolators = {'Poly10': models.get('Poly10')._interpolate}
 #───────────────────────────────────────────────────────────────────────
-def compress(*args, compressor = 'LSQ10', **kwargs):
+def compress(*args, compressor: str | Compressor = 'LSQ10', **kwargs):
     '''Wrapper for easier selection of compression method'''
     if isinstance(compressor, str):
         try:
@@ -637,22 +666,29 @@ def compress(*args, compressor = 'LSQ10', **kwargs):
             raise NotImplementedError(f'{compressor} not in the dictionary of builtin compressors')
     return compressor(*args, **kwargs)
 #───────────────────────────────────────────────────────────────────────
-def decompress(x, y, interpolator = 'Poly10', **kwargs):
+def decompress(x: FloatArray, y: FloatArray,
+              interpolator: str | Interpolator = 'Poly10',
+              **kwargs):
     '''Wrapper for easier selection of compression method'''
     if isinstance(interpolator, str):
-        interpolator = models.get(interpolator)._interpolate
+        return _decompress(x, y, models.get(interpolator)._interpolate, **kwargs)
     return _decompress(x, y, interpolator, **kwargs)
 #%%═════════════════════════════════════════════════════════════════════
 # HACKS
 # A hack to make the package callable
+# type: ignore
 class Pseudomodule(types.ModuleType):
     """Class that wraps the individual plotting functions
     an allows making the module callable"""
     @staticmethod
-    def __call__(*args, compressor = 'LSQ10', interpolator = 'Poly10', **kwargs):
+    def __call__(*args,
+                 compressor: str | Compressor = 'LSQ10',
+                 interpolator: str | Interpolator = 'Poly10',
+                 **kwargs):
         '''Wrapper for easier for combined compression and decompression'''
-
-        return decompress(*compress(*args, compressor = compressor, **kwargs),
+        return decompress(*compress(*args, 
+                                    compressor = compressor,
+                                    **kwargs), # type:ignore
                           interpolator = interpolator)
 #%%═════════════════════════════════════════════════════════════════════
 # Here the magic happens for making the API module itself also callable
