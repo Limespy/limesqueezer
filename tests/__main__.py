@@ -3,7 +3,8 @@ import API
 import sys
 
 args = sys.argv[1:]
-
+if not args or 'typecheck' in args:
+    API.typecheck()
 if not args or 'unittest' in args:
     API.unittests()
     # unittest.main(verbosity = 2)

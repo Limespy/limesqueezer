@@ -9,9 +9,12 @@ import pathlib
 import os
 
 import limesqueezer as ls
-from limesqueezer.API import to_ndarray
+from limesqueezer import to_ndarray
 
-path_testing = pathlib.Path(__file__).parent
+path_tests = pathlib.Path(__file__).parent
+path_repo = path_tests.parent
+# First item in src should be the package
+path_src = next((path_repo / 'src').glob('*'))
 
 tol = (1e-3, 1e-4, 1)
 x_data, y_data1 = ls.ref.raw_sine_x2(1e4)
@@ -264,7 +267,10 @@ def benchmark(use_numba: bool, timerange: float) -> tuple[float, np.ndarray]:
 def profile(use_numba: bool, n_runs: int, is_save: bool):
     ls.G['timed'] = False
     profilecode = f'for _ in range({n_runs}): API.ls.compress(API.x_data, API.y_data2, tolerances = (1e-3, 1e-4, 1), use_numba = {use_numba})'
-    path_out = path_testing / 'profiling' / f'{"with" if use_numba else "no"}_numba.pstats'
+    path_out = path_tests / 'profiling' / f'{"with" if use_numba else "no"}_numba.pstats'
     cProfile.run(profilecode, path_out)
     if is_save:
         os.system(f'gprof2dot -f pstats {path_out} | dot -Tpdf -o {path_out.with_suffix(".pdf")}')
+#═══════════════════════════════════════════════════════════════════════
+def typecheck() -> None:
+    os.system(f'mypy {path_src} --config-file {path_repo / "mypy.ini"}')
