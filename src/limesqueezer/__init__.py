@@ -75,11 +75,11 @@ The custom function must have following interface::
 Where:
 |    name   | description                          | shape |
 | :-------: | ------------------------------------ | :---: |
-|      x    | x values of the points to be fitted  |  (n,)
-|      y    | y values of the points to be fitted  | (n,m)
-|     y0    | Last compressed point y value(s)     | (1, m)
-| residuals | Residuals of the fit, i.e. y_fit - y | (n, m)
-|     y1    | Next Y values                        | (1, m)
+|      x    | x values of the points to be fitted  |  (n,) |
+|      y    | y values of the points to be fitted  | (n,m) |
+|     y0    | Last compressed point y value(s)     | (1, m) |
+| residuals | Residuals of the fit, i.e. y_fit - y | (n, m) |
+|     y1    | Next Y values                        | (1, m) |
 
 
 =========  ====================================  =======

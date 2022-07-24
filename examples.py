@@ -17,8 +17,8 @@ import pathlib
 import limesqueezer as  ls 
 
 # You have some data from system of equations
-# For example, let's take 100 000 datapoints along some function
-input_x = np.linspace(0,1,int(1e4))
+# For example, let's make 100 000 datapoints along some function
+input_x = np.linspace(0, 1, int(1e4))
 input_y = np.sin(24 * input_x ** 2)
 # Now you want to compress it with maximum absolute error being 1e-3.
 tolerance = (1e-2, 1e-3, 1)
@@ -66,10 +66,16 @@ with ls.Stream(example_x0, example_y0, tolerances = tolerance, errorfunction = '
 output_x, output_y = record.x, record.y
 print(f'Record state after the context manager is {record.state}' )
 
+#%%═════════════════════════════════════════════════════════════════════
+# DECOMPRESSION
+
 function = ls.decompress(output_x, output_y)
 decompressed_y = function(input_x).flatten()
 
 fig, axs = plt.subplots(2,1, sharex=True)
+
+#%%═════════════════════════════════════════════════════════════════════
+# Plotting
 
 # Data and compressed
 axs[0].plot(input_x, input_y, label='Original')

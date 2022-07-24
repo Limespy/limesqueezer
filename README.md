@@ -1,30 +1,92 @@
 # Overview
 
-Lossy compression tools for smooth data series.
-WIP
+[![PyPI Package latest release](https://img.shields.io/pypi/v/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
+[![PyPI Wheel](https://img.shields.io/pypi/wheel/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
+[![Supported versions](https://img.shields.io/pypi/pyversions/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
+[![Supported implementations](https://img.shields.io/pypi/implementation/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
+[![Commits since latest release](https://img.shields.io/github/commits-since/Limespy/limesqueezer/v1.0.12.svg)](https://github.com/limespy/limesqueezer/compare/v1.0.11...master)
+
+Lossy compression with controlled error tolerance for smooth data series
+
 
 - [Overview](#overview)
 - [Use](#use)
-  - [Examples](#examples)
+  - [Compression](#compression)
+    - [Common parameters](#common-parameters)
+      - [Tolerances](#tolerances)
     - [Block](#block)
     - [Stream](#stream)
-    - [Combining compression methods](#combining-compression-methods)
+  - [Decompression](#decompression)
+  - [Combining compression methods](#combining-compression-methods)
+- [Meta](#meta)
+  - [Version numbering](#version-numbering)
+  - [Changelog](#changelog)
+    - [1.0.12 2022-07-16](#1012-2022-07-16)
+    - [1.0.11 2022-07-16](#1011-2022-07-16)
+    - [1.0.10 2022-05-08](#1010-2022-05-08)
+    - [1.0.9 2022-04-03](#109-2022-04-03)
+    - [1.0.8 2022-03-20](#108-2022-03-20)
+    - [1.0.3 2021-11-30](#103-2021-11-30)
 
 # Use
-## Examples
 
 limesqueezer uses numpy ndarrays types for input and output.
-The package itself with author-recommended abbreviation.
+package import name is `limesqueezer`.
+Author recommend abbreviation `ls`
 Rest of documentation uses this abbreviation.
+
 ``` python
-    import numpy as np 
-    import limesqueezer as  ls 
+    import numpy as np
+    import limesqueezer as  ls
 ```
 
+## Compression
+
+### Common parameters
+
+#### Tolerances
+
+Keyword `tolerances`
+
+Tolerances
+Absolute Tolerance, Relative Tolerance and Falloff to smooth between them.
+
+
+tolerances, Falloff determines how much the absolute error is
+        reduced as y value grows.
+            If 3 values: (relative, absolute, falloff)
+            If 1 values: (relative, absolute, 0)
+            If 1 value:  (0, absolute, 0)
+
+Allowed deviation is calculated with following function
+
+$$
+deviation = Relative \cdot Y_{data} + \frac{Absolute}{Falloff \cdot Y_{data} + 1}
+$$
+
+$$
+D_Y^1 deviation = Relative - \frac{Absolute \cdot Falloff}{(Falloff \cdot Y_{data} + 1)^2}
+$$
+
+To have constrain that
+
+$$
+D_Y^1 deviation(0) > 0 
+$$
+Means
+$$
+Relative > Absolute \cdot Falloff 
+$$
+
+Recommended
+
+`errorfunction`
+
+
 You have some data from system of equations
-For example, let's take 100 000 datapoints along some function
+For this example, let's make 100 000 datapoints along some function
 ``` python
-    input_x = np.linspace(0,1,int(1e4))
+    input_x = np.linspace(0, 1, int(1e4))
     input_y = np.sin(24 * input_x ** 2)
 ```
 Example of the data, compression output, and residuals
@@ -89,9 +151,7 @@ to access the already compressed data and
 to access the buffered data waiting more values or closing of
 the record to be compressed.
 
-A side mote: In English language the word 'record' can be either
-verb or noun and since it performs this double role of both taking
-in data and being storage of the data, it is a fitting name for the object
+
 
 ``` python
     output_x, output_y = record.x, record.y
@@ -99,7 +159,92 @@ in data and being storage of the data, it is a fitting name for the object
     print(record)
 ```
 
-### Combining compression methods
+A side mote: In English language the word 'record' can be either
+verb or noun and since it performs this double role of both taking
+in data and being storage of the data, it is a fitting name for the object
+
+
+
+
+
+## Decompression
+
+Decompression is done in two main steps with interpolation.
+First an interpolation function is created
+Then that is called.
+
+This two-step approach allows more flexible use of the data.
+
+``` python
+
+```
+
+## Combining compression methods
 
 This compression method can be combined with lossless compressiom to achieve even higher compression ratios.
-The lossless compression should come after doing the compression this package provides.
+The lossless compression should be done only after the lossy compression this package provides.
+
+
+# Meta
+
+## Version numbering
+
+Version code is composed of three numbers:
+Major, Minor, Micro
+
+Experimental, alpha or beta versions are indicated by a 0 as one of those three.
+
+First public release starts with Major Version.
+Incrementation of Major Version indicates backwards compatibility breaking change in API or fuctionality.
+
+Minor Version indicates design 
+
+While the Minor Version is 0, the package is in alpha stage. That means features and API
+
+Later incrementation of the Minor Version signifies upgrades to the features and interfaces.
+In general changes here mean changes in the design and specification, but not such that it breaks backwards compatibility
+I.e. code that works with _documented_ features of X.n.x will work with X.n+1.y
+
+Micro Version indicate implementation.
+These are bugfixes, typo corrections, documentation clarifications.
+In Micro Version incementation the _intention_, i.e. intended documented specification of the Minor Version is not changed,
+only the implementation.
+
+## Changelog
+
+### 1.0.12 2022-07-16
+
+- Changed README to Markdown-only
+
+### 1.0.11 2022-07-16
+
+- Debug plotting improvements
+- Added undocumented API for other fitting functions
+- More tests
+- Profiling and benchmarking from tests
+- 
+
+### 1.0.10 2022-05-08
+
+
+- Cleaned documentation
+
+### 1.0.9 2022-04-03
+
+
+- Block and stream compression are much more uniform
+- Restructuring
+- Tests
+- Profiling
+
+### 1.0.8 2022-03-20
+
+
+- Step-by-step style ploting of the compression.
+
+### 1.0.3 2021-11-30
+
+
+- First release on PyPI.
+
+

@@ -3,10 +3,10 @@ import API
 import sys
 
 args = sys.argv[1:]
-if not args or 'typecheck' in args:
-    API.typecheck()
-if not args or 'unittest' in args:
-    API.unittests()
+if not args or 'typing' in args:
+    API.typing(shell = True)
+if not args or 'unittests' in args:
+    print(API.unittests())
     # unittest.main(verbosity = 2)
 if not args or 'benchmark' in args:
     print(f'Benchmarking')

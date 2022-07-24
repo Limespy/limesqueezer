@@ -28,7 +28,6 @@ from .root import droot, droot_debug, interval, interval_debug
 
 from bisect import bisect_left
 import collections
-from collections.abc import Iterable
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -88,6 +87,7 @@ GetF2Zero =  Callable[[FloatArray,
                        FitFunction,
                        ErrorFunction],
                       F2Zero]
+#───────────────────────────────────────────────────────────────────────
 def get_f2zero(x: FloatArray,
         y: FloatArray,
         x0: float,
@@ -194,7 +194,9 @@ def LSQ10(x_in: FloatArray,
             If 1 values: (relative, absolute, 0)
             If 1 value:  (0, absolute, 0)
     initial_step : int, default None
-        First compression step to be calculated. If None, it is automatically calculated. Provide for testing purposes or for miniscule reduction in setup time
+        First compression step to be calculated.
+        If None, it is automatically calculated.
+        Provide for testing purposes or for miniscule reduction in setup time
     errorfunction : str, default 'maxmaxabs'
         Function which is used to compute the error of the fit, by 
     use_numba : int, default 0
@@ -203,6 +205,7 @@ def LSQ10(x_in: FloatArray,
         Name of the fitting function set
     keepshape : bool, default False
         Whether the output is in similar shape to input
+        or the compressor gets to choose
 
     Returns
     -------
@@ -721,13 +724,13 @@ def _decompress(x_compressed: FloatArray,
                fit_array: FloatArray,
                interpolator: Interpolator):
     '''Takes array of fitting parameters and constructs whole function'''
-    #───────────────────────────────────────────────────────────────
+    #───────────────────────────────────────────────────────────────────
     def _iteration(x: float, low: int = 1):
         index = bisect_left(x_compressed, x,
                             lo = low, hi = fit_array.shape[0]-1) # type:ignore
         return index, interpolator(x, *x_compressed[index-1:(index + 1)],
                                    *fit_array[index-1:(index + 1)])
-    #───────────────────────────────────────────────────────────────
+    #───────────────────────────────────────────────────────────────────
     def function(x_input):
         if hasattr(x_input, '__iter__'):
             out = np.full((len(x_input),) + fit_array.shape[1:], np.nan)
@@ -737,7 +740,7 @@ def _decompress(x_compressed: FloatArray,
             return out
         else:
             return _iteration(x_input)[1]
-    #───────────────────────────────────────────────────────────────
+    #───────────────────────────────────────────────────────────────────
     return function
 #%%═════════════════════════════════════════════════════════════════════
 # WRAPPING
@@ -755,12 +758,11 @@ def compress(*args, compressor: str | Compressor = 'LSQ10', **kwargs):
     return compressor(*args, **kwargs)
 #───────────────────────────────────────────────────────────────────────
 def decompress(x: FloatArray, y: FloatArray,
-              interpolator: str | Interpolator = 'Poly10',
-              **kwargs):
+              interpolator: str | Interpolator = 'Poly10'):
     '''Wrapper for easier selection of compression method'''
     if isinstance(interpolator, str):
-        return _decompress(x, y, models.get(interpolator)._interpolate, **kwargs)
-    return _decompress(x, y, interpolator, **kwargs)
+        return _decompress(x, y, models.get(interpolator)._interpolate)
+    return _decompress(x, y, interpolator)
 #%%═════════════════════════════════════════════════════════════════════
 # HACKS
 # A hack to make the package callable
