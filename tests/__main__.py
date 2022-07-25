@@ -6,8 +6,7 @@ args = sys.argv[1:]
 if not args or 'typing' in args:
     API.typing(shell = True)
 if not args or 'unittests' in args:
-    print(API.unittests())
-    # unittest.main(verbosity = 2)
+    API.unittests(verbosity = 2)
 if not args or 'benchmark' in args:
     print(f'Benchmarking')
     for time, use_numba in product((1, 10), (False, True)):

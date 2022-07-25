@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pathlib
 import sys
-from .GLOBALS import G
+from .auxiliaries import G
 from . import API as ls
 from . import reference as ref
 #%%═════════════════════════════════════════════════════════════════════

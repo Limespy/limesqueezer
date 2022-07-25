@@ -6,12 +6,12 @@ from limesqueezer import to_ndarray
 
 import numpy as np
 
-import unittest
 
 import cProfile
-import time
-import pathlib
 import os
+import pathlib
+import time
+import unittest
 
 PATH_TESTS = pathlib.Path(__file__).parent
 PATH_REPO = PATH_TESTS.parent
@@ -96,11 +96,11 @@ class Unittests(unittest.TestCase):
     #───────────────────────────────────────────────────────────────────
     def test_1_2_sqrtrange(self):
         '''- sqrtrange works as it should'''
-        self.assertTrue(isinstance(ls.API.sqrtranges[0](1), np.ndarray))
+        self.assertTrue(isinstance(ls.sqrtranges[0](1), np.ndarray))
         reltol = 5e-2
         for i in [1, 5 , 100, 1000, 10000]:
-            ins_py = ls.API.sqrtranges[0](i)
-            ins_numba = ls.API.sqrtranges[0](i)
+            ins_py = ls.sqrtranges[0](i)
+            ins_numba = ls.sqrtranges[0](i)
             self.assertTrue(np.all(ins_py == ins_numba))
             arr = np.arange(i + 1)
             arr[ins_numba]

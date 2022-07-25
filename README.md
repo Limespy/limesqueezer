@@ -1,4 +1,4 @@
-# Overview
+# Overview <!-- omit in toc -->
 
 [![PyPI Package latest release](https://img.shields.io/pypi/v/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
 [![PyPI Wheel](https://img.shields.io/pypi/wheel/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
@@ -8,41 +8,119 @@
 
 Lossy compression with controlled error tolerance for smooth data series
 
-
-- [Overview](#overview)
-- [Use](#use)
+## Table of Contents  <!-- omit in toc -->
+- [Quick Start Guide](#quick-start-guide)
+- [User Guide](#user-guide)
   - [Compression](#compression)
-    - [Common parameters](#common-parameters)
+    - [Parameters](#parameters)
       - [Tolerances](#tolerances)
     - [Block](#block)
     - [Stream](#stream)
   - [Decompression](#decompression)
   - [Combining compression methods](#combining-compression-methods)
 - [Meta](#meta)
-  - [Version numbering](#version-numbering)
+  - [Version Numbering](#version-numbering)
   - [Changelog](#changelog)
     - [1.0.12 2022-07-16](#1012-2022-07-16)
     - [1.0.11 2022-07-16](#1011-2022-07-16)
     - [1.0.10 2022-05-08](#1010-2022-05-08)
     - [1.0.9 2022-04-03](#109-2022-04-03)
     - [1.0.8 2022-03-20](#108-2022-03-20)
+    - [1.0.7 2021-12-07](#107-2021-12-07)
+    - [1.0.6 2021-12-02](#106-2021-12-02)
+    - [1.0.5 2021-12-02](#105-2021-12-02)
+    - [1.0.4 2021-12-01](#104-2021-12-01)
     - [1.0.3 2021-11-30](#103-2021-11-30)
 
-# Use
+# Quick Start Guide
+
 
 limesqueezer uses numpy ndarrays types for input and output.
-package import name is `limesqueezer`.
-Author recommend abbreviation `ls`
+Package import name is `limesqueezer`.
+Author recommends abbreviation `ls`
 Rest of documentation uses this abbreviation.
 
 ``` python
     import numpy as np
     import limesqueezer as  ls
 ```
+For example let's make mock data.
+An array of values (`xdata`) and an array of dependent values (`ydata`).
+You can imagine that these have come e.g. from some simulation or measurements.
+``` python
+x_data = np.linspace(0, 1, int(1e4))
+y_data = np.sin(24 * x_data ** 2)
+```
+
+These can be simply compressed with absolute tolerance of e.g. 0.05
+``` python
+tolerance = 0.05
+x_compressed, y_compressed = ls.compress(x_data, y_data, tolerances = tolerance)
+```
+
+Or maybe you have some generator-like thing that gives out numbers, e.g. some simulation step.
+For sake of example there the mock generator 
+``` python
+x0, y0 = x_data[0], y_data[0]
+generator = zip(x_data[1:], y_data[1:])
+```
+
+Here you use the context manager `Stream`.
+It needs to be initialise with first values of the series, here I am just going to use the first from the mock x and y data.
+
+Compressed values can then be accessed from the `record`
+``` python
+with ls.Stream(x0, y0, tolerances = tolerance) as record:
+    for x_value, y_value in generator:
+        record(x_value, y_value)
+
+x_compressed, y_compressed = record.x, record.y
+```
+
+These can then be decompressed into an spline interpolation function.
+
+``` python
+function = ls.decompress(x_compressed, y_compressed)
+y_decompressed = function(y_data)
+```
+With this function e.g. resuduals can be computed and checked against the tolerance
+
+``` python
+residuals = y_decompressed - y_data
+maximum_error = np.amax(np.abs(residuals))
+print(f'Maximum error should be ~= {tolerance}: {maximum_error:.5f}')
+```
+
+and when plotting the output with `matplotlib` you should see it
+
+``` python
+from matplotlib import pyplot as plt
+
+fig, axs = plt.subplots(2,1, sharex=True)
+# Data and compressed
+axs[0].plot(x_data, y_data, label='Original')
+axs[0].plot(x_compressed, y_compressed, '-o', label ='Compressed')
+axs[0].legend()
+
+# Residuals to tolerance
+residuals = y_decompressed - y_data
+axs[1].plot(x_data, y_decompressed - y_data, label = 'Residuals')
+axs[1].axhline(tolerance, label = 'Total tolerance', color = 'red')
+axs[1].axhline(-tolerance, color = 'red')
+axs[1].legend()
+
+fig.tight_layout()
+plt.show()
+```
+![Quick start output](figures/quick_start.png)
+
+# User Guide
+
+VERY MUCH WORK IN PROGRESS
 
 ## Compression
 
-### Common parameters
+### Parameters
 
 #### Tolerances
 
@@ -61,17 +139,17 @@ tolerances, Falloff determines how much the absolute error is
 Allowed deviation is calculated with following function
 
 $$
-deviation = Relative \cdot Y_{data} + \frac{Absolute}{Falloff \cdot Y_{data} + 1}
+deviation = Relative \cdot |Y_{data}| + \frac{Absolute}{Falloff \cdot |Y_{data}| + 1}
 $$
 
 $$
-D_Y^1 deviation = Relative - \frac{Absolute \cdot Falloff}{(Falloff \cdot Y_{data} + 1)^2}
+D_{|Y|}^1 deviation = Relative - \frac{Absolute \cdot Falloff}{(Falloff \cdot |Y_{data}| + 1)^2}
 $$
 
 To have constrain that
 
 $$
-D_Y^1 deviation(0) > 0 
+D_{|Y|}^1 deviation(Y = 0) > 0 
 $$
 Means
 $$
@@ -102,13 +180,6 @@ Initialise with first values, here I am just going to use the first
 A function.
 
 The whole of data is given as input.
-
-To simplify the interface, the package has beem made callable.
-Now you want to compress it with maximum absolute error being 1e-3.
-
-``` python
-    output_x, output_y = ls(input_x, input_y, tol = 1e-3)
-```
 
 You can also use
 
@@ -187,7 +258,7 @@ The lossless compression should be done only after the lossy compression this pa
 
 # Meta
 
-## Version numbering
+## Version Numbering
 
 Version code is composed of three numbers:
 Major, Minor, Micro
@@ -241,6 +312,14 @@ only the implementation.
 
 
 - Step-by-step style ploting of the compression.
+
+### 1.0.7 2021-12-07
+
+### 1.0.6 2021-12-02
+
+### 1.0.5 2021-12-02
+
+### 1.0.4 2021-12-01
 
 ### 1.0.3 2021-11-30
 
