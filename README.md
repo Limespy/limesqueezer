@@ -206,26 +206,30 @@ $$
 ![MaxAbs](figures/absolute_only.png)
 
 $$
-\max(mean(residuals^2))
+\max(mean(|residuals|))
 $$
+
 ![MaxMAbs](figures/MaxMAbs.png)
 
+$$
+\max(\max(mean(|residuals| - tolerance)), (|residuals| - tolerance)[-1])
+$$
 
-$$
-\max(mean(residuals^2))
-$$
 ![MaxMAbs_AbsEnd](figures/MaxMAbs_AbsEnd.png)
 
 Here the Residuals is actually $residuals^2$
+
 $$
-\max(mean(residuals^2))
+\max(mean(residuals^2 - tolerance))
 $$
+
 ![MaxMS](figures/MaxMS.png)
 
 
 $$
 \max(max(mean(residuals^2 - tolerance)), (residuals^2 - tolerance)[-1])
 $$
+
 ![MaxMS_SEnd](figures/MaxMS_SEnd.png)
 ### Stream
 
