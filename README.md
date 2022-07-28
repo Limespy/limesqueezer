@@ -4,7 +4,7 @@
 [![PyPI Wheel](https://img.shields.io/pypi/wheel/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
 [![Supported versions](https://img.shields.io/pypi/pyversions/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
 [![Supported implementations](https://img.shields.io/pypi/implementation/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
-[![Commits since latest release](https://img.shields.io/github/commits-since/Limespy/limesqueezer/v1.0.12.svg)](https://github.com/limespy/limesqueezer/compare/v1.0.11...master)
+[![Commits since latest release](https://img.shields.io/github/commits-since/Limespy/limesqueezer/v1.0.13.svg)](https://github.com/limespy/limesqueezer/compare/v1.0.11...master)
 
 Lossy compression with controlled error tolerance for smooth data series
 
@@ -21,7 +21,8 @@ Lossy compression with controlled error tolerance for smooth data series
 - [Meta](#meta)
   - [Version Numbering](#version-numbering)
   - [Changelog](#changelog)
-    - [1.0.12 2022-07-16](#1012-2022-07-16)
+    - [1.0.13 2022-XX-XX](#1013-2022-xx-xx)
+    - [1.0.12 2022-07-28](#1012-2022-07-28)
     - [1.0.11 2022-07-16](#1011-2022-07-16)
     - [1.0.10 2022-05-08](#1010-2022-05-08)
     - [1.0.9 2022-04-03](#109-2022-04-03)
@@ -316,12 +317,17 @@ only the implementation.
 
 ## Changelog
 
-### 1.0.12 2022-07-16
+### 1.0.13 2022-XX-XX
+
+
+
+### 1.0.12 2022-07-28
 
 - Changed README to Markdown-only
 - Updated documentation
 - Some refactoring
 - Fixed type hints to pass MyPy type checking
+
 ### 1.0.11 2022-07-16
 
 - Debug plotting improvements
