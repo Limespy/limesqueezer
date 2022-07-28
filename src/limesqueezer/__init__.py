@@ -75,11 +75,11 @@ The custom function must have following interface::
 Where:
 |    name   | description                          | shape |
 | :-------: | ------------------------------------ | :---: |
-|      x    | x values of the points to be fitted  |  (n,)
-|      y    | y values of the points to be fitted  | (n,m)
-|     y0    | Last compressed point y value(s)     | (1, m)
-| residuals | Residuals of the fit, i.e. y_fit - y | (n, m)
-|     y1    | Next Y values                        | (1, m)
+|      x    | x values of the points to be fitted  |  (n,) |
+|      y    | y values of the points to be fitted  | (n,m) |
+|     y0    | Last compressed point y value(s)     | (1, m) |
+| residuals | Residuals of the fit, i.e. y_fit - y | (n, m) |
+|     y1    | Next Y values                        | (1, m) |
 
 
 =========  ====================================  =======
@@ -110,8 +110,8 @@ Making custom compressors
 A custom compressor needs a fucntion
 
 '''
-
-__version__ = '1.0.11'
+import sys
+__version__ = '1.0.12'
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
 from .API import *

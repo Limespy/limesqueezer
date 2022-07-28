@@ -22,7 +22,7 @@ Reference = namedtuple('Reference',
 
 ##%%═════════════════════════════════════════════════════════════════════
 ## Reference functions
-def f2zero_100(n: int) -> float:
+def f2zero_100(n: int) -> tuple[float, bool]:
     '''returns < 0 for values 0 to 100 and >0 for values > 100'''
     if round(n) != n: raise ValueError('Not whole number')
     if n < 0: raise ValueError('Input must be >= 0')
@@ -58,24 +58,3 @@ raw = {'poly0': raw_poly0,
        'poly1': raw_poly1,
        'poly2': raw_poly2,
        'sine': raw_sine}
-###═════════════════════════════════════════════════════════════════════
-class Data():
-    '''Data container'''
-    def __init__(self, function, ytol=1e-2):
-        
-        self.x, self.y = raw[function]()
-        self.y_range = np.max(self.y) - np.min(self.y)
-        self.ytol = ytol
-        self.xc = None
-        self.yc = None
-#───────────────────────────────────────────────────────────────────────
-references = [Reference(raw['poly0'],1e-5,'interp10','monolith')]
-#───────────────────────────────────────────────────────────────────────
-def generate(function, method, ytol=5e-2):
-    data = Data(function, ytol=ytol)
-    data.xc, data.yc, _ = ls.compress(data.x, data.y, method=method, ytol=data.ytol)
-    data.make_lerp()
-    print(np.amax(np.abs(data.residuals_relative)))
-    np.savetxt(path_data / (function+'_'+method+'.csv'),
-               np.concatenate((data.xc, data.yc), axis=1), delimiter=',', header='hmm')
-    return data

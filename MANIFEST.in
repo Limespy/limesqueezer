@@ -1,18 +1,9 @@
-graft docs
 graft src
-graft ci
 graft tests
 
 include .bumpversion.cfg
-include .coveragerc
-include .editorconfig
-include .appveyor.yml
-include AUTHORS.rst
-include CHANGELOG.rst
-include LICENSE
-include README.rst
+include LICENSE.txt
 include README.md
-include notes.md
 include examples.py
 
-global-exclude *.py[cod] __pycache__/* *.so *.dylib
+global-exclude *.py[cod] __pycache__/*
