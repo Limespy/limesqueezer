@@ -13,6 +13,8 @@ import pathlib
 import time
 import unittest
 
+from limesqueezer.errorfunctions import ErrorFunction
+
 PATH_TESTS = pathlib.Path(__file__).parent
 PATH_REPO = PATH_TESTS.parent
 # First item in src should be the package
@@ -223,7 +225,7 @@ class Unittests(unittest.TestCase):
 
         X_DATA, Y_DATA1 = ls.ref.raw_sine_x2(1e4)
         xc_block, yc_block = ls.compress(X_DATA, Y_DATA1, tolerances = tol,
-                                initial_step = 100, errorfunction = 'maxmaxabs')
+                                initial_step = 100, errorfunction = 'MaxAbs')
         #───────────────────────────────────────────────────────────────
         with ls.Stream(X_DATA[0], Y_DATA1[0], tolerances = tol) as record:
             for x, y in zip(X_DATA[1:], Y_DATA1[1:]):
@@ -244,10 +246,10 @@ class Unittests(unittest.TestCase):
         for 1 y variable'''
         X_DATA, Y_DATA1 = ls.ref.raw_sine_x2(1e4)
         xc, yc = ls.compress(X_DATA, Y_DATA1,
-                             tolerances = tol, errorfunction = 'maxmaxabs')
+                             tolerances = tol, errorfunction = 'MaxAbs')
         function = ls.decompress(xc, yc)
         function_call = ls(X_DATA, Y_DATA1,
-                           tolerances = tol, errorfunction = 'maxmaxabs')
+                           tolerances = tol, errorfunction = 'MaxAbs')
 #═══════════════════════════════════════════════════════════════════════
 def unittests(verbosity: int = 2) -> unittest.TestResult:
     return unittest.TextTestRunner(verbosity = verbosity).run(unittest.makeSuite(Unittests))
@@ -261,7 +263,7 @@ def benchmark(use_numba: bool, timerange: float) -> tuple[float, np.ndarray]:
     while time.time() < endtime:
         print(f'\rBenchmarking, loopset {n}', end = '')
         for _ in range(n2):
-            ls.compress(X_DATA, Y_DATA2, tolerances = (1e-3, 1e-4, 1), use_numba = use_numba)
+            ls.compress(X_DATA, Y_DATA2, tolerances = (1e-3, 1e-4, 1), use_numba = use_numba, errorfunction = 'MaxAbs')
             runtime.append(ls.G['runtime'])
         n += 1
     runtime = np.array(runtime)

@@ -7,14 +7,12 @@ import tests
 import pathlib
 from setuptools import find_packages
 from setuptools import setup
-
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP GLOBALS
 PATH_REPO = pathlib.Path(__file__).parent
 SOURCE_NAME = 'src'
 PYTHON_VERSION = '>=3.10'
 PATH_LICENCE = tuple(PATH_REPO.glob('LICENSE*'))[0]
-license_fname = 'LICENSE.txt'
 PATH_SCR = PATH_REPO / SOURCE_NAME
 PATH_README = tuple(PATH_REPO.glob('README*'))[0]
 #%%═════════════════════════════════════════════════════════════════════
@@ -114,7 +112,6 @@ setup_info['py_modules'] = [path.stem for path in PATH_SCR.rglob('*.py')]
 # Include  Package Data
 setup_info['include_package_data'] = True
 #───────────────────────────────────────────────────────────────────────
-#───────────────────────────────────────────────────────────────────────
 # Classifiers
 # complete classifier list:
 #   http://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -124,24 +121,21 @@ setup_info['classifiers']   = [
     c('License', 'OSI Approved', LICENSE_NAME),
     *cset('Operating System', 'Unix', 'POSIX', ('Microsoft', 'Windows')),
     *cset(('Programming Language', 'Python'),
-          '3', ('3', 'Only'), PYTHON_VERSION[2:]),
+          '3', ('3', 'Only'), PYTHON_VERSION[-4:]),
     c('Topic', 'Scientific/Engineering'),
     *cset(('Topic', 'Scientific/Engineering'), 'Chemistry', 'Physics'),
     *cset('Topic', ('System', 'Archiving', 'Compression'), 'Utilities'),
                                ]
 #───────────────────────────────────────────────────────────────────────
 # Project URLs
-
 setup_info['project_urls'] = {
     'Changelog': f'{setup_info["url"]}/blob/main/{PATH_README.name}#Changelog',
-    'Issue Tracker': f'{setup_info["url"]}/issues',
-                              }
+    'Issue Tracker': f'{setup_info["url"]}/issues'}
 #───────────────────────────────────────────────────────────────────────
 # Keywords
 setup_info['keywords'] = ['compression']
 #───────────────────────────────────────────────────────────────────────
 # Python requires
-
 setup_info['python_requires']  = PYTHON_VERSION
 #───────────────────────────────────────────────────────────────────────
 # Install requires

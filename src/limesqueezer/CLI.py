@@ -43,12 +43,12 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
     # y_data[1000] += 1 
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1),
-                    use_numba = use_numba, errorfunction = 'maxmaxabs', fitset = 'Poly10')
+                    use_numba = use_numba, errorfunction = 'MaxAbs', fitset = 'Poly10')
         print(ls.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, (1e-2, 1e-3, 1), use_numba)
     elif args[0] == 'both':
-        xcb, ycb = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1), use_numba = use_numba, initial_step = 100, errorfunction = 'maxmaxabs')
+        xcb, ycb = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1), use_numba = use_numba, initial_step = 100, errorfunction = 'MaxAbs')
         xcs, ycs = _stream(x_data, y_data, (1e-2, 1e-3, 1.), use_numba)
         for i, (xb, xs) in enumerate(zip(xcb,xcs)):
             if xb != xs:
@@ -62,9 +62,9 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
         print(xcs)
 
         xc, yc = xcb, ycb
-    if is_plot:
-        from . import plotters
-        plotters.comparison(x_data, y_data, ls.decompress(xc, yc)(x_data))
+    # if is_plot:
+    #     from ... import plotters
+    #     plotters.comparison(x_data, y_data, ls.decompress(xc, yc)(x_data))
     # print(f'{xc[-10:-1]}')
     print(f'{len(x_data)=}\t{len(xc)=}')
     if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')

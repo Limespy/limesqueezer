@@ -13,13 +13,15 @@ from .auxiliaries import (debugsetup,
                           stats,
                           to_ndarray,
                           wait,
+                          default_numba_kwargs,
+                          py_and_nb,
                           G,
                           FloatArray,
                           MaybeArray,
                           Any,
                           Callable,
                           TolerancesInput,
-                          TolerancesInternal)
+                          TolerancesInternal,)
 from . import errorfunctions
 from .errorfunctions import ErrorFunction
 from . import models
@@ -75,88 +77,100 @@ def parse_tolerances(tolerances: TolerancesInput, shape: tuple[int, ...]
     # Relative, absolute, falloff
     return np.array([to_ndarray(tol, shape) for tol in tolerances_triplet])
 #%%═════════════════════════════════════════════════════════════════════
+def _tolerance(y_sample: FloatArray, tolerances: TolerancesInternal
+                     ) -> FloatArray:
+    y_abs = np.abs(y_sample)
+    reltols = y_abs * tolerances[0]
+    abstols = tolerances[1] / (tolerances[2] * y_abs + 1)
+    return reltols + abstols
+#───────────────────────────────────────────────────────────────────────
+tolerancefunctions = py_and_nb(_tolerance)
+#%%═════════════════════════════════════════════════════════════════════
 # Functions to be solved in discrete root finding
 F2Zero = Callable[[int], tuple[float, FloatArray]]
 GetF2Zero =  Callable[[FloatArray,
                        FloatArray,
                        float,
-                       FloatArray,
-                       TolerancesInternal,
-                       SqrtRange,
-                       FitFunction,
-                       ErrorFunction],
+                       FloatArray],
                       F2Zero]
 #───────────────────────────────────────────────────────────────────────
-def get_f2zero(x: FloatArray,
-        y: FloatArray,
-        x0: float,
-        y0: FloatArray,
-        tol: TolerancesInternal,
-        sqrtrange: SqrtRange,
-        f_fit: FitFunction,
-        errorfunction: ErrorFunction
-        ) -> F2Zero:
-    def f2zero(i: int) -> tuple[float, FloatArray]:
-        '''Function such that i is optimal when f2zero(i) = 0
+def init_get_f2zero(is_debug: bool,
+                    use_numba: int,
+                    tol: TolerancesInternal,
+                    sqrtrange: SqrtRange,
+                    f_fit: FitFunction,
+                    errorfunction: ErrorFunction):
+    '''Third orgder function to initialise the second order function
+    to get f2zero
+    '''
+    tolerancefunction = tolerancefunctions[use_numba]
+    if is_debug:
+        def function(x: FloatArray,
+                     y: FloatArray,
+                     x0: float,
+                     y0: FloatArray,
+                     ) -> F2Zero:
+            def f2zero(i: int) -> tuple[float, FloatArray]:
+                '''Function such that i is optimal when f2zero(i) = 0'''
+                inds = sqrtrange(i)
+                x_sample, y_sample = x[inds], y[inds]
+                y_fit = f_fit(x_sample, y_sample, x0, y0)
+                tolerance_total = tolerancefunction(y_sample, tol)
 
-        Parameters
-        ----------
-        i : int
-            highest index of the fit 
+                residuals = y_fit - y_sample
+                if len(residuals) == 1:
+                    print(f'\t\t{residuals=}')
+                print(f'\t\tstart = {G["start"]} end = {i + G["start"]} points = {i + 1}')
+                print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {G["x"][G["start"]]}')
+                indices_all = np.arange(-1, i) + G['start']
+                G['x_plot'] = G['x'][indices_all]
+                G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, y_fit[-1])
+                # print(f'{G["y_plot"].shape=}')
+                G['line_fit'].set_xdata(G['x_plot'])
+                G['line_fit'].set_ydata(G['y_plot'])
+                # print(f'{G["y"][indices_all].shape=}')
+                res_all = G['y_plot'][1:] - G['y'][indices_all].flatten()[1:]
+                print(f'\t\t{residuals.shape=}\n\t\t{res_all.shape=}')
+                G['ax_res'].clear()
+                G['ax_res'].grid()
+                G['ax_res'].axhline(color = 'red', linestyle = '--')
+                G['ax_res'].set_ylabel('Residual relative to tolerance')
+                indices_x = indices_all[1:] - G['start']
+                residuals_relative =  np.abs(res_all) / G['tol'] - 1
+                G['ax_res'].plot(indices_x, residuals_relative,
+                                    '.', color = 'blue', label = 'ignored')
+                G['ax_res'].plot(inds, np.abs(residuals) / G['tol']-1,
+                                    'o', color = 'red', label = 'sampled')
+                G['ax_res'].legend(loc = 'lower right')
+                wait('\t\tFitting\n')
+                return errorfunction(y_sample, y_fit, tolerance_total), y_fit[-1]
+            return f2zero
+    #───────────────────────────────────────────────────────────────────
+    else:
+        def function(x: FloatArray,
+                     y: FloatArray,
+                     x0: float,
+                     y0: FloatArray) -> F2Zero:
+            def f2zero(i: int) -> tuple[float, FloatArray]:
+                '''Function such that i is optimal when f2zero(i) = 0
 
-        Returns
-        -------
-        tuple
-            output of the error function and last of the fit
-        '''
-        inds = sqrtrange(i)
-        x_sample, y_sample = x[inds], y[inds]
-        y_fit = f_fit(x_sample, y_sample, x0, y0)
-        return errorfunction(y_sample, y_fit, tol), y_fit[-1]
-    return f2zero
-#───────────────────────────────────────────────────────────────────────
-def get_f2zero_debug(x: FloatArray,
-              y: FloatArray,
-              x0: float,
-              y0: FloatArray,
-              tol: TolerancesInternal,
-              sqrtrange: SqrtRange,
-              f_fit: FitFunction,
-              errorfunction: ErrorFunction
-              ) -> F2Zero:
-    def f2zero(i: int) -> tuple[float, FloatArray]:
-        '''Function such that i is optimal when f2zero(i) = 0'''
-        inds = sqrtrange(i)
-        x_sample, y_sample = x[inds], y[inds]
-        y_fit = f_fit(x_sample, y_sample, x0, y0)
-        residuals = y_fit - y_sample
-        if len(residuals) == 1:
-            print(f'\t\t{residuals=}')
-        print(f'\t\tstart = {G["start"]} end = {i + G["start"]} points = {i + 1}')
-        print(f'\t\tx0\t{x0}\n\t\tx[0]\t{x[inds][0]}\n\t\tx[-1]\t{x[inds][-1]}\n\t\txstart = {G["x"][G["start"]]}')
-        indices_all = np.arange(-1, i) + G['start']
-        G['x_plot'] = G['x'][indices_all]
-        G['y_plot'] = G['interp'](G['x_plot'], x0, x[inds][-1], y0, y_fit[-1])
-        # print(f'{G["y_plot"].shape=}')
-        G['line_fit'].set_xdata(G['x_plot'])
-        G['line_fit'].set_ydata(G['y_plot'])
-        # print(f'{G["y"][indices_all].shape=}')
-        res_all = G['y_plot'][1:] - G['y'][indices_all].flatten()[1:]
-        print(f'\t\t{residuals.shape=}\n\t\t{res_all.shape=}')
-        G['ax_res'].clear()
-        G['ax_res'].grid()
-        G['ax_res'].axhline(color = 'red', linestyle = '--')
-        G['ax_res'].set_ylabel('Residual relative to tolerance')
-        indices_x = indices_all[1:] - G['start']
-        residuals_relative =  np.abs(res_all) / G['tol'] - 1
-        G['ax_res'].plot(indices_x, residuals_relative,
-                            '.', color = 'blue', label = 'ignored')
-        G['ax_res'].plot(inds, np.abs(residuals) / G['tol']-1,
-                            'o', color = 'red', label = 'sampled')
-        G['ax_res'].legend(loc = 'lower right')
-        wait('\t\tFitting\n')
-        return errorfunction(y_sample, y_fit, tol), y_fit[-1]
-    return f2zero
+                Parameters
+                ----------
+                i : int
+                    highest index of the fit 
+
+                Returns
+                -------
+                tuple
+                    output of the error function and last of the fit
+                '''
+                inds = sqrtrange(i)
+                x_sample, y_sample = x[inds], y[inds]
+                y_fit = f_fit(x_sample, y_sample, x0, y0)
+                tolerance_total = tolerancefunction(y_sample, tol)
+                return errorfunction(y_sample, y_fit, tolerance_total), y_fit[-1]
+            return f2zero
+    return function
 #%%═════════════════════════════════════════════════════════════════════
 # BLOCK COMPRESSION
 Compressor = Callable[[FloatArray,
@@ -172,7 +186,7 @@ def LSQ10(x_in: FloatArray,
           y_in: FloatArray, /,
           tolerances: TolerancesInput = (1e-2, 1e-2, 0),
           initial_step: int | None  = None,
-          errorfunction: str | ErrorFunction = 'maxmaxabs',
+          errorfunction: str | ErrorFunction = 'MaxAbs',
           use_numba: int = 0,
           fitset: str | Any   = 'Poly10',
           keepshape: bool = False
@@ -196,7 +210,7 @@ def LSQ10(x_in: FloatArray,
         First compression step to be calculated.
         If None, it is automatically calculated.
         Provide for testing purposes or for miniscule reduction in setup time
-    errorfunction : str, default 'maxmaxabs'
+    errorfunction : str, default 'MaxAbs'
         Function which is used to compute the error of the fit, by 
     use_numba : int, default 0
         For using functions with Numba JIT compilation set as 1
@@ -252,21 +266,20 @@ def LSQ10(x_in: FloatArray,
     else:
         mid = end // 2
         offset = round(limit / n_lines(x[1:mid], y[1:mid], x[0], y[0], tol[1]))
-
+    get_f2zero: GetF2Zero = init_get_f2zero(is_debug, use_numba,
+                                            tol, sqrtrange,
+                                            f_fit, _errorfunction)
     if is_debug:
         G.update(debugsetup(x, y, start_err1, fitset, start))
-        get_f2z: GetF2Zero = get_f2zero_debug
         solver = droot_debug
     else:
-        get_f2z = get_f2zero
         solver = droot
     #───────────────────────────────────────────────────────────────────
     # Main loop
     for _ in range(end): # Prevents infinite loop in case error
         if x[start-1] != xc[-1]:
             raise IndexError(f'Indices out of sync {start}')
-        offset, fit = solver(get_f2z(x[start:], y[start:], xc[-1], yc[-1],
-                                     tol, sqrtrange, f_fit, _errorfunction),
+        offset, fit = solver(get_f2zero(x[start:], y[start:], xc[-1], yc[-1]),
                              start_err1, offset, limit)
         step = offset + 1
         start += step # Start shifted by the number Record and the
@@ -339,9 +352,6 @@ class _StreamRecord(collections.abc.Sized):
                  x_type: type,
                  y_type: type,
                  tolerances: TolerancesInternal,
-                 errorfunction: ErrorFunction,
-                 f_fit: FitFunction,
-                 sqrtrange: SqrtRange,
                  n2: int,
                  get_f2zero: GetF2Zero):
         if G['timed']: G['t_start'] = time.perf_counter()
@@ -359,7 +369,6 @@ class _StreamRecord(collections.abc.Sized):
         self._lenc: int   = 1 # length of the Record points
         self.fit1: FloatArray = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
-
         def update(x_array: FloatArray, y_array: FloatArray, #─────────┐
                x0: float, y0: FloatArray, n: int, limit):
             if x_array.shape != (limit + 1,):
@@ -367,8 +376,7 @@ class _StreamRecord(collections.abc.Sized):
             if y_array.shape != (limit + 1, 1):
                 raise ValueError(f'{y_array.shape=}')
 
-            f2zero = get_f2zero(x_array, y_array, x0, y0,
-                                tolerances, sqrtrange, f_fit, errorfunction)
+            f2zero = get_f2zero(x_array, y_array, x0, y0)
             return f2zero, *f2zero(n) #────────────────────────────────┘
 
         self.update_f2zero = update
@@ -613,7 +621,7 @@ class Stream():
                  y_initial: float | FloatArray,
                  tolerances: TolerancesInput = (1e-2, 1e-3, 0),
                  initial_step: int = 100,
-                 errorfunction: ErrorFunction | str = 'maxmaxabs',
+                 errorfunction: ErrorFunction | str = 'MaxAbs',
                  use_numba: int = 0,
                  fitset: FitSet | str = 'Poly10',
                  fragile: bool = True):
@@ -639,11 +647,15 @@ class Stream():
         self.f_fit      = self.fitset.fit[use_numba]
         self.sqrtrange  = sqrtranges[use_numba]
         self.n2         = initial_step
+        self.get_f2zero = init_get_f2zero(G['debug'],
+                                          use_numba,
+                                          self.tol,
+                                          self.sqrtrange,
+                                          self.f_fit, self.errorfunction)
     #───────────────────────────────────────────────────────────────────
     def __enter__(self) -> _StreamRecord | _StreamRecord_debug:
         basic_args = (self.x0, self.y0, self.x_type, self.y_type, self.tol,
-                      self.errorfunction, self.f_fit, self.sqrtrange, self.n2,
-                      get_f2zero_debug if G['debug'] else get_f2zero)
+                      self.n2, self.get_f2zero)
         self.record: _StreamRecord | _StreamRecord_debug
         if G['debug']:
             self.record = _StreamRecord_debug(*basic_args,

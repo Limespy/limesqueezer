@@ -12,9 +12,9 @@ Lossy compression with controlled error tolerance for smooth data series
 - [Quick Start Guide](#quick-start-guide)
 - [User Guide](#user-guide)
   - [Compression](#compression)
-    - [Parameters](#parameters)
-      - [Tolerances](#tolerances)
-    - [Block](#block)
+  - [Parameters](#parameters)
+    - [Tolerances](#tolerances)
+    - [Errorfunctions](#errorfunctions)
     - [Stream](#stream)
   - [Decompression](#decompression)
   - [Combining compression methods](#combining-compression-methods)
@@ -120,15 +120,18 @@ VERY MUCH WORK IN PROGRESS
 
 ## Compression
 
-### Parameters
+## Parameters
 
-#### Tolerances
+### Tolerances
 
 Keyword `tolerances`
 
 Tolerances
 Absolute Tolerance, Relative Tolerance and Falloff to smooth between them.
 
+Absolute tolerance -only is the default
+
+![Absolute tolerance only](figures/absolute_only.png)
 
 tolerances, Falloff determines how much the absolute error is
         reduced as y value grows.
@@ -149,12 +152,28 @@ $$
 To have constrain that
 
 $$
-D_{|Y|}^1 deviation(Y = 0) > 0 
+D_{|Y|}^1 deviation(Y = 0) \geq 0 
 $$
 Means
 $$
-Relative > Absolute \cdot Falloff 
+Relative \geq Absolute \cdot Falloff 
 $$
+
+
+![Relative tolerance only](figures/relative_only.png)
+
+![Relative and absolute tolerance without falloff](figures/relative_and_absolute_no_falloff.png)
+
+Smooth falloff is at
+$$
+Falloff = \frac{Relative}{Absolute}
+$$
+
+![Relative andabsolute tolerance with smooth falloff](figures/relative_and_absolute_smooth_falloff.png)
+
+If you go over the smooth falloff limit, you make tolerance fucntion non-monotonic, so it first _decreases_ as the absolute y value increases and then starts to increase.
+
+![Relative tolerance with too much falloff](figures/relative_and_absolute_over_falloff.png)
 
 Recommended
 
@@ -175,31 +194,45 @@ E.g. some simulation step
 Here you use the context manager "Stream"
 Initialise with first values, here I am just going to use the first
 
-### Block
+### Errorfunctions
 
-A function.
+The default, `MaxAbs`.
+Maximum of the absolute residual 
 
-The whole of data is given as input.
+$$
+\max(|residual| - tolerance)
+$$
 
-You can also use
+![MaxAbs](figures/absolute_only.png)
 
-``` python
-    output_x, output_y = ls.compress(input_x, input_y, tol = 1e-3)
-```
-if that is more comfortable for you.
+$$
+\max(mean(residuals^2))
+$$
+![MaxMAbs](figures/MaxMAbs.png)
 
+
+$$
+\max(mean(residuals^2))
+$$
+![MaxMAbs_AbsEnd](figures/MaxMAbs_AbsEnd.png)
+
+Here the Residuals is actually $residuals^2$
+$$
+\max(mean(residuals^2))
+$$
+![MaxMS](figures/MaxMS.png)
+
+
+$$
+\max(max(mean(residuals^2 - tolerance)), (residuals^2 - tolerance)[-1])
+$$
+![MaxMS_SEnd](figures/MaxMS_SEnd.png)
 ### Stream
 
 Context manager and a class.
 
 - Data is fed one point at the time.
 - Context manager is used to ensure proper finishing of the compression process.
-
-``` python
-    example_x0, example_y0 = input_x[0], input_y[0]
-    generator = zip(input_x[1:], input_y[1:])
-```
-The context manager for Stream data is 'Stream'.
 
 ``` python
     with ls.Stream(example_x0, example_y0, tol = 1e-3) as record:
@@ -233,10 +266,6 @@ the record to be compressed.
 A side mote: In English language the word 'record' can be either
 verb or noun and since it performs this double role of both taking
 in data and being storage of the data, it is a fitting name for the object
-
-
-
-
 
 ## Decompression
 
@@ -286,7 +315,9 @@ only the implementation.
 ### 1.0.12 2022-07-16
 
 - Changed README to Markdown-only
-
+- Updated documentation
+- Some refactoring
+- Fixed type hints to pass MyPy type checking
 ### 1.0.11 2022-07-16
 
 - Debug plotting improvements
@@ -310,7 +341,6 @@ only the implementation.
 
 ### 1.0.8 2022-03-20
 
-
 - Step-by-step style ploting of the compression.
 
 ### 1.0.7 2021-12-07
@@ -323,7 +353,4 @@ only the implementation.
 
 ### 1.0.3 2021-11-30
 
-
 - First release on PyPI.
-
-
