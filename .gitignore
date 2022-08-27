@@ -1,5 +1,5 @@
 sandbox.py
-
+*.rst
 *.py[cod]
 __pycache__
 

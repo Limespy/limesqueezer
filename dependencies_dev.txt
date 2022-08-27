@@ -1,1 +1,3 @@
 mypy==0.971
+wheel
+twine

@@ -115,28 +115,28 @@ plot_tolerances((relative, absolute, falloff),
                 'absolute_only')
 ##%%════════════════════════════════════════════════════════════════════
 ## Relative only
-relative = 0.02
+relative = 0.03
 absolute = 0
 falloff = 0
 plot_tolerances((relative, absolute, falloff),
                 'relative_only')
 ##%%════════════════════════════════════════════════════════════════════
 ## Relative and absolute with zero falloff
-relative = 0.02
+relative = 0.03
 absolute = 0.02
 falloff = 0
 plot_tolerances((relative, absolute, falloff),
                 'relative_and_absolute_no_falloff')
 ##%%════════════════════════════════════════════════════════════════════
 ## Relative and absolute with smooth falloff
-relative = 0.02
+relative = 0.03
 absolute = 0.02
 falloff = relative / absolute
 plot_tolerances((relative, absolute, falloff),
                 'relative_and_absolute_smooth_falloff')
 ##%%════════════════════════════════════════════════════════════════════
 ## Relative and absolute with too much falloff
-relative = 0.02
+relative = 0.03
 absolute = 0.02
 falloff = relative / absolute * 4
 plot_tolerances((relative, absolute, falloff),

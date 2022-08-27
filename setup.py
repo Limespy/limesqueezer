@@ -73,6 +73,16 @@ with open(PATH_LICENCE, 'r', encoding = 'utf8') as f:
     LICENSE_NAME = f.readline().strip()
 setup_info['license'] = f'{LICENSE_NAME.split()[0]}'
 #───────────────────────────────────────────────────────────────────────
+# Author
+setup_info['author'] = 'Limespy'
+#───────────────────────────────────────────────────────────────────────
+# Author Email
+setup_info['author_email'] = ''
+#───────────────────────────────────────────────────────────────────────
+# URL
+setup_info['url'] = f'https://github.com/{setup_info["author"]}/{setup_info["name"]}'
+GITHUB_MAIN_URL = f'{setup_info["url"]}/blob/main/'
+#───────────────────────────────────────────────────────────────────────
 # Description
 with open(PATH_README, 'r', encoding = 'utf8') as f:
     while (description := f.readline().lstrip(' ')).startswith(('#', '\n', '[')):
@@ -85,20 +95,11 @@ setup_info['description'] = description
 #───────────────────────────────────────────────────────────────────────
 # Long Description
 with open(PATH_README, 'r', encoding = 'utf8') as f:
-    setup_info['long_description'] = f.read()
+    setup_info['long_description'] = f.read().replace('./', GITHUB_MAIN_URL)
 if PATH_README.suffix == '.md':
     setup_info['long_description_content_type'] = 'text/markdown'
 elif PATH_README.suffix != '.rst':
     raise TypeError(f'README file type not recognised: {PATH_README}')
-#───────────────────────────────────────────────────────────────────────
-# Author
-setup_info['author'] = 'Limespy'
-#───────────────────────────────────────────────────────────────────────
-# Author Email
-setup_info['author_email'] = ''
-#───────────────────────────────────────────────────────────────────────
-# URL
-setup_info['url'] = f'https://github.com/Limespy/{setup_info["name"]}'
 #───────────────────────────────────────────────────────────────────────
 # packages
 setup_info['packages']  = find_packages(SOURCE_NAME)
@@ -129,11 +130,11 @@ setup_info['classifiers']   = [
 #───────────────────────────────────────────────────────────────────────
 # Project URLs
 setup_info['project_urls'] = {
-    'Changelog': f'{setup_info["url"]}/blob/main/{PATH_README.name}#Changelog',
+    'Changelog': f'{GITHUB_MAIN_URL}{PATH_README.name}#Changelog',
     'Issue Tracker': f'{setup_info["url"]}/issues'}
 #───────────────────────────────────────────────────────────────────────
 # Keywords
-setup_info['keywords'] = ['compression']
+setup_info['keywords'] = ['compression', 'numpy']
 #───────────────────────────────────────────────────────────────────────
 # Python requires
 setup_info['python_requires']  = PYTHON_VERSION
