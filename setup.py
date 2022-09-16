@@ -2,43 +2,62 @@
 # -*- encoding: utf-8 -*-
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
-import tests
+
 
 import pathlib
 from setuptools import find_packages
 from setuptools import setup
+import sys
+
+if '--print' in sys.argv:
+    import colorama as col
+    RESET = col.Style.RESET_ALL
+    BLACK = col.Fore.BLACK
+    BLUE = col.Fore.BLUE
+    CYAN = col.Fore.CYAN
+    GREEN = col.Fore.GREEN
+    MAGENTA = col.Fore.MAGENTA
+    RED = col.Fore.RED
+    YELLOW = col.Fore.YELLOW
+    WHITE = col.Fore.WHITE
+    WHITE_BG = col.Back.WHITE
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP GLOBALS
-PATH_REPO = pathlib.Path(__file__).parent
+BASE_DIR = pathlib.Path(__file__).parent
 SOURCE_NAME = 'src'
 PYTHON_VERSION = '>=3.10'
-PATH_LICENCE = tuple(PATH_REPO.glob('LICENSE*'))[0]
-PATH_SCR = PATH_REPO / SOURCE_NAME
-PATH_README = tuple(PATH_REPO.glob('README*'))[0]
+PATH_LICENCE = tuple(BASE_DIR.glob('LICENSE*'))[0]
+PATH_SCR = BASE_DIR / SOURCE_NAME
+PATH_INIT = next(PATH_SCR.rglob('__init__.py'))
+PATH_README = tuple(BASE_DIR.glob('README*'))[0]
 #%%═════════════════════════════════════════════════════════════════════
 # Run tests first
-print('Running typing checks')
-typing_test_result = tests.typing(shell = False)
-print(typing_test_result[0])
-if typing_test_result[1]:
-    print(typing_test_result[1])
-failed = not typing_test_result[0].startswith('Success')
-failed |= bool(typing_test_result[1])
+if '--tests' in sys.argv:
+    import tests
+    print('Running typing checks')
+    typing_test_result = tests.typing(shell = False)
+    failed = not typing_test_result[0].startswith('Success')
+    failed |= bool(typing_test_result[1])
+    print(f'{RED if failed else GREEN}{typing_test_result[0]}{RESET}')
+    if typing_test_result[1]:
+        print(typing_test_result[1])
 
-print('Running unit tests')
-unit_test_result = tests.unittests(verbosity = 1)
-failed |= bool(unit_test_result.errors)
-failed |= bool(unit_test_result.failures)
-if failed:
-    raise Exception('Tests did not pass, read above')
+    print('Running unit tests')
+    unit_test_result = tests.unittests(verbosity = 1)
+    failed |= bool(unit_test_result.errors)
+    failed |= bool(unit_test_result.failures)
+    if failed:
+        raise Exception('Tests did not pass, read above')
+    sys.argv.pop(sys.argv.index('--tests'))
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP FUNCTIONS
 def header(text: str, linechar = '─', endchar = '┐', headerwidth  =  60):
     titlewidth = headerwidth // 2
     textlen = len(text)
-    lpad = linechar*((titlewidth - textlen) // 2 - 1)
-    rpad = f'{lpad}{linechar if textlen % 2 else ""}{titlewidth*linechar}'
-    return f'{lpad} {text} {rpad}{endchar}'
+    l_len = ((titlewidth - textlen) // 2 - 1)
+    lpad = linechar*l_len
+    rpad = f'{(headerwidth - l_len - textlen - 3)*linechar}'
+    return f'{lpad} {GREEN}{text}{RESET} {rpad}{endchar}'
 #───────────────────────────────────────────────────────────────────────
 # For classifiers
 def c(*args):
@@ -59,19 +78,22 @@ def cset(key, *values):
     return out
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP INFO
-print(f'\n{header("Starting packaging setup", "═", "═")}\n')
+if '--print' in sys.argv:
+    print(f'\n{header("Starting packaging setup", "=", "=")}\n')
 setup_info = {}
-# Getting package name 
-setup_info['name'] = tuple(PATH_SCR.rglob('__init__.py'))[0].parent.stem
+# Getting package name
+setup_info['name'] = PATH_INIT.parent.stem
 #───────────────────────────────────────────────────────────────────────
 # Version
-from src.limesqueezer.__init__ import __version__ as version
-setup_info['version'] = version
+with open(PATH_INIT, 'r', encoding = 'utf8') as f:
+    while not (line := f.readline().lstrip()).startswith('__version__'):
+        pass
+    setup_info['version'] = line.split('=')[-1].strip(" '")
 #───────────────────────────────────────────────────────────────────────
 # Licence
 with open(PATH_LICENCE, 'r', encoding = 'utf8') as f:
-    LICENSE_NAME = f.readline().strip()
-setup_info['license'] = f'{LICENSE_NAME.split()[0]}'
+    LICENSE_NAME = f'{f.readline().strip().split()[0]}'
+setup_info['license'] = LICENSE_NAME
 #───────────────────────────────────────────────────────────────────────
 # Author
 setup_info['author'] = 'Limespy'
@@ -85,6 +107,7 @@ GITHUB_MAIN_URL = f'{setup_info["url"]}/blob/main/'
 #───────────────────────────────────────────────────────────────────────
 # Description
 with open(PATH_README, 'r', encoding = 'utf8') as f:
+    # The short description is in the README after badges
     while (description := f.readline().lstrip(' ')).startswith(('#', '\n', '[')):
         pass
 
@@ -140,11 +163,11 @@ setup_info['keywords'] = ['compression', 'numpy']
 setup_info['python_requires']  = PYTHON_VERSION
 #───────────────────────────────────────────────────────────────────────
 # Install requires
-with open(PATH_REPO / 'dependencies.txt', encoding = 'utf8') as f:
+with open(BASE_DIR / 'dependencies.txt', encoding = 'utf8') as f:
     setup_info['install_requires'] = [line.rstrip() for line in f.readlines()]
 #───────────────────────────────────────────────────────────────────────
 # Extras require
-with open(PATH_REPO / 'dependencies_dev.txt', encoding = 'utf8') as f:
+with open(BASE_DIR / 'dependencies_dev.txt', encoding = 'utf8') as f:
     setup_info['extras_require'] = {'dev': [line.rstrip() for line in f.readlines()]}
 #───────────────────────────────────────────────────────────────────────
 # Entry points
@@ -152,26 +175,29 @@ setup_info['entry_points'] = {'console_scripts':
 [f'{setup_info["name"]} = {setup_info["name"]}.CLI:main',]}
 #%%═════════════════════════════════════════════════════════════════════
 # PRINTING SETUP INFO
-for key, value in setup_info.items():
-    print(f'\n{header(key)}\n')
-    if isinstance(value, list):
-        print('[', end = '')
-        if value:
-            print(value.pop(0), end = '')
-            for item in value:
-                print(f',\n {item}', end = '')
-        print(']')
-    elif isinstance(value, dict):
-        print('{', end = '')
-        if value:
-            items = iter(value.items())
-            key2, value2 = next(items)
-            print(f'{key2}: {value2}', end = '')
-            for key2, value2 in items:
-                print(f',\n {key2}: {value2}', end = '')
-        print('}')
-    else:
-        print(value)
+if '--print' in sys.argv:
+    for key, value in setup_info.items():
+        print(f'\n{header(key)}\n')
+        if isinstance(value, list):
+            print('[', end = '')
+            if value:
+                print(value.pop(0), end = '')
+                for item in value:
+                    print(f',\n {item}', end = '')
+            print(']')
+        elif isinstance(value, dict):
+            print('{', end = '')
+            if value:
+                items = iter(value.items())
+                key2, value2 = next(items)
+                print(f'{key2}: {value2}', end = '')
+                for key2, value2 in items:
+                    print(f',\n {key2}: {value2}', end = '')
+            print('}')
+        else:
+            print(value)
+    print(f'\n{header("Calling setup", "=", "=")}\n')
+    sys.argv.pop(sys.argv.index('--print'))
 #%%═════════════════════════════════════════════════════════════════════
-# PRINTING SETUP INFO
+# RUNNING THE SETUP
 setup(**setup_info)

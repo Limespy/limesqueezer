@@ -719,8 +719,7 @@ def decompress(x: FloatArray, y: FloatArray,
 # HACKS
 # A hack to make the package callable
 class Pseudomodule(types.ModuleType):
-    """Class that wraps the individual plotting functions
-    an allows making the module callable"""
+    """Class that allows making the module callable"""
     @staticmethod
     def __call__(*args,
                  compressor: str | Compressor = 'LSQ10',

@@ -24,7 +24,7 @@ Lossy compression with controlled error tolerance for smooth data series
   - [Decompression](#decompression)
   - [Combining compression methods](#combining-compression-methods)
 - [Meta](#meta)
-  - [Version Numbering](#version-numbering)
+  - [Versioning](#versioning)
   - [Changelog](#changelog)
 
 # Quick Start Guide
@@ -167,7 +167,9 @@ To have constrain that
 $$
 D_{|Y_{DATA}|}^1 deviation(Y_{DATA} = 0) \geq 0 
 $$
+
 Means
+
 $$
 Relative \geq Absolute \cdot Falloff 
 $$
@@ -180,6 +182,7 @@ Relative + absolute tolerance without falloff
 ![Relative and absolute tolerance without falloff](./figures/relative_and_absolute_no_falloff.png)
 
 Smooth falloff is at
+
 $$
 Falloff = \frac{Relative}{Absolute}
 $$
@@ -286,15 +289,11 @@ in data and being storage of the data, it is a fitting name for the object
 
 ## Decompression
 
-Decompression is done in two main steps with interpolation.
-First an interpolation function is created
-Then that is called.
+Decompression is done in two main steps with spline interpolation.
+First an spline function is created.
+Then that can be called with x values to get corresponding y values.
 
 This two-step approach allows more flexible use of the data.
-
-``` python
-    
-```
 
 ## Combining compression methods
 
@@ -304,28 +303,35 @@ The lossless compression should be done only after the lossy compression this pa
 
 # Meta
 
-## Version Numbering
+## Versioning
+
+This package follows sematic versioning's (<https://semver.org/>) three summary tenets, but full specification only partially
 
 Version code is composed of three numbers:
-Major, Minor, Micro
+**Major**, **Minor**, **Patch**
 
 Experimental, alpha or beta versions are indicated by a 0 as one of those three.
 
-First public release starts with Major Version.
+First public release starts with Major version 1.
 Incrementation of Major Version indicates backwards compatibility breaking change in API or fuctionality.
 
-Minor Version indicates design 
+Minor Version indicates design or specification
 
-While the Minor Version is 0, the package is in alpha stage. That means features and API
+While the Minor Version is 0, the package is in public alpha stage.
+That means features and API may change erraticly and without warning with increment in Patch Version.
 
 Later incrementation of the Minor Version signifies upgrades to the features and interfaces.
 In general changes here mean changes in the design and specification, but not such that it breaks backwards compatibility
 I.e. code that works with _documented_ features of X.n.x will work with X.n+1.y
 
-Micro Version indicate implementation.
+Patch Version indicate implementation.
 These are bugfixes, typo corrections, documentation clarifications.
-In Micro Version incementation the _intention_, i.e. intended documented specification of the Minor Version is not changed,
+In Patch Version incementation the _intention_, i.e. intended documented specification of the Minor Version is **not** changed,
 only the implementation.
+So undocumented behaviour may change but documented behaviour stays same.
+
+Releases on PyPI after version 1.1.1 will all have nonzero versions.
+Versions such as 1.2.0 or 2.0.3 are reserved for development and would be available on from the source reposotory.
 
 ## Changelog
 

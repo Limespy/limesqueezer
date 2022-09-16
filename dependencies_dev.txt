@@ -1,3 +1,4 @@
 mypy==0.971
-wheel
-twine
+twine >= 4.0, <4.1
+colorama >= 0.4, <0.5
+gprof2dot >2022 <2023
