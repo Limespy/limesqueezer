@@ -5,8 +5,7 @@
 
 
 import pathlib
-from setuptools import find_packages
-from setuptools import setup
+from setuptools import find_packages, setup
 import sys
 
 if '--print' in sys.argv:
@@ -26,10 +25,10 @@ if '--print' in sys.argv:
 BASE_DIR = pathlib.Path(__file__).parent
 SOURCE_NAME = 'src'
 PYTHON_VERSION = '>=3.10'
-PATH_LICENCE = tuple(BASE_DIR.glob('LICENSE*'))[0]
+PATH_LICENCE = next(BASE_DIR.glob('LICENSE*'))
 PATH_SCR = BASE_DIR / SOURCE_NAME
 PATH_INIT = next(PATH_SCR.rglob('__init__.py'))
-PATH_README = tuple(BASE_DIR.glob('README*'))[0]
+PATH_README = next(BASE_DIR.glob('README*'))
 #%%═════════════════════════════════════════════════════════════════════
 # Run tests first
 if '--tests' in sys.argv:
@@ -168,11 +167,12 @@ with open(BASE_DIR / 'dependencies.txt', encoding = 'utf8') as f:
 #───────────────────────────────────────────────────────────────────────
 # Extras require
 with open(BASE_DIR / 'dependencies_dev.txt', encoding = 'utf8') as f:
-    setup_info['extras_require'] = {'dev': [line.rstrip() for line in f.readlines()]}
+    setup_info['extras_require'] = {'dev':
+                                    [line.rstrip() for line in f.readlines()]}
 #───────────────────────────────────────────────────────────────────────
 # Entry points
 setup_info['entry_points'] = {'console_scripts':
-[f'{setup_info["name"]} = {setup_info["name"]}.CLI:main',]}
+    [f'{setup_info["name"]} = {setup_info["name"]}.CLI:main',]}
 #%%═════════════════════════════════════════════════════════════════════
 # PRINTING SETUP INFO
 if '--print' in sys.argv:
