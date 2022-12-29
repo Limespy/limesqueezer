@@ -44,7 +44,7 @@ As dependencies you'll get [NumPy](https://numpy.org/) and [Numba](https://numba
 
 limesqueezer uses numpy ndarrays types for input and output.
 Package import name is `limesqueezer`.
-Author recommends abbreviation `ls`
+Author recommends abbreviation `ls`.
 Rest of documentation uses this abbreviation.
 
 ``` python
@@ -52,7 +52,8 @@ import numpy as np
 import limesqueezer as ls
 ```
 For example let's make mock data.
-An array of values (`xdata`) and an array of dependent values (`ydata`).
+An array of values (`xdata`) and an array of dependent values (`ydata`), i.e. $y_n = f(x_n)$
+
 You can imagine that these have come e.g. from some simulation or measurements.
 ``` python
 x_data = np.linspace(0, 1, 10000)
@@ -326,12 +327,14 @@ I.e. code that works with _documented_ features of X.n.x will work with X.n+1.y
 
 Patch Version indicate implementation.
 These are bugfixes, typo corrections, documentation clarifications.
-In Patch Version incementation the _intention_, i.e. intended documented specification of the Minor Version is **not** changed,
-only the implementation.
+In Patch Version incementation the only the implementation is changed and **not**  _intention_, i.e. intended documented behaviour of the Minor Version is **not** changed
 So undocumented behaviour may change but documented behaviour stays same.
 
 Releases on PyPI after version 1.1.1 will all have nonzero versions.
 Versions such as 1.2.0 or 2.0.3 are reserved for development and would be available on from the source reposotory.
+
+TL;DR
+- Undocumented behaviour can change erraticly, without warning, and without 
 
 ## Changelog
 

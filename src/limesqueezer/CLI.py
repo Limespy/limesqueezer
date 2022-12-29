@@ -8,7 +8,6 @@ from . import API as ls
 from . import reference as ref
 
 import numpy as np
-from numpy.typing import NDArray
 
 import argparse
 import pathlib

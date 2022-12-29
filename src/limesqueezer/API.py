@@ -20,8 +20,9 @@ from .auxiliaries import (debugsetup,
                           MaybeArray,
                           Any,
                           Callable,
+                          Optional,
                           TolerancesInput,
-                          TolerancesInternal,)
+                          TolerancesInternal)
 from . import errorfunctions
 from .errorfunctions import ErrorFunction
 from . import models
@@ -176,7 +177,7 @@ def init_get_f2zero(is_debug: bool,
 Compressor = Callable[[FloatArray,
                        FloatArray,
                        TolerancesInput,
-                       int | None,
+                       Optional[int],
                        str | ErrorFunction,
                        int,
                        str | Any,
@@ -185,7 +186,7 @@ Compressor = Callable[[FloatArray,
 def LSQ10(x_in: FloatArray,
           y_in: FloatArray, /,
           tolerances: TolerancesInput = (1e-2, 1e-2, 0),
-          initial_step: int | None  = None,
+          initial_step: Optional[int] = None,
           errorfunction: str | ErrorFunction = 'MaxAbs',
           use_numba: int = 0,
           fitset: str | Any   = 'Poly10',
@@ -369,21 +370,21 @@ class _StreamRecord(collections.abc.Sized):
         self._lenc: int   = 1 # length of the Record points
         self.fit1: FloatArray = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
-        def update(x_array: FloatArray, y_array: FloatArray, #─────────┐
-               x0: float, y0: FloatArray, n: int, limit):
+        def _update_f2zero(x_array: FloatArray, y_array: FloatArray,
+                           x0: float, y0: FloatArray, limit: int):
             if x_array.shape != (limit + 1,):
                 raise ValueError(f'xb {x_array.shape} len {limit + 1}')
-            if y_array.shape != (limit + 1, 1):
-                raise ValueError(f'{y_array.shape=}')
+            if y_array.shape[0] != limit + 1:
+                raise ValueError(f'yb {y_array.shape=} len {limit + 1}')
 
             f2zero = get_f2zero(x_array, y_array, x0, y0)
-            return f2zero, *f2zero(n) #────────────────────────────────┘
+            return f2zero #────────────────────────────────┘
 
-        self.update_f2zero = update
+        self.update_f2zero = _update_f2zero
     # #───────────────────────────────────────────────────────────────────
     def squeeze_buffer(self, f2zero: F2Zero, n1: int, err1: float,
                        n2: int, err2: float,
-                       ):
+                       ) -> int:
         '''Compresses the buffer by one step'''
         #──────────────────────────────────────────────────────────────┘
         offset, fit = interval(f2zero, n1, err1, n2, err2, self.fit1)
@@ -391,7 +392,7 @@ class _StreamRecord(collections.abc.Sized):
         if fit is None:
             if offset == 0: # No skipping of points was possible
                 self.yc.append(self.yb[offset])
-            else: # Something weird
+            else: # Something weird happened
                 raise RuntimeError('Fit not found')
         else:
             self.yc.append(fit)
@@ -416,10 +417,10 @@ class _StreamRecord(collections.abc.Sized):
         self.limit += 1
         if  self.limit >= self.n2: #───────────────────────────────────┐
             # Converting to numpy arrays for fitting
-            f2zero, err2, fit2 = self.update_f2zero(to_ndarray(self.xb),
-                                to_ndarray(self.yb, (self.limit + 1, -1)),
-                                self.xc[-1], self.yc[-1], self.n2, self.limit)
-
+            f2zero = self.update_f2zero(np.array(self.xb),
+                                        np.array(self.yb),
+                                        self.xc[-1], self.yc[-1], self.limit)
+            err2, fit2 = f2zero(self.n2)
             if err2 < 0: #──────────────────────────────────────────────┐
                 self.n1, self.err1, self.fit1 = self.n2, err2, fit2
                 self.n2 *= 2
@@ -432,9 +433,9 @@ class _StreamRecord(collections.abc.Sized):
                 del self.yb[:step]
                 was_squeezed = True
 
-            if self.xc[-1] == self.xb[0]:
-                raise IndexError(
-                    'End of compressed and beginning of buffer are same')
+                if self.xc[-1] == self.xb[0]:
+                    raise IndexError(
+                        'Buffer out of sync with the compressed')
         #──────────────────────────────────────────────────────────────┘
         return was_squeezed
     #───────────────────────────────────────────────────────────────────
@@ -447,35 +448,33 @@ class _StreamRecord(collections.abc.Sized):
     def __len__(self):
         return len(self.x)
     #───────────────────────────────────────────────────────────────────
-    def __str__(self):
-        return f'{self.x=} {self.y=} {self.tol=}'
+    def __repr__(self):
+        return f'{self.__class__.__name__}\n{self.x=}\n{self.y=}\n{self.tol=}'
     #───────────────────────────────────────────────────────────────────
     def close(self):
         '''Closes the context manager'''
         self.state = 'closing'
         if self.limit != -1:
+            if self.limit < 0:
+                raise ValueError('Limit negative')
             # Clamping n2 to not go over the last buffer index
             if self.n2 > self.limit: self.n2 = self.limit
             # Converting to numpy arrays for fitting
-            x_array = to_ndarray(self.xb)
-            if self.limit < 0:
-                raise ValueError
+            x_array = np.array(self.xb)
             y_array = to_ndarray(self.yb, (self.limit + 1, -1))
-            f2zero, err2, _ = self.update_f2zero(x_array, y_array,
-                                                self.xc[-1], self.yc[-1],
-                                                self.n2, self.limit)
-            while err2 > 0: #──────────────────────────────────────────┐
+            f2zero = self.update_f2zero(x_array, y_array,
+                                        self.xc[-1], self.yc[-1], self.limit)
+            while (err2 := f2zero(self.n2)[0]) > 0: #──────────────────┐
                 step = self.squeeze_buffer(f2zero, self.n1, self.err1,
-                                        self.n2, err2)
+                                            self.n2, err2)
                 x_array, y_array = x_array[step:], y_array[step:]
                 # Clamping n2 to not go over the last buffer index
                 if self.n2 > self.limit: self.n2 = self.limit
-                f2zero, err2, _ = self.update_f2zero(x_array, y_array,
-                                                    self.xc[-1], self.yc[-1],
-                                                    self.n2, self.limit)
+                f2zero = self.update_f2zero(x_array, y_array,
+                                            self.xc[-1], self.yc[-1], self.limit)
             #──────────────────────────────────────────────────────────┘
             self.xc.append(self.xb[-1])
-            self.yc.append(to_ndarray(self.yb[-1], (1,)))
+            self.yc.append(self.yb[-1])
             self._lenc += 1
         # Final packing and cleaning
         self.x = to_ndarray(self.xc, (self._lenc,))
@@ -517,10 +516,12 @@ class _StreamRecord_debug(_StreamRecord):
         plt.show()
         wait('Initialised')
     #───────────────────────────────────────────────────────────────────
-    def squeeze_buffer(self, f2zero, x1, err1, n2, err2):
+    def squeeze_buffer(self, f2zero: F2Zero, n1: int, err1: float,
+                       n2: int, err2: float,
+                       ) -> int:
         '''Compresses the buffer by one step'''
 
-        offset, fit = interval_debug(f2zero, x1, err1, n2, err2, self.fit1)
+        offset, fit = interval_debug(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
 
         G['ax_root'].clear()
@@ -532,7 +533,7 @@ class _StreamRecord_debug(_StreamRecord):
                 self.yc.append(self.yb[offset])
                 G['x_plot'] = self.xc[-2:]
                 G['y_plot'] = self.yc[-2:]
-            else: # Something weird
+            else: # Something weird happened
                 raise RuntimeError('Fit not found')
         else:
             self.yc.append(fit)
@@ -580,7 +581,7 @@ class _StreamRecord_debug(_StreamRecord):
             G['xy1'], = G['ax_root'].plot(self.n1, self.err1,'g.')
             G['xy2'], = G['ax_root'].plot(self.n2, err2,'b.')
 
-            if err2 < 0: #──────────────────────────────────────────┐
+            if err2 < 0: #─────────────────────────────────────────────┐
 
                 wait('Calculating new attempt in end\n')
                 G['ax_root'].plot(self.n1, self.err1,'.', color = 'black')
@@ -604,9 +605,10 @@ class _StreamRecord_debug(_StreamRecord):
                 # Trimming the compressed section from buffer
                 del self.xb[:step]
                 del self.yb[:step]
+                was_squeezed = True
                 if self.xc[-1] == self.xb[0]:
                     raise IndexError(
-                        'End of compressed and beginning of buffer are same')
+                        'Buffer out of sync with the compressed')
             #──────────────────────────────────────────────────────────┘
             G['ax_data'].plot(self.xc[-1], self.yc[-1], 'go')
             wait('Next iteration\n')

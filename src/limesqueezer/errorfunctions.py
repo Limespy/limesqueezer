@@ -1,7 +1,6 @@
 from .auxiliaries import (Callable,
                           FloatArray,
                           TolerancesInternal,
-                          default_numba_kwargs,
                           py_and_nb)
 import numpy as np
 #%%═════════════════════════════════════════════════════════════════════
@@ -10,7 +9,7 @@ ErrorFunction = Callable[[FloatArray, FloatArray, TolerancesInternal], float]
 #───────────────────────────────────────────────────────────────────────
 def AbsEnd(y_sample: FloatArray,
                 y_fit: FloatArray,
-                tolerance_total: FloatArray
+                tolerance_total: TolerancesInternal
                 ) -> float:
     '''Maximum of absolute errors relative to tolerance
 
@@ -35,7 +34,7 @@ def AbsEnd(y_sample: FloatArray,
 #───────────────────────────────────────────────────────────────────────
 def MaxAbs(y_sample: FloatArray,
                 y_fit: FloatArray,
-                tolerance_total: FloatArray
+                tolerance_total: TolerancesInternal
                 ) -> float:
     '''Maximum of absolute errors relative to tolerance
 
@@ -60,7 +59,7 @@ def MaxAbs(y_sample: FloatArray,
 #───────────────────────────────────────────────────────────────────────
 def MaxMAbs(y_sample: FloatArray,
                 y_fit: FloatArray,
-                tolerance_total: FloatArray
+                tolerance_total: TolerancesInternal
                 ) -> float:
     '''Maximum of mean excess errors relative to tolerance or maximum of the end values.
 
@@ -86,7 +85,7 @@ def MaxMAbs(y_sample: FloatArray,
 #───────────────────────────────────────────────────────────────────────
 def MaxMAbs_AbsEnd(y_sample: FloatArray,
                 y_fit: FloatArray,
-                tolerance_total: FloatArray
+                tolerance_total: TolerancesInternal
                 ) -> float:
     '''Maximum of absolute orrors relative to tolerance
 
@@ -115,7 +114,7 @@ def MaxMAbs_AbsEnd(y_sample: FloatArray,
 #───────────────────────────────────────────────────────────────────────
 def MaxMS(y_sample: FloatArray,
                 y_fit: FloatArray,
-                tolerance_total: FloatArray
+                tolerance_total: TolerancesInternal
                 ) -> float:
     '''Root mean square error.
     1. Calculate residuals squared
@@ -144,7 +143,7 @@ def MaxMS(y_sample: FloatArray,
 #───────────────────────────────────────────────────────────────────────
 def MaxMS_SEnd(y_sample: FloatArray,
             y_fit: FloatArray,
-            tolerance_total: FloatArray
+            tolerance_total: TolerancesInternal
             ) -> float:
     '''Intended to clamp the end point within absolute value of tolerance for more stability. Returns bigger of:
     - root mean square error
@@ -169,7 +168,6 @@ def MaxMS_SEnd(y_sample: FloatArray,
     float
         Error value. Should be <0 for fit to be acceptable
     '''
-
 
     residuals = y_fit - y_sample
     # Excess at the last point

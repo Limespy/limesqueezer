@@ -5,8 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 import sys
-from typing import Any
-from typing import Callable
+from typing import Any, Callable, Optional
 
 # Global parameters
 G: dict[str, Any] = {'timed': False,
@@ -56,7 +55,7 @@ def _sqrtrange(n: int) -> IntArray:
     inds[-1] = n
     return inds
 #───────────────────────────────────────────────────────────────────────
-sqrtranges = (_sqrtrange, nb.jit(_sqrtrange, **default_numba_kwargs))
+sqrtranges = py_and_nb(_sqrtrange)
 #%%═════════════════════════════════════════════════════════════════════
 def wait(text: str = '') -> None:
     if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()

@@ -223,7 +223,6 @@ class Unittests(unittest.TestCase):
         '''- Block and stream compressions must give equal compressed output
         for 1 y variable'''
 
-        X_DATA, Y_DATA1 = ls.ref.raw_sine_x2(1e4)
         xc_block, yc_block = ls.compress(X_DATA, Y_DATA1, tolerances = tol,
                                 initial_step = 100, errorfunction = 'MaxAbs')
         #───────────────────────────────────────────────────────────────
@@ -239,7 +238,6 @@ class Unittests(unittest.TestCase):
         '''- Block and stream compressions must give equal compressed output
         for 1 y variable using Numba'''
 
-        X_DATA, Y_DATA1 = ls.ref.raw_sine_x2(1e4)
         xc_block, yc_block = ls.compress(X_DATA, Y_DATA1, tolerances = tol,
                                         initial_step = 100,
                                         errorfunction = 'MaxAbs',
@@ -248,6 +246,37 @@ class Unittests(unittest.TestCase):
         with ls.Stream(X_DATA[0], Y_DATA1[0], tolerances = tol, use_numba = 1
                        ) as record:
             for x, y in zip(X_DATA[1:], Y_DATA1[1:]):
+                record(x, y)
+        #───────────────────────────────────────────────────────────────
+        self.assertNpEqual(xc_block, record.x)
+        self.assertNpEqual(yc_block, record.y)
+    #═══════════════════════════════════════════════════════════════════
+    def test_stream_vs_block_3_2y(self):
+        '''- Block and stream compressions must give equal compressed output
+        for 1 y variable'''
+
+        xc_block, yc_block = ls.compress(X_DATA, Y_DATA2, tolerances = tol,
+                                initial_step = 100, errorfunction = 'MaxAbs')
+        #───────────────────────────────────────────────────────────────
+        with ls.Stream(X_DATA[0], Y_DATA2[0], tolerances = tol) as record:
+            for x, y in zip(X_DATA[1:], Y_DATA2[1:]):
+                record(x, y)
+        #───────────────────────────────────────────────────────────────
+        self.assertNpEqual(xc_block, record.x)
+        self.assertNpEqual(yc_block, record.y)
+    #═══════════════════════════════════════════════════════════════════
+    def test_stream_vs_block_3_2y_numba(self):
+        '''- Block and stream compressions must give equal compressed output
+        for 1 y variable using Numba'''
+
+        xc_block, yc_block = ls.compress(X_DATA, Y_DATA2, tolerances = tol,
+                                        initial_step = 100,
+                                        errorfunction = 'MaxAbs',
+                                        use_numba = 1)
+        #───────────────────────────────────────────────────────────────
+        with ls.Stream(X_DATA[0], Y_DATA2[0], tolerances = tol, use_numba = 1
+                       ) as record:
+            for x, y in zip(X_DATA[1:], Y_DATA2[1:]):
                 record(x, y)
         #───────────────────────────────────────────────────────────────
         self.assertNpEqual(xc_block, record.x)
