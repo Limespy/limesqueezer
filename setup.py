@@ -87,12 +87,12 @@ setup_info['name'] = PATH_INIT.parent.stem
 with open(PATH_INIT, 'r', encoding = 'utf8') as f:
     while not (line := f.readline().lstrip()).startswith('__version__'):
         pass
-    setup_info['version'] = line.split('=')[-1].strip(" '")
+    setup_info['version'] = line.split('=')[-1].strip(" \n'")
 #───────────────────────────────────────────────────────────────────────
 # Licence
 with open(PATH_LICENCE, 'r', encoding = 'utf8') as f:
-    LICENSE_NAME = f'{f.readline().strip().split()[0]}'
-setup_info['license'] = LICENSE_NAME
+    LICENSE_NAME = f'{f.readline().strip()}'
+setup_info['license'] = LICENSE_NAME.split()[0]
 #───────────────────────────────────────────────────────────────────────
 # Author
 setup_info['author'] = 'Limespy'
@@ -200,4 +200,6 @@ if '--print' in sys.argv:
     sys.argv.pop(sys.argv.index('--print'))
 #%%═════════════════════════════════════════════════════════════════════
 # RUNNING THE SETUP
+for path in (BASE_DIR / 'dist').glob('*'):
+    path.unlink()
 setup(**setup_info)
