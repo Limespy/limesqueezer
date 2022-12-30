@@ -1,3 +1,5 @@
-matplotlib == 3.5.2
-numba == 0.55.2
-numpy >= 1.22.0, <1.23
+wheel >= 0.37, <0.38
+matplotlib >= 3.5, <3.7
+numba >= 0.55.2, <0.57
+scipy >= 1.8, <1.10
+numpy >= 1.22, <1.23

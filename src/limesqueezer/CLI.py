@@ -3,13 +3,16 @@ Command line interface for processing command line input
 '''
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
-import numpy as np
-from numpy.typing import NDArray
-import pathlib
-import sys
-from .auxiliaries import G
+from .auxiliaries import G, FloatArray
 from . import API as ls
 from . import reference as ref
+
+import numpy as np
+from numpy.typing import NDArray
+
+import argparse
+import pathlib
+import sys
 #%%═════════════════════════════════════════════════════════════════════
 # Setup
 helpstring = 'No arguments given'
@@ -69,8 +72,8 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
     print(f'{len(x_data)=}\t{len(xc)=}')
     if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
-def _stream(x_data: NDArray[np.float64],
-            y_data: NDArray[np.float64],
+def _stream(x_data: FloatArray,
+            y_data: FloatArray,
             tol: tuple[float, float, float],
             use_numba: int):
 
@@ -81,6 +84,7 @@ def _stream(x_data: NDArray[np.float64],
 #───────────────────────────────────────────────────────────────────────
 def main():
     '''The main command line app'''
+    parser = argparse.ArgumentParser(description = '')
     args = sys.argv[1:]
     is_verbose, args = get_kwarg('--verbose', args)
     is_plot, args = get_kwarg('--plot', args)

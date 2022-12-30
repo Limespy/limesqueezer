@@ -1,9 +1,7 @@
 graft src
-graft tests
 
 include .bumpversion.cfg
 include LICENSE.txt
-include README.md
 include examples.py
 
 global-exclude *.py[cod] __pycache__/*
