@@ -1,5 +1,5 @@
 from .auxiliaries import wait, G, Function, Any
-#%%═════════════════════════════════════════════════════════════════════
+#%%═══════════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f: Function, n1: int, y1: float, n2: int, y2: float, fit1
              ) -> tuple[int, Any]:
@@ -139,3 +139,7 @@ def droot_debug(f: Function, y1: float, n2: int, limit: int) -> tuple[int, Any]:
     G['xy2'].set_color('red')
     wait('Points for interval found\n')
     return interval_debug(f, n1, y1, n2, y2, fit1)
+#%%═══════════════════════════════════════════════════════════════════════════
+_intervals = (interval, interval_debug)
+_droots = (droot, droot_debug)
+__all__ = ['_intervals' '_droots']

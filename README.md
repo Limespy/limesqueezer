@@ -1,10 +1,9 @@
 # Overview <!-- omit in toc -->
 
-[![PyPI Package latest release](https://img.shields.io/pypi/v/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
-[![PyPI Wheel](https://img.shields.io/pypi/wheel/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
-[![Supported versions](https://img.shields.io/pypi/pyversions/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
-[![Supported implementations](https://img.shields.io/pypi/implementation/limesqueezer.svg)](https://pypi.org/project/limesqueezer)
-[![Commits since latest release](https://img.shields.io/github/commits-since/Limespy/limesqueezer/v1.0.13.svg)](https://github.com/limespy/limesqueezer/compare/v1.0.11...master)
+[![PyPI Package latest release](https://img.shields.io/pypi/v/limesqueezer.svg)][1]
+[![PyPI Wheel](https://img.shields.io/pypi/wheel/limesqueezer.svg)][1]
+[![Supported versions](https://img.shields.io/pypi/pyversions/limesqueezer.svg)][1]
+[![Supported implementations](https://img.shields.io/pypi/implementation/limesqueezer.svg)][1]
 
 Lossy compression with controlled error tolerance for smooth data series
 
@@ -384,3 +383,5 @@ TL;DR
 ### 1.0.3 2021-11-30 <!-- omit in toc -->
 
 - First release on PyPI.
+
+[1]: <https://pypi.org/project/limesqueezer> ""

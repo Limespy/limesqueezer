@@ -1,7 +1,0 @@
-graft src
-
-include .bumpversion.cfg
-include LICENSE.txt
-include examples.py
-
-global-exclude *.py[cod] __pycache__/*

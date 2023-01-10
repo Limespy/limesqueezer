@@ -180,14 +180,8 @@ def MaxMS_SEnd(y_sample: FloatArray,
 def maxsumabs(residuals: FloatArray, tolerance: float | FloatArray) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
-
-errorfunctions = {'AbsEnd': py_and_nb(MaxAbs),
-                  'MaxAbs': py_and_nb(MaxAbs),
-                  'MaxMAbs': py_and_nb(MaxMAbs),
-                  'MaxMAbs_AbsEnd': py_and_nb(MaxMAbs_AbsEnd),
-                  'MaxMS': py_and_nb(MaxMS),
-                  'MaxMS_SEnd': py_and_nb(MaxMS_SEnd)
-                  }
+errorfunctions = {f.__name__: py_and_nb(f) for f in 
+                  (AbsEnd, MaxAbs, MaxMAbs, MaxMAbs_AbsEnd, MaxMS, MaxMS_SEnd)}
 #───────────────────────────────────────────────────────────────────────
 def get(name, use_numba):
     try:

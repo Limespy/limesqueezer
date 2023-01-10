@@ -64,11 +64,6 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
         print(xcs)
 
         xc, yc = xcb, ycb
-    # if is_plot:
-    #     from ... import plotters
-    #     plotters.comparison(x_data, y_data, ls.decompress(xc, yc)(x_data))
-    # print(f'{xc[-10:-1]}')
-    print(f'{len(x_data)=}\t{len(xc)=}')
     if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
 def _stream(x_data: FloatArray,
@@ -81,10 +76,9 @@ def _stream(x_data: FloatArray,
             record(x, y)
     return record.x, record.y
 #───────────────────────────────────────────────────────────────────────
-def main():
+def main(args: list[str] = sys.argv[1:]):
     '''The main command line app'''
     parser = argparse.ArgumentParser(description = '')
-    args = sys.argv[1:]
     is_verbose, args = get_kwarg('--verbose', args)
     is_plot, args = get_kwarg('--plot', args)
     is_save, args = get_kwarg('--save', args)
@@ -104,5 +98,4 @@ def main():
         import sandbox
     else:
         run(args, use_numba, is_plot, G['timed'])
-    sys.exit()
 

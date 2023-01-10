@@ -28,7 +28,7 @@ from .errorfunctions import ErrorFunction
 from . import models
 from .models import FitFunction, Interpolator, FitSet # Type signatures
 from . import reference as ref # Careful with this circular import
-from .root import droot, droot_debug, interval, interval_debug
+from .root import _droots, _intervals 
 
 from bisect import bisect_left
 import collections
@@ -66,9 +66,9 @@ def parse_tolerances(tolerances: TolerancesInput, shape: tuple[int, ...]
         len_tol = len(tolerances)
         if not (0 < len_tol < 4):
             raise ValueError(f'Tolerances length should be 1-3, was {len_tol}')
-        elif len(tolerances) == 1:
+        elif len_tol == 1:
             tolerances_triplet = (0., tolerances[0], 0.)
-        elif len(tolerances) == 2:
+        elif len_tol == 2:
             tolerances_triplet = (*tolerances, 0.)
         else:
             tolerances_triplet = tolerances
@@ -270,11 +270,9 @@ def LSQ10(x_in: FloatArray,
     get_f2zero: GetF2Zero = init_get_f2zero(is_debug, use_numba,
                                             tol, sqrtrange,
                                             f_fit, _errorfunction)
+    solver = _droots[is_debug]
     if is_debug:
         G.update(debugsetup(x, y, start_err1, fitset, start))
-        solver = droot_debug
-    else:
-        solver = droot
     #───────────────────────────────────────────────────────────────────
     # Main loop
     for _ in range(end): # Prevents infinite loop in case error
@@ -364,30 +362,32 @@ class _StreamRecord(collections.abc.Sized):
         self.n1: int      = 0 # Index of starting point for looking for optimum
         self.n2: int      = n2
         self.start_err1   = -np.amax(tolerances[1]) # Default starting value
-        self.state        = 'open' # The object is ready to accept more values
+        self.state: str   = 'open' # The object is ready to accept more values
         self.limit: int   = -1 # Last index of the buffer
         self.tol          = tolerances
         self._lenc: int   = 1 # length of the Record points
         self.fit1: FloatArray = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
-        def _update_f2zero(x_array: FloatArray, y_array: FloatArray,
+
+        self.get_f2zero = get_f2zero
+
+        self.interval = _intervals[0]
+    #─────────────────────────────────────────────────────────────────────────
+    def update_f2zero(self, x_array: FloatArray, y_array: FloatArray,
                            x0: float, y0: FloatArray, limit: int):
             if x_array.shape != (limit + 1,):
                 raise ValueError(f'xb {x_array.shape} len {limit + 1}')
             if y_array.shape[0] != limit + 1:
                 raise ValueError(f'yb {y_array.shape=} len {limit + 1}')
 
-            f2zero = get_f2zero(x_array, y_array, x0, y0)
-            return f2zero #────────────────────────────────┘
-
-        self.update_f2zero = _update_f2zero
-    # #───────────────────────────────────────────────────────────────────
+            return self.get_f2zero(x_array, y_array, x0, y0)
+    #─────────────────────────────────────────────────────────────────────────
     def squeeze_buffer(self, f2zero: F2Zero, n1: int, err1: float,
                        n2: int, err2: float,
                        ) -> int:
         '''Compresses the buffer by one step'''
         #──────────────────────────────────────────────────────────────┘
-        offset, fit = interval(f2zero, n1, err1, n2, err2, self.fit1)
+        offset, fit = self.interval(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
         if fit is None:
             if offset == 0: # No skipping of points was possible
@@ -494,6 +494,7 @@ class _StreamRecord_debug(_StreamRecord):
     def __init__(self, *args, interpolator):
         if G['timed']: G['t_start'] = time.perf_counter()
         super().__init__(*args)
+        self.interval = _intervals[1]
         self.max_y: float = self.yc[0][0] # For plotting
         self.min_y: float = self.yc[0][0] # For plotting
         G.update({'tol': self.tol[1],
@@ -521,7 +522,7 @@ class _StreamRecord_debug(_StreamRecord):
                        ) -> int:
         '''Compresses the buffer by one step'''
 
-        offset, fit = interval_debug(f2zero, n1, err1, n2, err2, self.fit1)
+        offset, fit = self.interval(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
 
         G['ax_root'].clear()
@@ -576,7 +577,7 @@ class _StreamRecord_debug(_StreamRecord):
             G['x'] = x_array
             G['y'] = y_array
             f2zero, err2, fit2 = self.update_f2zero(x_array, y_array,
-                                self.xc[-1], self.yc[-1], self.n2, self.limit)
+                                self.xc[-1], self.yc[-1], self.limit)
 
             G['xy1'], = G['ax_root'].plot(self.n1, self.err1,'g.')
             G['xy2'], = G['ax_root'].plot(self.n2, err2,'b.')
