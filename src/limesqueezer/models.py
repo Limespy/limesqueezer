@@ -1,6 +1,6 @@
-from .auxiliaries import Callable, FloatArray, MaybeArray, default_numba_kwargs, py_and_nb
+from .auxiliaries import Callable, FloatArray, MaybeArray, py_and_nb
 import numpy as np
-import numba as nb
+
 import collections
 
 FitFunction = Callable[[FloatArray, FloatArray, float, FloatArray], FloatArray]
@@ -44,29 +44,4 @@ def _interp_Poly10(x: MaybeArray,
         '''Interpolates between two consecutive points of compressed data'''
         return (y2 - y1) / (x2 - x1) * (x - x1) + y1
 #───────────────────────────────────────────────────────────────────────
-#═══════════════════════════════════════════════════════════════════════
-dictionary = {'Poly10':
-                    FitSet(py_and_nb(_fit_Poly10), py_and_nb(_interp_Poly10))}
-#───────────────────────────────────────────────────────────────────────
-def get(name: str) -> FitSet:
-    '''Access fitting model while doing errorhandling
-
-    Parameters
-    ----------
-    name : str
-        name of the model to be accesses
-
-    Returns
-    -------
-        Fit NamedTuple
-
-    Raises
-    ------
-    NotImplementedError
-        If name in the dictionary of implemented builtin models
-    '''
-    try:
-        return dictionary[name]
-    except KeyError:
-        raise NotImplementedError(f'Builtin fit function {name} not recognised. Valid are {tuple(dictionary.keys())}')
-
+Poly10 = FitSet(py_and_nb(_fit_Poly10), py_and_nb(_interp_Poly10))

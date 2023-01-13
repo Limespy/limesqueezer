@@ -3,6 +3,7 @@ from .auxiliaries import (Callable,
                           TolerancesInternal,
                           py_and_nb)
 import numpy as np
+import collections
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
 ErrorFunction = Callable[[FloatArray, FloatArray, TolerancesInternal], float]
@@ -177,18 +178,11 @@ def MaxMS_SEnd(y_sample: FloatArray,
     excess_mean = np.amax(np.mean(excess, 0))
     return excess_end if excess_end > excess_mean else excess_mean
 #%%═════════════════════════════════════════════════════════════════════
-def maxsumabs(residuals: FloatArray, tolerance: float | FloatArray) -> float:
+def _maxsumabs(residuals: FloatArray, tolerance: float | FloatArray) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
-errorfunctions = {f.__name__: py_and_nb(f) for f in 
-                  (AbsEnd, MaxAbs, MaxMAbs, MaxMAbs_AbsEnd, MaxMS, MaxMS_SEnd)}
-#───────────────────────────────────────────────────────────────────────
-def get(name, use_numba):
-    try:
-        versions = errorfunctions[name]
-    except KeyError:
-        raise NotImplementedError(f'Error function {name} not recognised. Valid are {tuple(errorfunctions.keys())}')
-    try:
-        return versions[use_numba]
-    except IndexError:
-        raise ValueError(f'Numba selector should be 0 or 1, not {use_numba}')
+
+errorfunctions: dict[str, tuple[ErrorFunction, ErrorFunction]] = {
+    f.__name__: py_and_nb(f) for f in
+    (AbsEnd, MaxAbs, MaxMAbs, MaxMAbs_AbsEnd, MaxMS, MaxMS_SEnd)
+    }

@@ -45,7 +45,7 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
     # y_data[1000] += 1 
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1),
-                    use_numba = use_numba, errorfunction = 'MaxAbs', fitset = 'Poly10')
+                    use_numba = use_numba, errorfunction = 'MaxAbs')
         print(ls.stats(x_data, xc))
     elif args[0] == 'stream':
         xc, yc = _stream(x_data, y_data, (1e-2, 1e-3, 1), use_numba)
@@ -89,13 +89,9 @@ def main(args: list[str] = sys.argv[1:]):
     use_numba = int(use_numba)
     if len(args) == 0:
         print(helpstring)
-        sys.exit()
+        return
     path_cwd = pathlib.Path.cwd()
 
     if is_verbose: print('Selected path is:\n\t%s' % path_cwd)
-    if args[0] == 'sandbox': #──────────────────────────────────────────
-        args = args[1:]
-        import sandbox
-    else:
-        run(args, use_numba, is_plot, G['timed'])
+    run(args, use_numba, is_plot, G['timed'])
 

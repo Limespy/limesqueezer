@@ -16,7 +16,7 @@ G: dict[str, Any] = {'timed': False,
 default_numba_kwargs = {'nopython': True,
                         'cache': True,
                         'fastmath': True}
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 # TYPE SIGNATURES
 Function = Callable[..., Any]
 FloatArray = NDArray[np.float64]
@@ -24,19 +24,19 @@ IntArray = NDArray[np.int64]
 MaybeArray = float | FloatArray
 TolerancesInput = float | tuple[MaybeArray, ...]
 TolerancesInternal = FloatArray
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 # AUXILIARIES
 def maybejit(use_numba, function: Function, *args, **kwargs
              ) -> Function:
     if use_numba:
         return nb.jit(function, *args, **kwargs)
     return function
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 def py_and_nb(function: Function, **kwargs) -> tuple[Function, Function]:
     if not kwargs:
         kwargs = default_numba_kwargs
     return (function, nb.jit(function, **kwargs))
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 def to_ndarray(item: Any, shape: tuple[int, ...] = ()
                ) -> FloatArray:
     if not hasattr(item, '__iter__'): # Not some iterable
@@ -47,7 +47,7 @@ def to_ndarray(item: Any, shape: tuple[int, ...] = ()
     elif not isinstance(item, np.ndarray): # Iterable into array
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 SqrtRange = Callable[[int], IntArray]
 def _sqrtrange(n: int) -> IntArray:
     '''~ sqrt(n + 2) equally spaced integers including the n'''
@@ -56,10 +56,10 @@ def _sqrtrange(n: int) -> IntArray:
     return inds
 #───────────────────────────────────────────────────────────────────────
 sqrtranges = py_and_nb(_sqrtrange)
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 def wait(text: str = '') -> None:
     if input(text) in ('e', 'q', 'exit', 'quit'): sys.exit()
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
 def stats(x_data, xc):
     # What if the data was compressed by sampling at the minimum interval of the compressed
     datarange = x_data[-1] - x_data[0]
@@ -72,7 +72,8 @@ def stats(x_data, xc):
     return f'''{len(x_data) / len(xc):.0f} compression ratio
 {datarange / hmeanslice / len(xc):.1f} x better than mean slices
 {datarange / minslice / len(xc):.1f} x better than minimum slices'''
-#%%═════════════════════════════════════════════════════════════════════
+#%%════════════════════════════════════════════════════════════════════════════
+# DEBUG
 def debugsetup(x: FloatArray, y: FloatArray, tol: float, fitset, start
                ) -> dict[str, Any]:
     _G = {'x': x,
@@ -99,3 +100,13 @@ def debugsetup(x: FloatArray, y: FloatArray, tol: float, fitset, start
     plt.show()
     wait('Initialised')
     return _G
+
+def _reset_ax(key: str, ylabel: str) -> None:
+    G[key].clear()
+    G[key].grid()
+    G[key].axhline(color = 'red', linestyle = '--')
+    G[key].set_ylabel(ylabel)
+
+def _set_xy(key, x, y):
+    G[key].set_xdata(x)
+    G[key].set_ydata(y)

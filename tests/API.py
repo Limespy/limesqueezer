@@ -4,7 +4,6 @@
 
 import gprof2dot
 import numpy as np
-import pydot
 
 import cProfile
 import os

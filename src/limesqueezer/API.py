@@ -7,6 +7,8 @@ API
 Connection point for all package utilities provided
 '''
 from .auxiliaries import (debugsetup,
+                          _reset_ax,
+                          _set_xy,
                           maybejit,
                           sqrtranges,
                           SqrtRange,
@@ -23,14 +25,13 @@ from .auxiliaries import (debugsetup,
                           Optional,
                           TolerancesInput,
                           TolerancesInternal)
-from . import errorfunctions
-from .errorfunctions import ErrorFunction
+from .errorfunctions import errorfunctions, ErrorFunction, _maxsumabs
 from . import models
 from .models import FitFunction, Interpolator, FitSet # Type signatures
 from . import reference as ref # Careful with this circular import
 from .root import _droots, _intervals 
 
-from bisect import bisect_left
+from bisect import bisect_left as _bisect_left
 import collections
 from matplotlib import pyplot as plt
 import numpy as np
@@ -52,7 +53,7 @@ def n_lines(x: FloatArray,
         inds = sqrtranges[0](length - 2) # indices so that x[-1] is not included
         res = (y[-1] - y0) / (x[-1] - x0)*(x[inds] - x0).reshape([-1, 1]) - (y[inds] - y0)
 
-        reference = errorfunctions.maxsumabs(res, tol)
+        reference = _maxsumabs(res, tol)
         if reference < 0: reference = 0
         return 0.5 * reference ** 0.5 + 1
     else:
@@ -132,10 +133,7 @@ def init_get_f2zero(is_debug: bool,
                 # print(f'{G["y"][indices_all].shape=}')
                 res_all = G['y_plot'][1:] - G['y'][indices_all].flatten()[1:]
                 print(f'\t\t{residuals.shape=}\n\t\t{res_all.shape=}')
-                G['ax_res'].clear()
-                G['ax_res'].grid()
-                G['ax_res'].axhline(color = 'red', linestyle = '--')
-                G['ax_res'].set_ylabel('Residual relative to tolerance')
+                _reset_ax('ax_res','Residual relative to tolerance')
                 indices_x = indices_all[1:] - G['start']
                 residuals_relative =  np.abs(res_all) / G['tol'] - 1
                 G['ax_res'].plot(indices_x, residuals_relative,
@@ -189,7 +187,7 @@ def LSQ10(x_in: FloatArray,
           initial_step: Optional[int] = None,
           errorfunction: str | ErrorFunction = 'MaxAbs',
           use_numba: int = 0,
-          fitset: str | Any   = 'Poly10',
+          fitset: Any = models.Poly10,
           keepshape: bool = False
           ) -> tuple[FloatArray, FloatArray]:
     '''Compresses the data of 1-dimensional system of equations
@@ -254,11 +252,9 @@ def LSQ10(x_in: FloatArray,
     limit   = end - start
 
     sqrtrange = sqrtranges[use_numba]
-    _errorfunction = (errorfunctions.get(errorfunction, use_numba)
+    _errorfunction = (errorfunctions[errorfunction][use_numba]
                       if isinstance(errorfunction, str)
                       else errorfunction)
-    if isinstance(fitset, str):
-        fitset = models.get(fitset)
     f_fit = fitset.fit[use_numba]
 
     # Estimation for the first offset
@@ -288,10 +284,7 @@ def LSQ10(x_in: FloatArray,
         if is_debug: #─────────────────────────────────────────────────┐
             print(f'{start=}\t{offset=}\t{end=}\t')
             print(f'{fit=}')
-            G['ax_root'].clear()
-            G['ax_root'].grid()
-            G['ax_root'].axhline(color = 'red', linestyle = '--')
-            G['ax_root'].set_ylabel('Maximum residual')
+            _reset_ax('ax_root', 'Maximum residual')
         #──────────────────────────────────────────────────────────────┘
         if fit is None:
             if offset == 0: # No skipping of points was possible
@@ -376,7 +369,7 @@ class _StreamRecord(collections.abc.Sized):
     def update_f2zero(self, x_array: FloatArray, y_array: FloatArray,
                            x0: float, y0: FloatArray, limit: int):
             if x_array.shape != (limit + 1,):
-                raise ValueError(f'xb {x_array.shape} len {limit + 1}')
+                raise ValueError(f'xb {x_array.shape=} len {limit + 1}')
             if y_array.shape[0] != limit + 1:
                 raise ValueError(f'yb {y_array.shape=} len {limit + 1}')
 
@@ -525,9 +518,7 @@ class _StreamRecord_debug(_StreamRecord):
         offset, fit = self.interval(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
 
-        G['ax_root'].clear()
-        G['ax_root'].grid()
-        G['ax_root'].set_ylabel('Maximum residual')
+        _reset_ax('ax_root', 'Maximum residual')
 
         if fit is None:
             if offset == 0: # No skipping of points was possible
@@ -560,8 +551,7 @@ class _StreamRecord_debug(_StreamRecord):
         self.xb.append(x_raw)
         self.yb.append(to_ndarray(y_raw, (-1,)))
         self.limit += 1
-        G['line_buffer'].set_xdata(self.xb)
-        G['line_buffer'].set_ydata(self.yb)
+        _set_xy('line_buffer', self.xb, self.yb)
         G['ax_data'].set_xlim(self.xc[0], self.xb[-1]* 1.05)
         if y_raw < self.min_y:
             self.min_y = np.amin(y_raw)
@@ -594,8 +584,7 @@ class _StreamRecord_debug(_StreamRecord):
                 print(f'{self.limit=}')
                 print(f'{self.n1=}\t{self.err1=}')
                 print(f'{self.n2=}\t{err2=}')
-                G['xy1'].set_xdata(self.n1)
-                G['xy1'].set_ydata(self.err1)
+                _set_xy('xy1', self.n1, self.err1)
                 G['xy2'].set_xdata(self.n2)
 
             else: # Squeezing the buffer
@@ -626,7 +615,7 @@ class Stream():
                  initial_step: int = 100,
                  errorfunction: ErrorFunction | str = 'MaxAbs',
                  use_numba: int = 0,
-                 fitset: FitSet | str = 'Poly10',
+                 fitset: FitSet = models.Poly10,
                  fragile: bool = True):
         self.x0  = x_initial
         self.x_type = type(self.x0)
@@ -638,14 +627,11 @@ class Stream():
 
         self.errorfunction: ErrorFunction
         if isinstance(errorfunction, str): #───────────────────────────┐
-            self.errorfunction = errorfunctions.get(errorfunction, use_numba)
+            self.errorfunction = errorfunctions[errorfunction][use_numba]
         else:
             self.errorfunction = errorfunction
         #──────────────────────────────────────────────────────────────┘
-        if isinstance(fitset, str):
-            self.fitset: FitSet = models.get(fitset)
-        else:
-            self.fitset = fitset
+        self.fitset = fitset
         #──────────────────────────────────────────────────────────────┘
         self.f_fit      = self.fitset.fit[use_numba]
         self.sqrtrange  = sqrtranges[use_numba]
@@ -674,20 +660,36 @@ class Stream():
             if self.fragile:
                 raise RuntimeError('Closing of the record failed') from exc
 #%%═════════════════════════════════════════════════════════════════════
-def _decompress(x_compressed: FloatArray,
-               fit_array: FloatArray,
-               interpolator: Interpolator):
+# WRAPPING
+# Here are the main external inteface functions
+interpolators = {'Poly10': models.Poly10.interpolate}
+compressors = {'LSQ10': LSQ10}
+#───────────────────────────────────────────────────────────────────────
+def compress(*args, compressor: Compressor | str = LSQ10, **kwargs):
+    '''Wrapper for easier selection of compression method'''
+    if isinstance(compressor, str):
+        compressor = compressors[compressor]
+    return compressor(*args, **kwargs)
+#───────────────────────────────────────────────────────────────────────
+def decompress(x_compressed: FloatArray, y_compressed: FloatArray,
+              interpolator: str | Interpolator = 'Poly10',
+              use_numba: int = 0):
     '''Takes array of fitting parameters and constructs whole function'''
+
+    interpolator: Interpolator = (interpolators[interpolator][use_numba]
+                                  if isinstance(interpolator, str)
+                                  else interpolator)
     #───────────────────────────────────────────────────────────────────
     def _iteration(x: float, low: int = 1) -> tuple[int, MaybeArray]:
-        index = bisect_left(x_compressed, x,
-                            lo = low, hi = fit_array.shape[0]-1) # type:ignore
-        return index, interpolator(x, *x_compressed[index-1:(index + 1)],
-                                   *fit_array[index-1:(index + 1)])
+        index = _bisect_left(x_compressed, x, # type:ignore
+                             lo = low, hi = y_compressed.shape[0]-1) 
+        return index, interpolator(x, # type:ignore
+                                   *x_compressed[index-1:(index + 1)], 
+                                   *y_compressed[index-1:(index + 1)])
     #───────────────────────────────────────────────────────────────────
     def function(x_input):
         if hasattr(x_input, '__iter__'):
-            out = np.full((len(x_input),) + fit_array.shape[1:], np.nan)
+            out = np.full((len(x_input),) + y_compressed.shape[1:], np.nan)
             i_c = 1
             for i_out, x in enumerate(x_input):
                 i_c, out[i_out] = _iteration(x, i_c)
@@ -696,28 +698,6 @@ def _decompress(x_compressed: FloatArray,
             return _iteration(x_input)[1]
     #───────────────────────────────────────────────────────────────────
     return function
-#%%═════════════════════════════════════════════════════════════════════
-# WRAPPING
-# Here are the main external inteface functions
-compressors = {'LSQ10': LSQ10}
-interpolators = {'Poly10': models.get('Poly10').interpolate}
-#───────────────────────────────────────────────────────────────────────
-def compress(*args, compressor: str | Compressor = 'LSQ10', **kwargs):
-    '''Wrapper for easier selection of compression method'''
-    if isinstance(compressor, str):
-        try:
-            compressor = compressors[compressor]
-        except KeyError:
-            raise NotImplementedError(f'{compressor} not in the dictionary of builtin compressors')
-    return compressor(*args, **kwargs)
-#───────────────────────────────────────────────────────────────────────
-def decompress(x: FloatArray, y: FloatArray,
-              interpolator: str | Interpolator = 'Poly10',
-              use_numba: int = 0):
-    '''Wrapper for easier selection of compression method'''
-    if isinstance(interpolator, str):
-        return _decompress(x, y, interpolators[interpolator][use_numba])
-    return _decompress(x, y, interpolator)
 #%%═════════════════════════════════════════════════════════════════════
 # HACKS
 # A hack to make the package callable
@@ -736,3 +716,5 @@ class Pseudomodule(types.ModuleType):
 #%%═════════════════════════════════════════════════════════════════════
 # Here the magic happens for making the API module itself also callable
 sys.modules[__name__].__class__ = Pseudomodule
+
+__all__ = ['Stream', 'compress', 'decompress', 'Pseudomodule', 'LSQ10']
