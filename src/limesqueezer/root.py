@@ -1,9 +1,13 @@
-from .auxiliaries import wait, G, Function, Any, _set_xy
+from .auxiliaries import _set_xy
+from .auxiliaries import Any
+from .auxiliaries import Function
+from .auxiliaries import G
+from .auxiliaries import wait
 #%%═══════════════════════════════════════════════════════════════════════════
 ## ROOT FINDING
 def interval(f: Function, n1: int, err1: float, n2: int, err2: float, fit1
              ) -> tuple[int, Any]:
-    '''Returns the last x where f(x)<0'''
+    """Returns the last x where f(x)<0."""
     while n2 - n1 > 2:
         # Arithmetic mean between linear estimate and half
         x_mid = int((n1 - err1 / (err2 - err1) * (n2 - n1) + (n2 + n1) / 2) / 2)
@@ -26,7 +30,7 @@ def interval(f: Function, n1: int, err1: float, n2: int, err2: float, fit1
 #───────────────────────────────────────────────────────────────────────
 def interval_debug(f: Function, n1: int, err1: float, n2: int, err2: float, fit1
                    ) -> tuple[int, Any]:
-    '''Returns the last x where f(x)<0'''
+    """Returns the last x where f(x)<0."""
 
     print(f'\t{n1=}\t{err1=}')
     print(f'\t{n2=}\t{err2=}')
@@ -71,7 +75,7 @@ def interval_debug(f: Function, n1: int, err1: float, n2: int, err2: float, fit1
         return n1, fit1
 #───────────────────────────────────────────────────────────────────────
 def droot(f: Function, err1: float, n2: int, limit: int) -> tuple[int, Any]:
-    '''Finds the upper limit to an interval'''
+    """Finds the upper limit to an interval."""
     n1 = 0
     err2, fit2 = f(n2)
     fit1 = None
@@ -94,8 +98,7 @@ def droot(f: Function, err1: float, n2: int, limit: int) -> tuple[int, Any]:
 #───────────────────────────────────────────────────────────────────────
 def droot_debug(f: Function, err1: float, n2: int, limit: int
                 ) -> tuple[int, Any]:
-    '''Finds the upper limit to an interval
-    '''
+    """Finds the upper limit to an interval."""
     n1 = 0
     err2, fit2 = f(n2)
     fit1 = None

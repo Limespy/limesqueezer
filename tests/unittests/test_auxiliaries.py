@@ -1,6 +1,7 @@
+# type: ignore
+from typing import overload
 
 import limesqueezer.API as ls
-
 import numpy as np
 import pytest
 
@@ -10,19 +11,22 @@ Y_DATA1 = np.array(np.sin(X_DATA * X_DATA))
 Y_DATA2 = np.array((Y_DATA1, Y_DATA1[::-1])).T
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
-def f2zero_100(n: int) -> float:
-    '''returns < 0 for values 0 to 100 and >0 for values > 100'''
-    if round(n) != n: raise ValueError('Not whole number')
-    if n < 0: raise ValueError('Input must be >= 0')
+def f2zero_100(n: int) -> tuple(float, bool):
+    """Returns < 0 for values 0 to 100 and >0 for values > 100."""
+    if round(n) != n:
+        raise ValueError('Not whole number')
+    if n < 0:
+        raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
 #%%═════════════════════════════════════════════════════════════════════
-def compressionaxis(x: np.ndarray, y: np.ndarray) -> int:
+def compressionaxis(x: ls.Float64Array, y: ls.Float64Array) -> int:
     if y.ndim == 1:
         return 0
     if y.shape[0] == len(x):
         return 0
     if y.shape[0] == len(x):
         return 1
+
 def test_f2zero_100():
     assert f2zero_100(100)[0] < 0
     assert f2zero_100(101)[0] > 0
@@ -50,7 +54,7 @@ def test_1_1_to_ndarray(array):
 # sqrtrange
 def test_1_2_sqrtrange():
     '''- sqrtrange works as it should'''
-    assert isinstance(ls.sqrtranges[0](1), np.ndarray)
+    assert isinstance(ls.sqrtranges[0](1), ls.Float64Array)
     reltol = 5e-2
     for i in [1, 5 , 100, 1000, 10000]:
         ins_py = ls.sqrtranges[0](i)

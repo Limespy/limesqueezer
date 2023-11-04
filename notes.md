@@ -59,8 +59,8 @@ $$
 
 
 
-Given atol and Delta_y, 
-in the best case 1 line would be enough 
+Given atol and Delta_y,
+in the best case 1 line would be enough
 and in the worst case Delta_y / atol.
 
 Geometric mean between these would maybe be good choice,
@@ -95,7 +95,7 @@ b = y_1 - a \cdot \sqrt{x_1}
 $$
 
 Combined back
-$$ 
+$$
 interp(x) = a \cdot \sqrt{x} + y_1 - a \cdot \sqrt{x_1}
  = \frac{y_2 - y_1}{\sqrt{x_2} - \sqrt{x_1}} \cdot (\sqrt{x} - \sqrt{x_1}) + y_1
 $$
@@ -139,38 +139,38 @@ $$
 
 #### Sqrt heuristic 3
 
-$$ 
+$$
 interp(x) = a \cdot \sqrt{x - b} + c
 $$
 Where
-$$ 
+$$
 interp(0) = 0 = a \cdot \sqrt{b} + c
 $$
-$$ 
+$$
 interp(x_1) = y_1 = a \cdot \sqrt{x_1 - b} + c
 $$
-$$ 
+$$
 interp(x_2) = y_2 = a \cdot \sqrt{x_2 - b} + c
 $$
 Combining some
-$$ 
+$$
 y_1 = a \cdot (\sqrt{x_1 - b} - \sqrt{b})
 $$
-$$ 
+$$
 y_2 = a \cdot (\sqrt{x_2 - b} - \sqrt{b})
 $$
 
-$$ 
+$$
 \frac{y_2}{y_1} = \frac{(\sqrt{x_2 - b} - \sqrt{b})}{(\sqrt{x_1 - b} - \sqrt{b})}
 $$
-$$ 
+$$
 y_2 \cdot (\sqrt{x_1 - b} - \sqrt{b}) = y_1 \cdot (\sqrt{x_2 - b} - \sqrt{b})
 $$
 
-$$ 
+$$
 y_2 \cdot \sqrt{x_1 - b} - y_2 \cdot \sqrt{b} = y_1 \cdot \sqrt{x_2 - b} - y_1 \cdot\sqrt{b}
 $$
-$$ 
+$$
 y_2 \cdot \sqrt{x_1 - b} + (y_1 - y_2) \cdot \sqrt{b} - y_1 \cdot \sqrt{x_2 - b} = 0
 $$
 
@@ -307,7 +307,7 @@ Loop is:
 
 1. Previous attempts
 2. Left and right
-3. 
+3.
 
 
 ## Publishing pipeline

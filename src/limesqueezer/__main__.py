@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
 # Entrypoint module, in case you use `python -m limesqueezer`.
-
 '''
 Limesqueezer
 ============
@@ -16,7 +14,6 @@ importing ::
     import limesqueezer as ls
 
 '''
-
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
 from . import CLI

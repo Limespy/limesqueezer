@@ -1,5 +1,4 @@
 import limesqueezer.API as ls
-
 import numpy as np
 import pytest
 
@@ -10,8 +9,8 @@ Y_DATA2 = np.array((Y_DATA1, Y_DATA1[::-1])).T
 
 #%%═════════════════════════════════════════════════════════════════════
 # AUXILIARIES
-def f2zero_100(n: int) -> float:
-    '''returns < 0 for values 0 to 100 and >0 for values > 100'''
+def f2zero_100(n: int) -> tuple[float, bool]:
+    """Returns < 0 for values 0 to 100 and >0 for values > 100."""
     if round(n) != n: raise ValueError('Not whole number')
     if n < 0: raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
@@ -21,19 +20,21 @@ def compressionaxis(x: np.ndarray, y: np.ndarray) -> int:
         return 0
     if y.shape[0] == len(x):
         return 0
-    if y.shape[0] == len(x):
+    if y.shape[1] == len(x):
         return 1
+    raise ValueError(f'Unable to find axis on shapes {x.shape} and {y.shape}')
 
-def npEqual(left: np.ndarray, right: np.ndarray, /):
-    '''Asserts that two Numpy arrays have same shape and have equal elements'''
+def npEqual(left: np.ndarray, right: np.ndarray, /) -> bool:
+    """Asserts that two Numpy arrays have same shape and have equal
+    elements."""
     return left.shape == right.shape and np.all(left == right)
 #───────────────────────────────────────────────────────────────────
-def endpointEqual(left, right, /):
-    '''Assers that two sequences have both first and last elements equal'''
+def endpointEqual(left, right, /) -> bool:
+    """Assers that two sequences have both first and last elements equal."""
     return npEqual(left[0], right[0]) and npEqual(left[-1], right[-1])
 #══════════════════════════════════════════════════════════════════════════════
 # Block Compresion
-@pytest.mark.parametrize('y_data', (Y_DATA1, 
+@pytest.mark.parametrize('y_data', (Y_DATA1,
                                     ls.to_ndarray(Y_DATA1, (-1,1)),
                                     Y_DATA2,
                                     Y_DATA2.T))
@@ -44,7 +45,7 @@ def test_compress_default(y_data):
     if compressionaxis(X_DATA, y_data):
         assert endpointEqual(y_data.T, yc.T)
 #───────────────────────────────────────────────────────────────────
-@pytest.mark.parametrize('tolerances', ((1e-2, 1e-2, 0), 
+@pytest.mark.parametrize('tolerances', ((1e-2, 1e-2, 0),
                                         (1e-2, 1e-2),
                                         (1e-2,),
                                         1e-2))

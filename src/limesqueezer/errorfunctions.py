@@ -1,24 +1,26 @@
-from .auxiliaries import (Callable,
-                          FloatArray,
-                          TolerancesInternal,
-                          py_and_nb)
-import numpy as np
 import collections
+
+import numpy as np
+
+from .auxiliaries import Callable
+from .auxiliaries import Float64Array
+from .auxiliaries import py_and_nb
+from .auxiliaries import TolerancesInternal
 #%%═════════════════════════════════════════════════════════════════════
 ## ERROR TERM
-ErrorFunction = Callable[[FloatArray, FloatArray, TolerancesInternal], float]
+ErrorFunction = Callable[[Float64Array, Float64Array, TolerancesInternal], float]
 #───────────────────────────────────────────────────────────────────────
-def AbsEnd(y_sample: FloatArray,
-                y_fit: FloatArray,
+def AbsEnd(y_sample: Float64Array,
+                y_fit: Float64Array,
                 tolerance_total: TolerancesInternal
                 ) -> float:
-    '''Maximum of absolute errors relative to tolerance
+    """Maximum of absolute errors relative to tolerance.
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -30,20 +32,20 @@ def AbsEnd(y_sample: FloatArray,
     -------
     float
         Error value. Should be <0 for fit to be acceptable
-    '''
+    """
     return np.max(np.abs(y_fit[-1] - y_sample[-1]) - tolerance_total[-1])
 #───────────────────────────────────────────────────────────────────────
-def MaxAbs(y_sample: FloatArray,
-                y_fit: FloatArray,
+def MaxAbs(y_sample: Float64Array,
+                y_fit: Float64Array,
                 tolerance_total: TolerancesInternal
                 ) -> float:
-    '''Maximum of absolute errors relative to tolerance
+    """Maximum of absolute errors relative to tolerance.
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -55,20 +57,21 @@ def MaxAbs(y_sample: FloatArray,
     -------
     float
         Error value. Should be <0 for fit to be acceptable
-    '''
+    """
     return np.max(np.abs(y_fit - y_sample) - tolerance_total)
 #───────────────────────────────────────────────────────────────────────
-def MaxMAbs(y_sample: FloatArray,
-                y_fit: FloatArray,
+def MaxMAbs(y_sample: Float64Array,
+                y_fit: Float64Array,
                 tolerance_total: TolerancesInternal
                 ) -> float:
-    '''Maximum of mean excess errors relative to tolerance or maximum of the end values.
+    """Maximum of mean excess errors relative to tolerance or maximum of the
+    end values.
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -80,21 +83,21 @@ def MaxMAbs(y_sample: FloatArray,
     -------
     float
         Error value. Should be <0 for fit to be acceptable
-    '''
+    """
     residuals = np.abs(y_fit - y_sample)
     return np.amax(np.mean(residuals - tolerance_total, 0))
 #───────────────────────────────────────────────────────────────────────
-def MaxMAbs_AbsEnd(y_sample: FloatArray,
-                y_fit: FloatArray,
+def MaxMAbs_AbsEnd(y_sample: Float64Array,
+                y_fit: Float64Array,
                 tolerance_total: TolerancesInternal
                 ) -> float:
-    '''Maximum of absolute orrors relative to tolerance
+    """Maximum of absolute orrors relative to tolerance.
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -106,15 +109,15 @@ def MaxMAbs_AbsEnd(y_sample: FloatArray,
     -------
     float
         Error value. Should be <0 for fit to be acceptable
-    '''
+    """
     residuals = np.abs(y_fit - y_sample)
     excess = residuals - tolerance_total
     excess_end = np.amax(excess[-1:])
     excess_mean = np.amax(np.mean(excess, 0))
     return excess_end if excess_end > excess_mean else excess_mean
 #───────────────────────────────────────────────────────────────────────
-def MaxMS(y_sample: FloatArray,
-                y_fit: FloatArray,
+def MaxMS(y_sample: Float64Array,
+                y_fit: Float64Array,
                 tolerance_total: TolerancesInternal
                 ) -> float:
     '''Root mean square error.
@@ -124,9 +127,9 @@ def MaxMS(y_sample: FloatArray,
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -142,11 +145,13 @@ def MaxMS(y_sample: FloatArray,
     residuals = y_fit - y_sample
     return np.amax(np.mean(residuals * residuals - tolerance_total, 0))
 #───────────────────────────────────────────────────────────────────────
-def MaxMS_SEnd(y_sample: FloatArray,
-            y_fit: FloatArray,
+def MaxMS_SEnd(y_sample: Float64Array,
+            y_fit: Float64Array,
             tolerance_total: TolerancesInternal
             ) -> float:
-    '''Intended to clamp the end point within absolute value of tolerance for more stability. Returns bigger of:
+    """Intended to clamp the end point within absolute value of tolerance for
+    more stability. Returns bigger of:
+
     - root mean square error
     - end point maximum absolute error
     1. Calculate endpoint maximum absolute error
@@ -154,9 +159,9 @@ def MaxMS_SEnd(y_sample: FloatArray,
 
     Parameters
     ----------
-    y_sample : FloatArray
+    y_sample : Float64Array
         Y values of points of data selected for error calculation
-    y_fit : FloatArray
+    y_fit : Float64Array
         Y values from fitting the model into data
     tolerances : TolerancesInternal
         Tolerances for errors
@@ -168,7 +173,7 @@ def MaxMS_SEnd(y_sample: FloatArray,
     -------
     float
         Error value. Should be <0 for fit to be acceptable
-    '''
+    """
 
     residuals = y_fit - y_sample
     # Excess at the last point
@@ -178,7 +183,7 @@ def MaxMS_SEnd(y_sample: FloatArray,
     excess_mean = np.amax(np.mean(excess, 0))
     return excess_end if excess_end > excess_mean else excess_mean
 #%%═════════════════════════════════════════════════════════════════════
-def _maxsumabs(residuals: FloatArray, tolerance: float | FloatArray) -> float:
+def _maxsumabs(residuals: Float64Array, tolerance: float | Float64Array) -> float:
     return np.amax(np.sum(np.abs(residuals) - tolerance) / tolerance)
 #───────────────────────────────────────────────────────────────────────
 

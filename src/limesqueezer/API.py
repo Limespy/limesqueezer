@@ -6,48 +6,53 @@ API
 
 Connection point for all package utilities provided
 '''
-from .auxiliaries import (debugsetup,
-                          _reset_ax,
-                          _set_xy,
-                          maybejit,
-                          sqrtranges,
-                          SqrtRange,
-                          stats,
-                          to_ndarray,
-                          wait,
-                          default_numba_kwargs,
-                          py_and_nb,
-                          G,
-                          FloatArray,
-                          MaybeArray,
-                          Any,
-                          Callable,
-                          Optional,
-                          TolerancesInput,
-                          TolerancesInternal)
-from .errorfunctions import errorfunctions, ErrorFunction, _maxsumabs
-from . import models
-from .models import FitFunction, Interpolator, FitSet # Type signatures
-from . import reference as ref # Careful with this circular import
-from .root import _droots, _intervals 
-
-from bisect import bisect_left as _bisect_left
 import collections
-from matplotlib import pyplot as plt
-import numpy as np
-
 import sys
 import time
 import types
+from bisect import bisect_left as _bisect_left
+
+import numpy as np
+from matplotlib import pyplot as plt
+
+from . import models
+from . import reference as ref # Careful with this circular import
+from .auxiliaries import _reset_ax
+from .auxiliaries import _set_xy
+from .auxiliaries import Any
+from .auxiliaries import Callable
+from .auxiliaries import debugsetup
+from .auxiliaries import default_numba_kwargs
+from .auxiliaries import Float64Array
+from .auxiliaries import G
+from .auxiliaries import Int64Array
+from .auxiliaries import MaybeArray
+from .auxiliaries import maybejit
+from .auxiliaries import py_and_nb
+from .auxiliaries import SqrtRange
+from .auxiliaries import sqrtranges
+from .auxiliaries import stats
+from .auxiliaries import to_ndarray
+from .auxiliaries import TolerancesInput
+from .auxiliaries import TolerancesInternal
+from .auxiliaries import wait
+from .errorfunctions import _maxsumabs
+from .errorfunctions import ErrorFunction
+from .errorfunctions import errorfunctions
+from .models import FitFunction
+from .models import FitSet
+from .models import Interpolator
+from .root import _droots
+from .root import _intervals
 #%%═════════════════════════════════════════════════════════════════════
 # @numba.jit(nopython=True,cache=True)
-def n_lines(x: FloatArray,
-            y: FloatArray,
+def n_lines(x: Float64Array,
+            y: Float64Array,
             x0: float,
-            y0: FloatArray,
-            tol: FloatArray
+            y0: Float64Array,
+            tol: Float64Array
             ) -> float:
-    '''Estimates number of lines required to fit within error tolerance'''
+    """Estimates number of lines required to fit within error tolerance."""
 
     if (length := len(x)) > 1:
         inds = sqrtranges[0](length - 2) # indices so that x[-1] is not included
@@ -79,8 +84,8 @@ def parse_tolerances(tolerances: TolerancesInput, shape: tuple[int, ...]
     # Relative, absolute, falloff
     return np.array([to_ndarray(tol, shape) for tol in tolerances_triplet])
 #%%═════════════════════════════════════════════════════════════════════
-def _tolerance(y_sample: FloatArray, tolerances: TolerancesInternal
-                     ) -> FloatArray:
+def _tolerance(y_sample: Float64Array, tolerances: TolerancesInternal
+                     ) -> Float64Array:
     y_abs = np.abs(y_sample)
     reltols = y_abs * tolerances[0]
     abstols = tolerances[1] / (tolerances[2] * y_abs + 1)
@@ -89,11 +94,11 @@ def _tolerance(y_sample: FloatArray, tolerances: TolerancesInternal
 tolerancefunctions = py_and_nb(_tolerance)
 #%%═════════════════════════════════════════════════════════════════════
 # Functions to be solved in discrete root finding
-F2Zero = Callable[[int], tuple[float, FloatArray]]
-GetF2Zero =  Callable[[FloatArray,
-                       FloatArray,
+F2Zero = Callable[[int], tuple[float, Float64Array]]
+GetF2Zero =  Callable[[Float64Array,
+                       Float64Array,
                        float,
-                       FloatArray],
+                       Float64Array],
                       F2Zero]
 #───────────────────────────────────────────────────────────────────────
 def init_get_f2zero(is_debug: bool,
@@ -102,18 +107,17 @@ def init_get_f2zero(is_debug: bool,
                     sqrtrange: SqrtRange,
                     f_fit: FitFunction,
                     errorfunction: ErrorFunction):
-    '''Third orgder function to initialise the second order function
-    to get f2zero
-    '''
+    """Third orgder function to initialise the second order function to get
+    f2zero."""
     tolerancefunction = tolerancefunctions[use_numba]
     if is_debug:
-        def function(x: FloatArray,
-                     y: FloatArray,
+        def function(x: Float64Array,
+                     y: Float64Array,
                      x0: float,
-                     y0: FloatArray,
+                     y0: Float64Array,
                      ) -> F2Zero:
-            def f2zero(i: int) -> tuple[float, FloatArray]:
-                '''Function such that i is optimal when f2zero(i) = 0'''
+            def f2zero(i: int) -> tuple[float, Float64Array]:
+                """Function such that i is optimal when f2zero(i) = 0."""
                 inds = sqrtrange(i)
                 x_sample, y_sample = x[inds], y[inds]
                 y_fit = f_fit(x_sample, y_sample, x0, y0)
@@ -146,23 +150,23 @@ def init_get_f2zero(is_debug: bool,
             return f2zero
     #───────────────────────────────────────────────────────────────────
     else:
-        def function(x: FloatArray,
-                     y: FloatArray,
+        def function(x: Float64Array,
+                     y: Float64Array,
                      x0: float,
-                     y0: FloatArray) -> F2Zero:
-            def f2zero(i: int) -> tuple[float, FloatArray]:
-                '''Function such that i is optimal when f2zero(i) = 0
+                     y0: Float64Array) -> F2Zero:
+            def f2zero(i: int) -> tuple[float, Float64Array]:
+                """Function such that i is optimal when f2zero(i) = 0.
 
                 Parameters
                 ----------
                 i : int
-                    highest index of the fit 
+                    highest index of the fit
 
                 Returns
                 -------
                 tuple
                     output of the error function and last of the fit
-                '''
+                """
                 inds = sqrtrange(i)
                 x_sample, y_sample = x[inds], y[inds]
                 y_fit = f_fit(x_sample, y_sample, x0, y0)
@@ -172,32 +176,32 @@ def init_get_f2zero(is_debug: bool,
     return function
 #%%═════════════════════════════════════════════════════════════════════
 # BLOCK COMPRESSION
-Compressor = Callable[[FloatArray,
-                       FloatArray,
+Compressor = Callable[[Float64Array,
+                       Float64Array,
                        TolerancesInput,
-                       Optional[int],
+                       int | None,
                        str | ErrorFunction,
                        int,
                        str | Any,
                        bool],
-                      tuple[FloatArray, FloatArray]]
-def LSQ10(x_in: FloatArray,
-          y_in: FloatArray, /,
+                      tuple[Float64Array, Float64Array]]
+def LSQ10(x_in: Float64Array,
+          y_in: Float64Array, /,
           tolerances: TolerancesInput = (1e-2, 1e-2, 0),
-          initial_step: Optional[int] = None,
+          initial_step: int  | None = None,
           errorfunction: str | ErrorFunction = 'MaxAbs',
           use_numba: int = 0,
           fitset: Any = models.Poly10,
           keepshape: bool = False
-          ) -> tuple[FloatArray, FloatArray]:
-    '''Compresses the data of 1-dimensional system of equations
-    i.e. single wait variable and one or more output variable
+          ) -> tuple[Float64Array, Float64Array]:
+    """Compresses the data of 1-dimensional system of equations i.e. single
+    wait variable and one or more output variable.
 
     Parameters
     ----------
-    x_in : FloatArray
+    x_in : Float64Array
         x-coordiantes of the points to be compressed
-    y_in : FloatArray
+    y_in : Float64Array
         y-coordinates of the points to be compressed
     tolerances : tuple, default (1e-2, 1e-2, 0)
         tolerances, Falloff determines how much the absolute error is
@@ -210,7 +214,7 @@ def LSQ10(x_in: FloatArray,
         If None, it is automatically calculated.
         Provide for testing purposes or for miniscule reduction in setup time
     errorfunction : str, default 'MaxAbs'
-        Function which is used to compute the error of the fit, by 
+        Function which is used to compute the error of the fit, by
     use_numba : int, default 0
         For using functions with Numba JIT compilation set as 1
     fitset : str, default 'Poly10'
@@ -221,8 +225,8 @@ def LSQ10(x_in: FloatArray,
 
     Returns
     -------
-    tuple[FloatArray, FloatArray]
-        Compressed  x and Y as numpy FloatArrays
+    tuple[Float64Array, Float64Array]
+        Compressed  x and Y as numpy Float64Arrays
 
     Raises
     ------
@@ -234,7 +238,7 @@ def LSQ10(x_in: FloatArray,
         For some reason the compression reached the maximum number of
         iterations possible. Either the input is flawed or compression has
         errors.
-    '''
+    """
     # Initialisation for main loop
     is_debug = G['debug']
     if G['timed']:  G['t_start'] = time.perf_counter()
@@ -245,7 +249,7 @@ def LSQ10(x_in: FloatArray,
 
     xc, yc = [x[0]], [y[0]]
     # Starting value for discrete root calculation
-    start_err1 = - np.amax(tol[1]) 
+    start_err1 = - np.amax(tol[1])
 
     start   = 1 # Index of starting point for looking for optimum
     end     = xlen - 1 # Number of datapoints -1, i.e. the last index
@@ -334,13 +338,11 @@ def LSQ10(x_in: FloatArray,
 #%%═════════════════════════════════════════════════════════════════════
 # STREAM COMPRESSION
 class _StreamRecord(collections.abc.Sized):
-    """Class for doing stream compression for data of 1-dimensional
-    system of equations
-    i.e. single wait variable and one or more output variable
-    """
+    """Class for doing stream compression for data of 1-dimensional system of
+    equations i.e. single wait variable and one or more output variable."""
     def __init__(self,
                  x0: float,
-                 y0: FloatArray,
+                 y0: Float64Array,
                  x_type: type,
                  y_type: type,
                  tolerances: TolerancesInternal,
@@ -348,7 +350,7 @@ class _StreamRecord(collections.abc.Sized):
                  get_f2zero: GetF2Zero):
         if G['timed']: G['t_start'] = time.perf_counter()
         self.xb: list[float] = [] # Buffers for yet-to-be-recorded data
-        self.yb: list[FloatArray] = [] 
+        self.yb: list[Float64Array] = []
         self.xc, self.yc = [x0], [y0]
         self.x_type: type = x_type
         self.y_type: type = y_type
@@ -359,15 +361,15 @@ class _StreamRecord(collections.abc.Sized):
         self.limit: int   = -1 # Last index of the buffer
         self.tol          = tolerances
         self._lenc: int   = 1 # length of the Record points
-        self.fit1: FloatArray = y0 # Placeholder
+        self.fit1: Float64Array = y0 # Placeholder
         self.err1         = self.start_err1 # Initialising
 
         self.get_f2zero = get_f2zero
 
         self.interval = _intervals[0]
     #─────────────────────────────────────────────────────────────────────────
-    def update_f2zero(self, x_array: FloatArray, y_array: FloatArray,
-                           x0: float, y0: FloatArray, limit: int):
+    def update_f2zero(self, x_array: Float64Array, y_array: Float64Array,
+                           x0: float, y0: Float64Array, limit: int):
             if x_array.shape != (limit + 1,):
                 raise ValueError(f'xb {x_array.shape=} len {limit + 1}')
             if y_array.shape[0] != limit + 1:
@@ -378,7 +380,7 @@ class _StreamRecord(collections.abc.Sized):
     def squeeze_buffer(self, f2zero: F2Zero, n1: int, err1: float,
                        n2: int, err2: float,
                        ) -> int:
-        '''Compresses the buffer by one step'''
+        """Compresses the buffer by one step."""
         #──────────────────────────────────────────────────────────────┘
         offset, fit = self.interval(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
@@ -445,7 +447,7 @@ class _StreamRecord(collections.abc.Sized):
         return f'{self.__class__.__name__}\n{self.x=}\n{self.y=}\n{self.tol=}'
     #───────────────────────────────────────────────────────────────────
     def close(self):
-        '''Closes the context manager'''
+        """Closes the context manager."""
         self.state = 'closing'
         if self.limit != -1:
             if self.limit < 0:
@@ -480,10 +482,8 @@ class _StreamRecord(collections.abc.Sized):
         if G['timed']: G['runtime'] = time.perf_counter() - G['t_start']
     #───────────────────────────────────────────────────────────────────
 class _StreamRecord_debug(_StreamRecord):
-    """Class for doing stream compression for data of 1-dimensional
-    system of equations
-    i.e. single wait variable and one or more output variable
-    """
+    """Class for doing stream compression for data of 1-dimensional system of
+    equations i.e. single wait variable and one or more output variable."""
     def __init__(self, *args, interpolator):
         if G['timed']: G['t_start'] = time.perf_counter()
         super().__init__(*args)
@@ -513,7 +513,7 @@ class _StreamRecord_debug(_StreamRecord):
     def squeeze_buffer(self, f2zero: F2Zero, n1: int, err1: float,
                        n2: int, err2: float,
                        ) -> int:
-        '''Compresses the buffer by one step'''
+        """Compresses the buffer by one step."""
 
         offset, fit = self.interval(f2zero, n1, err1, n2, err2, self.fit1)
         self.xc.append(self.xb[offset])
@@ -553,10 +553,10 @@ class _StreamRecord_debug(_StreamRecord):
         self.limit += 1
         _set_xy('line_buffer', self.xb, self.yb)
         G['ax_data'].set_xlim(self.xc[0], self.xb[-1]* 1.05)
-        if y_raw < self.min_y:
+        if y_raw < self.min_y: # type: ignore[operator]
             self.min_y = np.amin(y_raw)
             G['ax_data'].set_ylim(self.min_y * 1.1, self.max_y * 1.1)
-        elif y_raw > self.max_y:
+        elif y_raw > self.max_y: # type: ignore[operator]
             self.max_y = np.amax(y_raw)
             G['ax_data'].set_ylim(self.min_y * 1.1, self.max_y * 1.1)
 
@@ -606,11 +606,11 @@ class _StreamRecord_debug(_StreamRecord):
         return was_squeezed
 ###═════════════════════════════════════════════════════════════════════
 class Stream():
-    '''Context manager for stream compression of data of
-    1 dimensional system of equations'''
+    """Context manager for stream compression of data of 1 dimensional system
+    of equations."""
     def __init__(self,
                  x_initial: float,
-                 y_initial: float | FloatArray,
+                 y_initial: float | Float64Array,
                  tolerances: TolerancesInput = (1e-2, 1e-3, 0),
                  initial_step: int = 100,
                  errorfunction: ErrorFunction | str = 'MaxAbs',
@@ -620,7 +620,7 @@ class Stream():
         self.x0  = x_initial
         self.x_type = type(self.x0)
         # Variables are columns, e.G. 3xn
-        self.y0: FloatArray  = to_ndarray(y_initial, (-1,))
+        self.y0: Float64Array  = to_ndarray(y_initial, (-1,))
         self.y_type = type(y_initial)
         self.tol = parse_tolerances(tolerances, self.y0.shape)
         self.fragile: bool = fragile
@@ -666,15 +666,15 @@ interpolators = {'Poly10': models.Poly10.interpolate}
 compressors = {'LSQ10': LSQ10}
 #───────────────────────────────────────────────────────────────────────
 def compress(*args, compressor: Compressor | str = LSQ10, **kwargs):
-    '''Wrapper for easier selection of compression method'''
+    """Wrapper for easier selection of compression method."""
     if isinstance(compressor, str):
         compressor = compressors[compressor]
     return compressor(*args, **kwargs)
 #───────────────────────────────────────────────────────────────────────
-def decompress(x_compressed: FloatArray, y_compressed: FloatArray,
+def decompress(x_compressed: Float64Array, y_compressed: Float64Array,
               interpolator: str | Interpolator = 'Poly10',
               use_numba: int = 0):
-    '''Takes array of fitting parameters and constructs whole function'''
+    """Takes array of fitting parameters and constructs whole function."""
 
     interpolator: Interpolator = (interpolators[interpolator][use_numba]
                                   if isinstance(interpolator, str)
@@ -682,9 +682,9 @@ def decompress(x_compressed: FloatArray, y_compressed: FloatArray,
     #───────────────────────────────────────────────────────────────────
     def _iteration(x: float, low: int = 1) -> tuple[int, MaybeArray]:
         index = _bisect_left(x_compressed, x, # type:ignore
-                             lo = low, hi = y_compressed.shape[0]-1) 
+                             lo = low, hi = y_compressed.shape[0]-1)
         return index, interpolator(x, # type:ignore
-                                   *x_compressed[index-1:(index + 1)], 
+                                   *x_compressed[index-1:(index + 1)],
                                    *y_compressed[index-1:(index + 1)])
     #───────────────────────────────────────────────────────────────────
     def function(x_input):
@@ -702,13 +702,13 @@ def decompress(x_compressed: FloatArray, y_compressed: FloatArray,
 # HACKS
 # A hack to make the package callable
 class Pseudomodule(types.ModuleType):
-    """Class that allows making the module callable"""
+    """Class that allows making the module callable."""
     @staticmethod
     def __call__(*args,
                  compressor: str | Compressor = 'LSQ10',
                  interpolator: str | Interpolator = 'Poly10',
                  **kwargs):
-        '''Wrapper for easier for combined compression and decompression'''
+        """Wrapper for easier for combined compression and decompression."""
         return decompress(*compress(*args, # type:ignore
                                     compressor = compressor,
                                     **kwargs),

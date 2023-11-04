@@ -1,0 +1,56 @@
+[build-system]
+requires = [
+    "setuptools>=64.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "limedev"
+description = "Toolkit for Python development, especially packaging "
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topick :: Scientific/Engineering",
+    "Topic :: System :: Archiving :: Compression",
+    "Topic :: Utilities",
+]
+authors = [
+    { name = "Limespy" },
+]
+requires-python = ">=3.10"
+readme = "README.md"
+version = "0.4.0"
+dynamic = [
+    "dependencies",
+    "optional-dependencies",
+]
+
+[project.scripts]
+limesqueezer = "limesqueezer:main"
+
+[project.urls]
+Homepage = "https://github.com/Limespy/limesqueezer"
+Changelog = "https://github.com/Limespy/limesqueezer/blob/main/README.md#Changelog"
+"Issue Tracker" = "https://github.com/Limespy/limesqueezer/issues"
+
+[tool.setuptools.dynamic.dependencies]
+file = [
+    "dependencies/requirements.txt",
+]
+
+[tool.setuptools.dynamic.optional-dependencies.dev]
+file = "dependencies/requirements_dev.txt"
+
+[tool.setuptools.dynamic.optional-dependencies.build]
+file = "dependencies/requirements_build.txt"
+
+[tool.setuptools.packages.find]
+where = ["src"]

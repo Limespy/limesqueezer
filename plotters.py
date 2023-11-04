@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import matplotlib.pyplot as plt
-import limesqueezer as ls
-import numpy as np
 import pathlib
+
+import limesqueezer as ls
+import matplotlib.pyplot as plt
+import numpy as np
 #───────────────────────────────────────────────────────────────────────
 def data_compressed_decompressed_1d(x_data,
                                     y_data,
@@ -45,7 +46,7 @@ def plot_tolerances(x_data, y_data, tolerances):
                                              tolerances = tolerances)
     function = ls.decompress(x_compressed, y_compressed)
     y_decompressed = function(x_data).reshape(y_data.shape)
-    
+
 
 #───────────────────────────────────────────────────────────────────────
 def comparison(x: ls.FloatArray,
@@ -80,4 +81,3 @@ def simple(x, y):
     y = ls.to_ndarray(y, shape)
     plt.plot(x, y)
     plt.show()
-

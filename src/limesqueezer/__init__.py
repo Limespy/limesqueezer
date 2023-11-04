@@ -15,7 +15,7 @@ As you probably expected, ``compress`` takes in arrays of data to be compressed 
 
 ``decompress`` takes in data arrays to be decompressed and returns interpolation function.
 With this function you can then estimate any values within the range of the input data.
-Since this operates on data arrays, you can use ``decompress`` for interpolation without using the ``compress`` function in first place. 
+Since this operates on data arrays, you can use ``decompress`` for interpolation without using the ``compress`` function in first place.
 
 Compression is done by fitting some function(s) to the data.
 
@@ -63,7 +63,7 @@ Similarly the compressor can be selected with a keyword argument::
 
 Compressor keyword accepts a custom compressor function.
 
-    x_compressed, y_compressed = ls.compress(input_x, input_y, 
+    x_compressed, y_compressed = ls.compress(input_x, input_y,
                                              tolerances = (1e-3, 1e-4, 1),
                                              compressor = custom_compressor)
 

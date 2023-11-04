@@ -1,17 +1,16 @@
-'''
-Command line interface for processing command line input
-'''
+"""Command line interface for processing command line input."""
 #%%═════════════════════════════════════════════════════════════════════
 # IMPORT
-from .auxiliaries import G, FloatArray
-from . import API as ls
-from . import reference as ref
-
-import numpy as np
-
 import argparse
 import pathlib
 import sys
+
+import numpy as np
+
+from . import API as ls
+from . import reference as ref
+from .auxiliaries import Float64Array
+from .auxiliaries import G
 #%%═════════════════════════════════════════════════════════════════════
 # Setup
 helpstring = 'No arguments given'
@@ -19,8 +18,9 @@ helpstring = 'No arguments given'
 # UI UTILITES
 def get_kwarg(kwarg: str, args: list[str]
               ) -> tuple[bool, list[str]]:
-    '''Checks for presence of given argument in the arguments list,
-    removes it if present, and returns True. Else False
+    """Checks for presence of given argument in the arguments list, removes it
+    if present, and returns True. Else False.
+
     Parameters
     ----------
     kwarg : str
@@ -33,7 +33,7 @@ def get_kwarg(kwarg: str, args: list[str]
     tuple[bool, list]
         Whether the keyword was in arguments
         and the arguments without the keyword
-    '''
+    """
     try:
         args.pop(args.index(kwarg))
         return True, args
@@ -42,7 +42,7 @@ def get_kwarg(kwarg: str, args: list[str]
 #───────────────────────────────────────────────────────────────────────
 def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
     x_data, y_data = ref.raw_sine_x2_normal(1e4, std=0.00001)
-    # y_data[1000] += 1 
+    # y_data[1000] += 1
     if args[0] == 'block':
         xc, yc = ls.compress(x_data, y_data, tolerances = (1e-2, 1e-3, 1),
                     use_numba = use_numba, errorfunction = 'MaxAbs')
@@ -66,8 +66,8 @@ def run(args: list[str], use_numba: int, is_plot: bool, is_timed: bool):
         xc, yc = xcb, ycb
     if is_timed: print(f'runtime {G["runtime"]*1e3:.1f} ms')
 #───────────────────────────────────────────────────────────────────────
-def _stream(x_data: FloatArray,
-            y_data: FloatArray,
+def _stream(x_data: Float64Array,
+            y_data: Float64Array,
             tol: tuple[float, float, float],
             use_numba: int):
 
@@ -77,7 +77,7 @@ def _stream(x_data: FloatArray,
     return record.x, record.y
 #───────────────────────────────────────────────────────────────────────
 def main(args: list[str] = sys.argv[1:]):
-    '''The main command line app'''
+    """The main command line app."""
     parser = argparse.ArgumentParser(description = '')
     is_verbose, args = get_kwarg('--verbose', args)
     is_plot, args = get_kwarg('--plot', args)
@@ -94,4 +94,3 @@ def main(args: list[str] = sys.argv[1:]):
 
     if is_verbose: print('Selected path is:\n\t%s' % path_cwd)
     run(args, use_numba, is_plot, G['timed'])
-

@@ -210,7 +210,7 @@ plot_errorfunction2('MaxMS_SEnd')
 #         record(example_x_value, example_y_value)
 
 #     # Using record.x or record.y in the with statement block results in
-#     # attribute error, as those attributes are generated only when 
+#     # attribute error, as those attributes are generated only when
 #     # the record is closed.
 #     #
 #     # If you want to access the already compressed data

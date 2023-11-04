@@ -68,7 +68,7 @@ x_compressed, y_compressed = ls.compress(x_data, y_data, tolerances = tolerance)
 ```
 
 Or maybe you have some generator-like thing that gives out numbers, e.g. some simulation step.
-For sake of example there the mock generator 
+For sake of example there the mock generator
 ``` python
 x0, y0 = x_data[0], y_data[0]
 generator = zip(x_data[1:], y_data[1:])
@@ -165,13 +165,13 @@ $$
 To have constrain that
 
 $$
-D_{|Y_{DATA}|}^1 deviation(Y_{DATA} = 0) \geq 0 
+D_{|Y_{DATA}|}^1 deviation(Y_{DATA} = 0) \geq 0
 $$
 
 Means
 
 $$
-Relative \geq Absolute \cdot Falloff 
+Relative \geq Absolute \cdot Falloff
 $$
 
 
@@ -213,7 +213,7 @@ Initialise with first values, here I am just going to use the first
 ### Errorfunctions
 
 The default, `MaxAbs`.
-Maximum of the absolute residual 
+Maximum of the absolute residual
 
 $$
 \max(|residual| - tolerance)
@@ -260,7 +260,7 @@ with ls.Stream(example_x0, example_y0, tol = 1e-3) as record:
         record(example_x_value, example_y_value)
 ```
 Using record.x or record.y in the with statement block results in
-attribute error, as those attributes are generated only when 
+attribute error, as those attributes are generated only when
 the record is closed.
 
 If you want to access the data fed to the record, you can use
@@ -333,7 +333,7 @@ Releases on PyPI after version 1.1.1 will all have nonzero versions.
 Versions such as 1.2.0 or 2.0.3 are reserved for development and would be available on from the source reposotory.
 
 TL;DR
-- Undocumented behaviour can change erraticly, without warning, and without 
+- Undocumented behaviour can change erraticly, without warning, and without
 
 ## Changelog
 

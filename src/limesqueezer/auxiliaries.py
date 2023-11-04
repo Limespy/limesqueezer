@@ -1,11 +1,12 @@
-import matplotlib.pyplot as plt
+import sys
+from collections.abc import Callable
+from typing import Any
+from typing import TypeAlias
 
+import matplotlib.pyplot as plt
 import numba as nb
 import numpy as np
 from numpy.typing import NDArray
-
-import sys
-from typing import Any, Callable, Optional
 
 # Global parameters
 G: dict[str, Any] = {'timed': False,
@@ -13,32 +14,31 @@ G: dict[str, Any] = {'timed': False,
                      'profiling': False,
                      'runtime': 0}
 # defaults for numba
-default_numba_kwargs = {'nopython': True,
-                        'cache': True,
+default_numba_kwargs = {'cache': True,
                         'fastmath': True}
 #%%════════════════════════════════════════════════════════════════════════════
 # TYPE SIGNATURES
-Function = Callable[..., Any]
-FloatArray = NDArray[np.float64]
-IntArray = NDArray[np.int64]
-MaybeArray = float | FloatArray
-TolerancesInput = float | tuple[MaybeArray, ...]
-TolerancesInternal = FloatArray
+Function: TypeAlias = Callable[..., Any]
+Float64Array: TypeAlias = NDArray[np.float64]
+Int64Array: TypeAlias = NDArray[np.int64]
+MaybeArray: TypeAlias = float | Float64Array
+TolerancesInput: TypeAlias = float | tuple[MaybeArray, ...]
+TolerancesInternal: TypeAlias = Float64Array
 #%%════════════════════════════════════════════════════════════════════════════
 # AUXILIARIES
 def maybejit(use_numba, function: Function, *args, **kwargs
              ) -> Function:
     if use_numba:
-        return nb.jit(function, *args, **kwargs)
+        return nb.njit(function, *args, **kwargs)
     return function
 #%%════════════════════════════════════════════════════════════════════════════
 def py_and_nb(function: Function, **kwargs) -> tuple[Function, Function]:
     if not kwargs:
         kwargs = default_numba_kwargs
-    return (function, nb.jit(function, **kwargs))
+    return (function, nb.njit(function, **kwargs))
 #%%════════════════════════════════════════════════════════════════════════════
 def to_ndarray(item: Any, shape: tuple[int, ...] = ()
-               ) -> FloatArray:
+               ) -> Float64Array:
     if not hasattr(item, '__iter__'): # Not some iterable
         if -1 in shape: # Array of shape length of dimensions with one item
             return np.array(item, ndmin = len(shape))
@@ -48,9 +48,9 @@ def to_ndarray(item: Any, shape: tuple[int, ...] = ()
         item = np.array(item)
     return item if shape == () else item.reshape(shape)
 #%%════════════════════════════════════════════════════════════════════════════
-SqrtRange = Callable[[int], IntArray]
-def _sqrtrange(n: int) -> IntArray:
-    '''~ sqrt(n + 2) equally spaced integers including the n'''
+SqrtRange = Callable[[int], Int64Array]
+def _sqrtrange(n: int) -> Int64Array:
+    """~ sqrt(n + 2) equally spaced integers including the n."""
     inds = np.arange(0, n + 1, round(np.sqrt(n + 1)), np.int64)
     inds[-1] = n
     return inds
@@ -74,7 +74,7 @@ def stats(x_data, xc):
 {datarange / minslice / len(xc):.1f} x better than minimum slices'''
 #%%════════════════════════════════════════════════════════════════════════════
 # DEBUG
-def debugsetup(x: FloatArray, y: FloatArray, tol: float, fitset, start
+def debugsetup(x: Float64Array, y: Float64Array, tol: float, fitset, start
                ) -> dict[str, Any]:
     _G = {'x': x,
           'y': y,

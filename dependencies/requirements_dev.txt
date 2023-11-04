@@ -1,0 +1,2 @@
+colorama >= 0.4
+limedev[test,package,readme] >= 0.4.0
