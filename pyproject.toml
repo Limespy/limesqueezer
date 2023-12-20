@@ -5,8 +5,8 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "limedev"
-description = "Toolkit for Python development, especially packaging "
+name = "limesqueezer"
+description = "Lossy compression with controlled error tolerance for smooth data series"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
@@ -17,7 +17,6 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Topick :: Scientific/Engineering",
     "Topic :: System :: Archiving :: Compression",
     "Topic :: Utilities",
@@ -27,7 +26,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-version = "0.4.0"
+version = "1.0.13"
 dynamic = [
     "dependencies",
     "optional-dependencies",
@@ -41,6 +40,9 @@ Homepage = "https://github.com/Limespy/limesqueezer"
 Changelog = "https://github.com/Limespy/limesqueezer/blob/main/README.md#Changelog"
 "Issue Tracker" = "https://github.com/Limespy/limesqueezer/issues"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.dynamic.dependencies]
 file = [
     "dependencies/requirements.txt",
@@ -53,4 +55,6 @@ file = "dependencies/requirements_dev.txt"
 file = "dependencies/requirements_build.txt"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = [
+    "src",
+]

@@ -16,7 +16,7 @@ jobs:
         with:
           ref: release-candidate
       - name: Set up Python 3.12
-        uses: actions/setup-python@v4.7.2
+        uses: actions/setup-python@v4.7.1
         with:
           python-version: '3.12'
       - name: Install in editable mode

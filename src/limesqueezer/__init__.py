@@ -81,39 +81,24 @@ Where:
 | residuals | Residuals of the fit, i.e. y_fit - y | (n, m) |
 |     y1    | Next Y values                        | (1, m) |
 
-
-=========  ====================================  =======
-name       description                           shape
-=========  ====================================  =======
-x          x values of the points to be fitted    (n,)
-y          y values of the points to be fitted   (n,m)
-y0         Last compressed point y value(s)      (1, m)
-residuals  Residuals of the fit, i.e. y_fit - y  (n, m)
-y1         Next Y values (1, m)
-=========  ====================================  =======
-
 Compressing a data stream
 ------------------------------------
 
 Decompressing
 -------------
 
-For decom
+For decompressing
 
 For this reason, the decompressor can in
 
 Making custom compressors
 ==================
 
-
-
-A custom compressor needs a fucntion
+A custom compressor needs a function
 
 '''
 import sys
 __version__ = '1.0.13'
-#%%═════════════════════════════════════════════════════════════════════
-# IMPORT
 from .API import *
 # A part of the hack to make the package callable
 sys.modules[__name__].__class__ = Pseudomodule
