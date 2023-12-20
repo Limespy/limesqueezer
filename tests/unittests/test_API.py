@@ -1,4 +1,4 @@
-import limesqueezer.API as ls
+import limesqueezer._API as ls
 import numpy as np
 import pytest
 
@@ -7,14 +7,14 @@ X_DATA = np.linspace(0, 6, int(1e4))
 Y_DATA1 = np.array(np.sin(X_DATA * X_DATA))
 Y_DATA2 = np.array((Y_DATA1, Y_DATA1[::-1])).T
 
-#%%═════════════════════════════════════════════════════════════════════
+# ======================================================================
 # AUXILIARIES
 def f2zero_100(n: int) -> tuple[float, bool]:
     """Returns < 0 for values 0 to 100 and >0 for values > 100."""
     if round(n) != n: raise ValueError('Not whole number')
     if n < 0: raise ValueError('Input must be >= 0')
     return np.sqrt(n) - 10.01, True
-#%%═════════════════════════════════════════════════════════════════════
+# ======================================================================
 def compressionaxis(x: np.ndarray, y: np.ndarray) -> int:
     if y.ndim == 1:
         return 0
@@ -28,11 +28,11 @@ def npEqual(left: np.ndarray, right: np.ndarray, /) -> bool:
     """Asserts that two Numpy arrays have same shape and have equal
     elements."""
     return left.shape == right.shape and np.all(left == right)
-#───────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 def endpointEqual(left, right, /) -> bool:
     """Assers that two sequences have both first and last elements equal."""
     return npEqual(left[0], right[0]) and npEqual(left[-1], right[-1])
-#══════════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # Block Compresion
 @pytest.mark.parametrize('y_data', (Y_DATA1,
                                     ls.to_ndarray(Y_DATA1, (-1,1)),
@@ -44,26 +44,29 @@ def test_compress_default(y_data):
     assert endpointEqual(X_DATA, xc)
     if compressionaxis(X_DATA, y_data):
         assert endpointEqual(y_data.T, yc.T)
-#───────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 @pytest.mark.parametrize('tolerances', ((1e-2, 1e-2, 0),
                                         (1e-2, 1e-2),
                                         (1e-2,),
                                         1e-2))
-def test_block_2_1_tolerances_correct_input(tolerances):
+def test_block_tolerances_correct(tolerances):
     '''- Compression accepts different tolerance inputs
     '''
     ls.compress(X_DATA, Y_DATA1, tolerances = tolerances)
-#───────────────────────────────────────────────────────────────────
-def test_block_2_1_tolerances_incorrect_input():
-    '''- Compression rejects incorrect tolerance inputs
-    '''
+# ----------------------------------------------------------------------
+def test_block_tolerances_type_error():
+    """- Compression rejects incorrect tolerance inputs
+    """
     with pytest.raises(TypeError):
         ls.compress(X_DATA, Y_DATA1, tolerances = 'hmm')
+# ----------------------------------------------------------------------
+@pytest.mark.parametrize(('tolerances', ), ((), (1,2,3,4)))
+def test_block_tolerances_value_error(tolerances):
+    '''- Compression rejects incorrect tolerance inputs
+    '''
     with pytest.raises(ValueError):
-        ls.compress(X_DATA, Y_DATA1, tolerances = ())
-    with pytest.raises(ValueError):
-        ls.compress(X_DATA, Y_DATA1, tolerances = (1, 2, 3, 4))
-#───────────────────────────────────────────────────────────────────
+        ls.compress(X_DATA, Y_DATA1, tolerances = tolerances)
+# ----------------------------------------------------------------------
 def test_block_2_3_tolerances_limits():
     '''- Compression works as expected at the edges of the tolerance
     range
@@ -78,7 +81,7 @@ def test_block_2_3_tolerances_limits():
                             keepshape = True)
     assert X_DATA.shape == x_c.shape
     assert Y_DATA1.shape == y_c.shape
-#───────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 def test_block_3_1_keepshape():
     '''- Array noncompressed dimension is kept same'''
     x_c, y_c = ls.compress(X_DATA, Y_DATA2, keepshape = True)
@@ -87,7 +90,7 @@ def test_block_3_1_keepshape():
 #═══════════════════════════════════════════════════════════════════
 # Stream Compression
 def test_stream_1_1y():
-    '''- Stream compression runs and outputs correctly'''
+    """Stream compression runs and outputs correctly."""
     #───────────────────────────────────────────────────────────────
     with ls.Stream(X_DATA[0], Y_DATA1[0], tolerances = tol) as record:
         assert (isinstance(record, ls._StreamRecord))
@@ -101,8 +104,8 @@ def test_stream_1_1y():
 #═══════════════════════════════════════════════════════════════════
 # Stream Compression
 def test_stream_vs_block_3_1y():
-    '''- Block and stream compressions must give equal compressed output
-    for 1 y variable'''
+    """Block and stream compressions must give equal compressed output for 1 y
+    variable."""
 
     xc_block, yc_block = ls.compress(X_DATA, Y_DATA1, tolerances = tol,
                             initial_step = 100, errorfunction = 'MaxAbs')
@@ -116,8 +119,8 @@ def test_stream_vs_block_3_1y():
 #═══════════════════════════════════════════════════════════════════
 # Stream Compression
 def test_stream_vs_block_3_1y_numba():
-    '''- Block and stream compressions must give equal compressed output
-    for 1 y variable using Numba'''
+    """Block and stream compressions must give equal compressed output for 1 y
+    variable using Numba."""
 
     xc_block, yc_block = ls.compress(X_DATA, Y_DATA1, tolerances = tol,
                                     initial_step = 100,
@@ -133,8 +136,8 @@ def test_stream_vs_block_3_1y_numba():
     assert npEqual(yc_block, record.y)
 #═══════════════════════════════════════════════════════════════════
 def test_stream_vs_block_3_2y():
-    '''- Block and stream compressions must give equal compressed output
-    for 1 y variable'''
+    """Block and stream compressions must give equal compressed output for 1 y
+    variable."""
 
     xc_block, yc_block = ls.compress(X_DATA, Y_DATA2, tolerances = tol,
                             initial_step = 100, errorfunction = 'MaxAbs')
@@ -147,8 +150,8 @@ def test_stream_vs_block_3_2y():
     assert npEqual(yc_block, record.y)
 #═══════════════════════════════════════════════════════════════════
 def test_stream_vs_block_3_2y_numba():
-    '''- Block and stream compressions must give equal compressed output
-    for 1 y variable using Numba'''
+    """Block and stream compressions must give equal compressed output for 1 y
+    variable using Numba."""
 
     xc_block, yc_block = ls.compress(X_DATA, Y_DATA2, tolerances = tol,
                                     initial_step = 100,
@@ -165,7 +168,7 @@ def test_stream_vs_block_3_2y_numba():
 #═══════════════════════════════════════════════════════════════════
 # Decompression
 def test_decompress_1_mock():
-    '''- Runs decompression on and compares to original.'''
+    """Runs decompression on and compares to original."""
     assert (np.allclose(ls.decompress(X_DATA, Y_DATA1)(X_DATA),
                                 Y_DATA1, atol = 1e-14))
 #═══════════════════════════════════════════════════════════════════

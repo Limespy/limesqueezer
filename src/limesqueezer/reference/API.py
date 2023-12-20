@@ -4,7 +4,7 @@ from collections import namedtuple
 
 import numpy as np
 
-from .. import API as ls # Careful with this circular import
+from .. import _API as ls # Careful with this circular import
 #%%═════════════════════════════════════════════════════════════════════
 # SETUP
 

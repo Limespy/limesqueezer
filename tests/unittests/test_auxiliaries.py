@@ -1,7 +1,7 @@
 # type: ignore
 from typing import overload
 
-import limesqueezer.API as ls
+import limesqueezer._API as ls
 import numpy as np
 import pytest
 

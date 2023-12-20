@@ -99,6 +99,6 @@ A custom compressor needs a function
 '''
 import sys
 __version__ = '1.0.13'
-from .API import *
+from ._API import *
 # A part of the hack to make the package callable
 sys.modules[__name__].__class__ = Pseudomodule
