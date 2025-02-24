@@ -4,4 +4,4 @@ matplotlib >= 3.9
 pre-commit >= 3.6.0, <4
 pywin32>=308 ; sys_platform == 'win32'
 tox >= 4.5.1
-tox-uv >= 1.17
+tox-uv >= 1.25
