@@ -1,8 +1,10 @@
+# General
 .*
 !.github
+!.gitignore
 !.pre-commit-config.yaml
 
-# Utilities
+# Sandbox
 sandbox*
 
 # CAD
